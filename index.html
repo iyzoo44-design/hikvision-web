@@ -396,11 +396,26 @@ function connCam(){
   status.style.background='#B8860B';status.style.color='#fff';
   toast('📡 카메라 연결 중...');
 
-  // ngrok 경고 우회
-  const bypassUrl = HLS_URL + '?ngrok-skip-browser-warning=true';
-  fetch(bypassUrl, {headers:{'ngrok-skip-browser-warning':'true'}}).catch(()=>{}).finally(()=>{
-    loadHLS(video, overlay, status);
-  });
+  // iframe 방식으로 영상 로드
+  const overlay=document.getElementById('camOverlay');
+  const status=document.getElementById('streamStatus');
+  const camScr=document.getElementById('camScr');
+
+  // iframe 생성
+  let iframe = document.getElementById('camIframe');
+  if(!iframe){
+    iframe = document.createElement('iframe');
+    iframe.id = 'camIframe';
+    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;z-index:4;';
+    iframe.src = 'https://cycling-swiftness-train.ngrok-free.dev/bakery';
+    camScr.appendChild(iframe);
+  }
+  overlay.style.display='none';
+  status.textContent='🔴 LIVE';
+  status.style.background='#B71C1C';
+  connected=true;
+  setStep(2);
+  toast('📷 빵집 카메라 연결됐어요!');
 }
 
 function loadHLS(video, overlay, status){
