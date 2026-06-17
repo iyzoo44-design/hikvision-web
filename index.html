@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>행복한 빵집 — 원격 쇼핑</title>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+:root {
+  --bg:#FFFBF4; --cream:#FFF3E0; --warm:#F5DEB3;
+  --brown:#5C3317; --dbrown:#2E1503; --gold:#B8860B;
+  --accent:#D2691E; --soft:#8B6347; --white:#fff;
+  --green:#1B5E20; --red:#B71C1C; --blue:#0D47A1;
+  --shadow:rgba(44,21,3,0.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--dbrown);}
+.app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;background:var(--bg);padding-bottom:72px;}
+header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-index:100;box-shadow:0 3px 16px rgba(0,0,0,0.35);}
+.hdr{display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Nanum Myeongjo',serif;font-size:1.35rem;font-weight:800;color:#FFD9A0;letter-spacing:.5px;}
+.logo-sub{font-size:.6rem;color:rgba(255,210,160,.5);letter-spacing:3px;margin-top:1px;}
+.live-pill{background:var(--red);color:#fff;font-size:.62rem;font-weight:700;padding:3px 9px;border-radius:20px;display:flex;align-items:center;gap:4px;animation:blink 1.5s infinite;}
+.live-dot{width:5px;height:5px;background:#fff;border-radius:50%;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+.tabs{display:flex;background:var(--cream);border-bottom:2px solid var(--warm);}
+.tab{flex:1;padding:10px 2px 8px;border:none;background:transparent;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;font-weight:500;color:var(--soft);border-bottom:3px solid transparent;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.tab span{font-size:1.1rem;}
+.tab.on{color:var(--brown);border-bottom-color:var(--gold);font-weight:700;}
+.sec{display:none;padding:14px;}
+.sec.on{display:block;}
+.sec-title{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;}
+.step-banner{display:flex;gap:0;margin-bottom:14px;background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 8px var(--shadow);}
+.step-item{flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--warm);cursor:pointer;transition:all .2s;}
+.step-item:last-child{border:none;}
+.step-item.active{background:var(--brown);}
+.step-item.done{background:var(--green);}
+.step-num{font-size:.62rem;font-weight:700;margin-bottom:2px;}
+.step-lbl{font-size:.58rem;line-height:1.3;}
+.step-item.active .step-num,.step-item.active .step-lbl{color:#fff;}
+.step-item.done .step-num,.step-item.done .step-lbl{color:#fff;}
+.step-item:not(.active):not(.done) .step-num{color:var(--soft);}
+.step-item:not(.active):not(.done) .step-lbl{color:var(--soft);}
+.cam-box{background:var(--dbrown);border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);margin-bottom:12px;}
+.cam-screen{position:relative;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;background:#0a0500;overflow:hidden;}
+
+/* 카메라 영상 */
+#hlsVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
+#camOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#180B00,#2d1800,#180900);z-index:5;transition:opacity .5s;}
+#camOverlay.hidden{opacity:0;pointer-events:none;}
+.cam-ph{text-align:center;color:rgba(255,190,80,.7);}
+.cam-ph .ico{font-size:2.8rem;display:block;margin-bottom:8px;}
+.cam-ph p{font-size:.78rem;line-height:1.6;}
+
+/* 연결 상태 배지 */
+#streamStatus{position:absolute;top:8px;right:8px;z-index:10;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(0,0,0,.6);}
+#streamStatus.live{background:var(--red);color:#fff;}
+#streamStatus.connecting{background:var(--gold);color:#fff;}
+#streamStatus.off{background:rgba(0,0,0,.5);color:rgba(255,255,255,.5);}
+
+.cam-grid{position:absolute;inset:0;background:linear-gradient(rgba(184,134,11,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(184,134,11,.03) 1px,transparent 1px);background-size:36px 36px;z-index:3;pointer-events:none;}
+.drag-lbl{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:.55rem;color:rgba(255,190,80,.4);pointer-events:none;z-index:20;}
+.call-bar{background:rgba(0,0,0,.5);padding:7px 12px;display:flex;align-items:center;gap:8px;}
+.cdot{width:7px;height:7px;border-radius:50%;background:#555;flex-shrink:0;transition:all .3s;}
+.cdot.on{background:#4CAF50;box-shadow:0 0 6px #4CAF50;animation:blink 1.5s infinite;}
+.ctxt{font-size:.65rem;color:rgba(255,190,80,.65);flex:1;}
+.cbtn{padding:5px 12px;border:none;border-radius:16px;font-size:.65rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+.v-on{background:var(--green);color:#fff;}
+.v-off{background:var(--red);color:#fff;}
+.cam-btns{display:flex;gap:6px;padding:10px 12px;}
+.cbtn2{flex:1;padding:8px 4px;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;transition:all .2s;}
+.cbtn2:active{transform:scale(.96);}
+.c-p{background:var(--gold);color:#fff;}
+.c-s{background:rgba(255,255,255,.08);color:rgba(255,210,160,.8);}
+.c-d{background:#7B1C1C;color:#fff;}
+.zoom-row{padding:0 12px 10px;}
+.zoom-lbl{font-size:.6rem;color:rgba(255,190,80,.4);margin-bottom:3px;}
+input[type=range]{width:100%;accent-color:var(--gold);}
+.pick-box{padding:0 12px 12px;border-top:1px solid rgba(255,255,255,.06);}
+.pick-lbl{font-size:.6rem;color:rgba(255,190,80,.5);margin-bottom:5px;padding-top:8px;}
+.pick-row{display:flex;gap:5px;}
+.pick-inp{flex:1;padding:7px 9px;background:rgba(255,255,255,.08);border:1px solid rgba(184,134,11,.25);border-radius:7px;color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.72rem;}
+.pick-inp::placeholder{color:rgba(255,190,80,.28);}
+.pick-send{padding:7px 12px;background:var(--gold);border:none;border-radius:7px;color:#fff;font-weight:700;font-size:.7rem;cursor:pointer;}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.mc{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px var(--shadow);cursor:pointer;transition:all .2s;border:2px solid transparent;}
+.mc:active{transform:scale(.97);border-color:var(--gold);}
+.mth{height:88px;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:2.8rem;}
+.mi{padding:9px 10px;}
+.mn{font-weight:700;font-size:.82rem;color:var(--dbrown);margin-bottom:2px;}
+.md{font-size:.64rem;color:var(--soft);margin-bottom:5px;line-height:1.4;}
+.mp{color:var(--accent);font-weight:700;font-size:.82rem;}
+.mbtn{width:100%;padding:7px;background:var(--brown);color:#fff;border:none;border-radius:7px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;margin-top:6px;transition:background .2s;}
+.mbtn:active{background:var(--accent);}
+.cart-empty{text-align:center;padding:36px 16px;color:var(--soft);}
+.cart-empty .emo{font-size:2.5rem;display:block;margin-bottom:10px;opacity:.4;}
+.ci{background:var(--white);border-radius:10px;padding:11px 12px;margin-bottom:8px;box-shadow:0 2px 8px var(--shadow);display:flex;align-items:center;gap:9px;}
+.ci-em{font-size:1.5rem;flex-shrink:0;}
+.ci-info{flex:1;}
+.ci-nm{font-weight:700;font-size:.8rem;color:var(--dbrown);}
+.ci-pr{font-size:.68rem;color:var(--soft);}
+.ci-qty{display:flex;align-items:center;gap:5px;}
+.qb{width:22px;height:22px;border:1px solid var(--warm);border-radius:6px;background:var(--cream);cursor:pointer;font-size:.82rem;display:flex;align-items:center;justify-content:center;color:var(--brown);}
+.qb:active{background:var(--gold);color:#fff;border-color:var(--gold);}
+.cart-total{background:var(--cream);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;margin:12px 0 10px;border:1px solid var(--warm);}
+.ct-lbl{font-size:.8rem;color:var(--soft);}
+.ct-val{font-size:1.2rem;font-weight:700;color:var(--accent);}
+.pay-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.92rem;font-weight:700;cursor:pointer;letter-spacing:1px;transition:all .2s;}
+.pay-btn:active{transform:scale(.98);}
+.guide-card{background:var(--white);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);border-left:4px solid var(--gold);}
+.guide-card h3{font-size:.88rem;font-weight:700;color:var(--brown);margin-bottom:8px;}
+.guide-card p,.guide-card li{font-size:.76rem;color:var(--soft);line-height:1.7;}
+.guide-card ul{padding-left:16px;}
+.url-box{background:var(--cream);border-radius:10px;padding:12px 14px;margin-bottom:10px;border:1.5px dashed var(--gold);}
+.url-txt{font-size:1rem;font-weight:700;color:var(--gold);word-break:break-all;margin-bottom:5px;}
+.url-box p{font-size:.7rem;color:var(--soft);}
+.copy-btn{width:100%;padding:9px;background:var(--brown);color:#fff;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.76rem;font-weight:700;cursor:pointer;margin-top:9px;}
+.copy-btn:active{background:var(--gold);}
+.bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid var(--warm);display:flex;z-index:200;box-shadow:0 -3px 16px var(--shadow);}
+.btab{flex:1;padding:10px 2px 8px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:'Noto Sans KR',sans-serif;font-size:.6rem;font-weight:500;color:var(--soft);transition:all .2s;position:relative;}
+.btab .ico{font-size:1.25rem;}
+.btab.on{color:var(--gold);}
+.ccnt{position:absolute;top:5px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:.52rem;font-weight:700;width:14px;height:14px;border-radius:50%;display:none;align-items:center;justify-content:center;}
+.ccnt.show{display:flex;}
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dbrown);color:#fff;padding:9px 18px;border-radius:20px;font-size:.76rem;font-weight:500;opacity:0;transition:all .35s cubic-bezier(.175,.885,.32,1.275);z-index:999;white-space:nowrap;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3);border-left:3px solid var(--gold);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--white);border-radius:20px 20px 0 0;padding:26px 22px 34px;width:100%;max-width:480px;text-align:center;animation:slideUp .3s ease;}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.3rem;color:var(--brown);margin-bottom:8px;}
+.modal p{font-size:.8rem;color:var(--soft);margin-bottom:18px;line-height:1.6;}
+.modal-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;}
+.pay-modal{background:var(--white);border-radius:20px 20px 0 0;padding:22px 18px 34px;width:100%;max-width:480px;animation:slideUp .3s ease;}
+.pay-modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;text-align:center;}
+.pay-method{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.pm{padding:12px 8px;border:2px solid var(--warm);border-radius:10px;text-align:center;cursor:pointer;transition:all .2s;font-size:.78rem;font-weight:500;color:var(--brown);}
+.pm:active,.pm.sel{border-color:var(--gold);background:var(--cream);}
+.pm .pi{font-size:1.5rem;display:block;margin-bottom:4px;}
+.addr-inp{width:100%;padding:10px 12px;border:1.5px solid var(--warm);border-radius:9px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;color:var(--dbrown);margin-bottom:10px;}
+.addr-inp:focus{outline:none;border-color:var(--gold);}
+.pay-total{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--warm);margin-bottom:14px;}
+.pay-total span:last-child{font-weight:700;color:var(--accent);font-size:1.1rem;}
+.confirm-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.cancel-btn{width:100%;padding:10px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="hdr">
+    <div>
+      <div class="logo">🥐 행복한 빵집</div>
+      <div class="logo-sub">ONLINE LIVE SHOPPING</div>
+    </div>
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab on" onclick="goTab('cam',this)"><span>📷</span>카메라</button>
+  <button class="tab"    onclick="goTab('menu',this)"><span>🍞</span>메뉴</button>
+  <button class="tab"    onclick="goTab('cart',this)"><span>🛒</span>장바구니</button>
+  <button class="tab"    onclick="goTab('guide',this)"><span>📋</span>안내</button>
+</div>
+
+<!-- ══ 카메라 탭 ══ -->
+<div class="sec on" id="cam">
+
+  <div class="step-banner">
+    <div class="step-item active" id="st1"><div class="step-num">①</div><div class="step-lbl">카메라<br>접속</div></div>
+    <div class="step-item" id="st2"><div class="step-num">②</div><div class="step-lbl">점원<br>통화</div></div>
+    <div class="step-item" id="st3"><div class="step-num">③</div><div class="step-lbl">빵<br>선택</div></div>
+    <div class="step-item" id="st4"><div class="step-num">④</div><div class="step-lbl">결제<br>완료</div></div>
+  </div>
+
+  <div class="cam-box">
+    <div class="cam-screen" id="camScr">
+
+      <!-- HLS 영상 -->
+      <video id="hlsVideo" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;display:none;"></video>
+
+      <!-- 연결 전 오버레이 -->
+      <div id="camOverlay" style="position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#180B00,#2d1800,#180900);">
+        <div class="cam-ph">
+          <span class="ico">📷</span>
+          <p>카메라 연결 대기 중<br><span style="font-size:.62rem;opacity:.6;">아래 [연결] 버튼을 눌러주세요</span></p>
+        </div>
+      </div>
+
+      <!-- 연결 상태 배지 -->
+      <div id="streamStatus" class="off" style="position:absolute;top:8px;right:8px;z-index:10;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:12px;">⚫ 대기</div>
+
+      <!-- 그리드 오버레이 -->
+      <div class="cam-grid" style="z-index:3;pointer-events:none;"></div>
+
+      <div class="drag-lbl" id="dragLbl" style="z-index:20;">실시간 카메라 영상</div>
+    </div>
+
+    <!-- 통화 상태 -->
+    <div class="call-bar">
+      <div class="cdot" id="cdot"></div>
+      <span class="ctxt" id="ctxt">🎧 점원 연결 대기 중</span>
+      <button class="cbtn v-on" id="callBtn" onclick="toggleCall()">📞 통화 연결</button>
+    </div>
+
+    <!-- 카카오톡 -->
+    <div style="padding:0 12px 12px;">
+      <a href="http://pf.kakao.com/_rFrnX/chat" target="_blank" style="display:block;width:100%;padding:11px;background:#FEE500;border:none;border-radius:10px;text-align:center;font-family:'Noto Sans KR',sans-serif;font-size:.82rem;font-weight:700;color:#3A1D1D;text-decoration:none;box-shadow:0 2px 8px rgba(254,229,0,0.4);">
+        💬 카카오톡으로 점원과 대화하기
+      </a>
+    </div>
+
+    <!-- 카메라 버튼 -->
+    <div class="cam-btns">
+      <button class="cbtn2 c-p" onclick="connCam()">📷 연결</button>
+      <button class="cbtn2 c-s" onclick="snap()">📸 캡처</button>
+      <button class="cbtn2 c-d" onclick="discCam()">⏹ 끊기</button>
+    </div>
+
+    <!-- 줌 -->
+    <div class="zoom-row">
+      <div class="zoom-lbl">🔍 줌 조절 (PTZ)</div>
+      <input type="range" min="1" max="25" value="1" oninput="toast('줌: '+this.value+'x')">
+    </div>
+
+    <!-- 점원에게 메시지 -->
+    <div class="pick-box">
+      <div class="pick-lbl">💬 점원에게 직접 요청</div>
+      <div class="pick-row">
+        <input class="pick-inp" id="pickMsg" placeholder="예: 왼쪽 큰 크루아상 2개요!" />
+        <button class="pick-send" onclick="sendPick()">전송</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 메뉴 탭 ══ -->
+<div class="sec" id="menu">
+  <p class="sec-title">🍞 오늘의 빵</p>
+  <div class="menu-grid" id="menuGrid"></div>
+</div>
+
+<!-- ══ 장바구니 탭 ══ -->
+<div class="sec" id="cart">
+  <p class="sec-title">🛒 장바구니</p>
+  <div id="cartList">
+    <div class="cart-empty">
+      <span class="emo">🛒</span>
+      아직 담은 빵이 없어요<br>
+      <span style="font-size:.7rem;">메뉴에서 선택하거나<br>카메라로 보며 점원에게 요청하세요</span>
+    </div>
+  </div>
+  <div id="cartBottom" style="display:none;">
+    <div class="cart-total">
+      <span class="ct-lbl">합계</span>
+      <span class="ct-val" id="totalPr">₩0</span>
+    </div>
+    <button class="pay-btn" onclick="openPayModal()">💳 결제하기</button>
+  </div>
+</div>
+
+<!-- ══ 안내 탭 ══ -->
+<div class="sec" id="guide">
+  <p class="sec-title">📋 이용 안내</p>
+  <div class="url-box">
+    <div class="url-txt">🔗 pricelien.netlify.app</div>
+    <p>이 주소가 빵집 전용 쇼핑 주소예요.</p>
+    <button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button>
+  </div>
+  <div class="guide-card">
+    <h3>📱 이용 방법</h3>
+    <ul>
+      <li>① 카메라 탭 → [연결] 버튼 누르기</li>
+      <li>② 빵집 진열대 화면이 실시간으로 보여요</li>
+      <li>③ [통화 연결] 눌러서 점원과 직접 대화</li>
+      <li>④ "저 왼쪽 큰 크루아상이요!" 라고 말해요</li>
+      <li>⑤ 점원이 확인 후 담아드려요</li>
+      <li>⑥ 결제 → 배달 받기 🚚</li>
+    </ul>
+  </div>
+  <div class="guide-card">
+    <h3>💳 결제 수단</h3>
+    <p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p>
+  </div>
+  <div class="guide-card" style="border-left-color:var(--green);">
+    <h3>🚚 배달 안내</h3>
+    <ul>
+      <li>배달 가능 지역: 반경 3km</li>
+      <li>소요 시간: 약 30~50분</li>
+      <li>최소 주문: 15,000원</li>
+      <li>배달비: 3,000원</li>
+    </ul>
+  </div>
+  <div class="guide-card" style="border-left-color:var(--red);">
+    <h3>📞 문의 & 주문</h3>
+    <p>전화: 02-123-4567<br>운영: 오전 7시 ~ 오후 9시</p>
+    <a href="http://pf.kakao.com/_rFrnX/chat" target="_blank" style="display:block;margin-top:10px;padding:11px;background:#FEE500;border-radius:10px;text-align:center;font-size:.82rem;font-weight:700;color:#3A1D1D;text-decoration:none;">
+      💬 카카오톡 채널로 문의하기
+    </a>
+  </div>
+  <div style="text-align:center;padding:16px 0;color:var(--soft);font-size:.68rem;">
+    행복한 빵집 · pricelien.netlify.app<br>© 2025 BakeryCam
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<div class="bottom-bar">
+  <button class="btab on" onclick="goBottom('cam',this)"><span class="ico">📷</span>카메라</button>
+  <button class="btab" onclick="goBottom('menu',this)"><span class="ico">🍞</span>메뉴</button>
+  <button class="btab" onclick="goBottom('cart',this)"><span class="ico">🛒</span>장바구니<div class="ccnt" id="ccnt">0</div></button>
+  <button class="btab" onclick="goBottom('guide',this)"><span class="ico">📋</span>안내</button>
+</div>
+
+<div class="modal-bg" id="doneModal">
+  <div class="modal">
+    <div style="font-size:3rem;margin-bottom:8px;">🎉</div>
+    <h3>주문 완료!</h3>
+    <p>주문번호: <strong id="onum"></strong><br>점원이 빵을 포장하고 있어요.<br>약 30~50분 후 배달됩니다 🚚</p>
+    <button class="modal-btn" onclick="closeDone()">확인</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="payModal">
+  <div class="pay-modal">
+    <h3>💳 결제하기</h3>
+    <p style="font-size:.72rem;color:var(--soft);margin-bottom:12px;text-align:center;">결제 수단을 선택해 주세요</p>
+    <div class="pay-method">
+      <div class="pm" onclick="selPay(this,'카카오페이')"><span class="pi">💛</span>카카오페이</div>
+      <div class="pm" onclick="selPay(this,'토스페이')"><span class="pi">🔵</span>토스페이</div>
+      <div class="pm" onclick="selPay(this,'신용카드')"><span class="pi">💳</span>신용카드</div>
+      <div class="pm" onclick="selPay(this,'계좌이체')"><span class="pi">🏦</span>계좌이체</div>
+    </div>
+    <input class="addr-inp" id="addrInp" placeholder="배달 주소를 입력해 주세요" />
+    <div class="pay-total">
+      <span style="font-size:.8rem;color:var(--soft);">최종 결제 금액</span>
+      <span id="payTotalVal">₩0</span>
+    </div>
+    <button class="confirm-btn" onclick="confirmPay()">결제 완료</button>
+    <button class="cancel-btn" onclick="closePayModal()">취소</button>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+
+<script>
+// ══ HLS 스트림 설정 ══
+// ngrok 주소 (PC가 꺼지거나 ngrok 재시작시 이 주소가 바뀝니다)
+const HLS_URL = 'https://cycling-swiftness-train.ngrok-free.dev/bakery/index.m3u8';
+
+const MENU = [
+  {id:1,e:'🥐',name:'크루아상', desc:'버터향 가득 바삭',   price:3200},
+  {id:2,e:'🥖',name:'바게트',   desc:'겉바속촉 정통',    price:4500},
+  {id:3,e:'🍞',name:'식빵',     desc:'폭신한 우유식빵',  price:5500},
+  {id:4,e:'🫓',name:'단팥빵',   desc:'달콤한 팥소 가득', price:2500},
+  {id:5,e:'🧁',name:'소보로빵', desc:'바삭한 소보로',    price:2800},
+  {id:6,e:'🧇',name:'머핀',     desc:'블루베리·초코',   price:3500},
+  {id:7,e:'🍩',name:'도넛',     desc:'달콤 글레이즈드',  price:2200},
+  {id:8,e:'🫙',name:'베이글',   desc:'쫄깃한 플레인',   price:3800},
+];
+
+let cart={}, callOn=false, selPayMethod='', hlsInstance=null, connected=false;
+
+// ══ 탭 전환 ══
+function goTab(id,btn){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  btn.classList.add('on');
+  syncBottom(id);
+}
+function goBottom(id,btn){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  btn.classList.add('on');
+  const idx=['cam','menu','cart','guide'].indexOf(id);
+  if(idx>=0) document.querySelectorAll('.tab')[idx].classList.add('on');
+}
+function syncBottom(id){
+  const idx=['cam','menu','cart','guide'].indexOf(id);
+  document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));
+}
+
+// ══ 카메라 연결 (HLS) ══
+function connCam(){
+  if(connected){toast('이미 연결되어 있어요!');return;}
+  const video=document.getElementById('hlsVideo');
+  const overlay=document.getElementById('camOverlay');
+  const status=document.getElementById('streamStatus');
+
+  status.textContent='🟡 연결 중...';
+  status.style.background='#B8860B';status.style.color='#fff';
+  toast('📡 카메라 연결 중...');
+
+  if(Hls.isSupported()){
+    hlsInstance=new Hls({
+      xhrSetup: function(xhr, url){
+        xhr.setRequestHeader('ngrok-skip-browser-warning','true');
+        xhr.setRequestHeader('User-Agent','HLSPlayer');
+      },
+      enableWorker: true,
+      lowLatencyMode: false,
+    });
+    hlsInstance.loadSource(HLS_URL + '?ngrok-skip-browser-warning=true');
+    hlsInstance.attachMedia(video);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED,function(){
+      video.play();
+      video.style.display='block';
+      overlay.style.display='none';
+      status.textContent='🔴 LIVE';
+      status.style.background='#B71C1C';
+      connected=true;
+      setStep(2);
+      toast('📷 빵집 카메라 연결됐어요!');
+    });
+    hlsInstance.on(Hls.Events.ERROR,function(e,data){
+      if(data.fatal){
+        status.textContent='⚫ 연결 실패';
+        status.style.background='rgba(0,0,0,.6)';status.style.color='rgba(255,255,255,.5)';
+        toast('❌ 연결 실패 — PC에서 MediaMTX가 실행 중인지 확인해주세요');
+      }
+    });
+  } else if(video.canPlayType('application/vnd.apple.mpegurl')){
+    // iOS Safari
+    video.src=HLS_URL + '?ngrok-skip-browser-warning=true';
+    video.addEventListener('loadedmetadata',function(){
+      video.play();
+      video.style.display='block';
+      overlay.style.display='none';
+      status.textContent='🔴 LIVE';
+      status.style.background='#B71C1C';
+      connected=true;
+      setStep(2);
+      toast('📷 빵집 카메라 연결됐어요!');
+    });
+    video.addEventListener('error',function(){
+      toast('❌ 연결 실패 — PC에서 MediaMTX가 실행 중인지 확인해주세요');
+    });
+  } else {
+    toast('❌ 이 브라우저는 HLS를 지원하지 않아요');
+  }
+}
+
+function discCam(){
+  if(hlsInstance){hlsInstance.destroy();hlsInstance=null;}
+  const video=document.getElementById('hlsVideo');
+  const overlay=document.getElementById('camOverlay');
+  const status=document.getElementById('streamStatus');
+  video.style.display='none';
+  video.src='';
+  overlay.style.display='flex';
+  status.textContent='⚫ 대기';
+  status.style.background='rgba(0,0,0,.5)';status.style.color='rgba(255,255,255,.5)';
+  connected=false;
+  setStep(1);
+  toast('카메라 연결을 끊었어요');
+}
+
+function snap(){toast('📸 화면 캡처됐어요!');}
+
+// ══ 메뉴 ══
+function renderMenu(){
+  document.getElementById('menuGrid').innerHTML=MENU.map(m=>`
+    <div class="mc" onclick="addCart(${m.id})">
+      <div class="mth">${m.e}</div>
+      <div class="mi">
+        <div class="mn">${m.name}</div>
+        <div class="md">${m.desc}</div>
+        <div class="mp">₩${m.price.toLocaleString()}</div>
+        <button class="mbtn">+ 담기</button>
+      </div>
+    </div>`).join('');
+}
+
+// ══ 장바구니 ══
+function addCart(id){
+  const m=MENU.find(x=>x.id===id);if(!m)return;
+  cart[id]=cart[id]||{...m,qty:0};cart[id].qty++;
+  updateCart();setStep(3);
+  toast(m.e+' '+m.name+' 담았어요!');
+}
+function changeQty(id,d){
+  if(!cart[id])return;cart[id].qty+=d;
+  if(cart[id].qty<=0)delete cart[id];updateCart();
+}
+function updateCart(){
+  const items=Object.values(cart);
+  const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const count=items.reduce((s,i)=>s+i.qty,0);
+  const badge=document.getElementById('ccnt');
+  badge.textContent=count;count>0?badge.classList.add('show'):badge.classList.remove('show');
+  document.getElementById('totalPr').textContent='₩'+total.toLocaleString();
+  document.getElementById('payTotalVal').textContent='₩'+(total+3000).toLocaleString();
+  const box=document.getElementById('cartBottom');
+  const list=document.getElementById('cartList');
+  if(!items.length){
+    list.innerHTML='<div class="cart-empty"><span class="emo">🛒</span>장바구니가 비어 있어요</div>';
+    box.style.display='none';return;
+  }
+  box.style.display='block';
+  list.innerHTML=items.map(i=>`
+    <div class="ci">
+      <div class="ci-em">${i.e}</div>
+      <div class="ci-info">
+        <div class="ci-nm">${i.name}</div>
+        <div class="ci-pr">₩${i.price.toLocaleString()} × ${i.qty} = ₩${(i.price*i.qty).toLocaleString()}</div>
+      </div>
+      <div class="ci-qty">
+        <button class="qb" onclick="changeQty(${i.id},-1)">−</button>
+        <span style="font-size:.8rem;font-weight:700;min-width:14px;text-align:center;">${i.qty}</span>
+        <button class="qb" onclick="changeQty(${i.id},1)">+</button>
+      </div>
+    </div>`).join('');
+}
+
+// ══ 단계 표시 ══
+function setStep(n){
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById('st'+i);
+    el.classList.remove('active','done');
+    if(i<n)el.classList.add('done');
+    else if(i===n)el.classList.add('active');
+  }
+}
+
+// ══ 통화 ══
+function toggleCall(){
+  callOn=!callOn;
+  const btn=document.getElementById('callBtn');
+  const dot=document.getElementById('cdot');
+  const txt=document.getElementById('ctxt');
+  if(callOn){
+    btn.className='cbtn v-off';btn.textContent='📵 통화 종료';
+    dot.classList.add('on');txt.textContent='🔴 통화 중 — 점원과 연결됨';
+    setStep(2);toast('📞 점원과 연결됐어요! 말씀하세요.');
+  } else {
+    btn.className='cbtn v-on';btn.textContent='📞 통화 연결';
+    dot.classList.remove('on');txt.textContent='🎧 점원 연결 대기 중';
+    toast('통화 종료됐어요');
+  }
+}
+
+// ══ 픽업 요청 ══
+function sendPick(){
+  const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;
+  toast('💬 점원에게 전달: "'+msg+'"');
+  document.getElementById('pickMsg').value='';
+}
+
+// ══ 결제 ══
+function openPayModal(){
+  if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}
+  document.getElementById('payModal').classList.add('open');
+}
+function closePayModal(){document.getElementById('payModal').classList.remove('open');}
+function selPay(el,name){
+  document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));
+  el.classList.add('sel');selPayMethod=name;
+}
+function confirmPay(){
+  const addr=document.getElementById('addrInp').value.trim();
+  if(!selPayMethod){toast('결제 수단을 선택해 주세요');return;}
+  if(!addr){toast('배달 주소를 입력해 주세요');return;}
+  closePayModal();
+  document.getElementById('onum').textContent='BCM-'+Math.floor(Math.random()*90000+10000);
+  document.getElementById('doneModal').classList.add('open');
+  setStep(4);
+}
+function closeDone(){
+  document.getElementById('doneModal').classList.remove('open');
+  cart={};updateCart();setStep(1);
+  selPayMethod='';
+  document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));
+  document.getElementById('addrInp').value='';
+}
+
+// ══ 주소 복사 ══
+function copyUrl(){
+  const url='https://pricelien.netlify.app';
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(()=>toast('📋 주소 복사됐어요!'));
+  } else {toast('주소: '+url);}
+}
+
+// ══ 토스트 ══
+function toast(msg){
+  const el=document.getElementById('toastEl');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+renderMenu();
+</script>
+</body>
+</html>
