@@ -400,12 +400,13 @@ function connCam(){
     hlsInstance=new Hls({
       xhrSetup: function(xhr, url){
         xhr.setRequestHeader('ngrok-skip-browser-warning','true');
-        xhr.setRequestHeader('User-Agent','HLSPlayer');
       },
-      enableWorker: true,
+      enableWorker: false,
       lowLatencyMode: false,
+      manifestLoadingTimeOut: 10000,
+      manifestLoadingMaxRetry: 3,
     });
-    hlsInstance.loadSource(HLS_URL + '?ngrok-skip-browser-warning=true');
+    hlsInstance.loadSource(HLS_URL);
     hlsInstance.attachMedia(video);
     hlsInstance.on(Hls.Events.MANIFEST_PARSED,function(){
       video.play();
