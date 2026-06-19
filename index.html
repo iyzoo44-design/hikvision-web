@@ -401,6 +401,7 @@ function loadHLS(video, overlay, status){
     hlsInstance=new Hls({
       xhrSetup: function(xhr, url){
         xhr.setRequestHeader('ngrok-skip-browser-warning','true');
+        xhr.setRequestHeader('Access-Control-Allow-Origin','*');
       },
       enableWorker: false,
       lowLatencyMode: false,
