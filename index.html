@@ -395,7 +395,7 @@ function connCam(){
   status.style.background='#B8860B';status.style.color='#fff';
   toast('📡 카메라 연결 중...');
 loadHLS(video, overlay, status);
-  
+ } 
 function loadHLS(video, overlay, status){
   if(Hls.isSupported()){
     hlsInstance=new Hls({
