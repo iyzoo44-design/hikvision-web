@@ -390,12 +390,18 @@ function connCam(){
   const video=document.getElementById('hlsVideo');
   const overlay=document.getElementById('camOverlay');
   const status=document.getElementById('streamStatus');
-
   status.textContent='🟡 연결 중...';
-  status.style.background='#B8860B';status.style.color='#fff';
-  toast('📡 카메라 연결 중...');
-loadHLS(video, overlay, status);
- } 
+  status.style.background='#88860B';status.style.color='#fff';
+  toast('📷 카메라 연결 중...');
+  video.src=HLS_URL;
+  video.style.display='block';
+  overlay.style.display='none';
+  status.textContent='🔴 LIVE';
+  status.style.background='#B71C1C';
+  connected=true;
+  setStep(2);
+  toast('📹 카메라 연결됐어요!');
+}
 function loadHLS(video, overlay, status){
   if(Hls.isSupported()){
     hlsInstance=new Hls({
