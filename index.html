@@ -177,7 +177,7 @@ input[type=range]{width:100%;accent-color:var(--gold);}
   </div>
 
   <div class="cam-box">
-    <div class="cam-screen" id="camScr">
+    <div class="cam-screen" id="camScr"onclick="sendPointer(event)" ontouchstart="sendPointer(event)">
 
       <!-- HLS 영상 -->
       <video id="hlsVideo" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;display:none;"></video>
@@ -347,7 +347,22 @@ input[type=range]{width:100%;accent-color:var(--gold);}
 <div class="toast" id="toastEl"></div>
 
 <script>
-// ══ HLS 스트림 설정 ══
+// ══ Firebase 설정 ══
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",
+  authDomain: "dongne-bakery.firebaseapp.com",
+  databaseURL: "https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dongne-bakery",
+  storageBucket: "dongne-bakery.firebasestorage.app",
+  messagingSenderId: "835419452184",
+  appId: "1:835419452184:web:e710137926fc24ffd8646d"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);// ══ HLS 스트림 설정 ══
 // ngrok 주소 (PC가 꺼지거나 ngrok 재시작시 이 주소가 바뀝니다)
 const HLS_URL = 'https://mac-committees-instance-maybe.trycloudflare.com';
 
@@ -384,7 +399,32 @@ function syncBottom(id){
   document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));
 }
 
-// ══ 카메라 연결 (HLS) ══
+// ══ 포인터 기능 ══
+function sendPointer(e){
+  const scr=document.getElementById('camScr');
+  const rect=scr.getBoundingClientRect();
+  const rx=((e.clientX||e.touches[0].clientX)-rect.left)/rect.width;
+  const ry=((e.clientY||e.touches[0].clientY)-rect.top)/rect.height;
+  set(ref(db,'pointer'),{rx,ry,t:Date.now()});
+  showPointer(rx,ry);
+}
+function showPointer(rx,ry){
+  let dot=document.getElementById('pointerDot');
+  if(!dot){
+    dot=document.createElement('div');
+    dot.id='pointerDot';
+    dot.style.cssText='position:absolute;width:40px;height:40px;border:3px solid red;border-radius:50%;background:rgba(255,0,0,0.2);pointer-events:none;z-index:20;transform:translate(-50%,-50%);transition:all 0.1s;';
+    document.getElementById('camScr').appendChild(dot);
+  }
+  const scr=document.getElementById('camScr');
+  dot.style.left=(rx*scr.offsetWidth)+'px';
+  dot.style.top=(ry*scr.offsetHeight)+'px';
+}
+// 점원 화면에서 고객 포인터 수신
+onValue(ref(db,'pointer'),snap=>{
+  const d=snap.val();
+  if(d)showPointer(d.rx,d.ry);
+});// ══ 카메라 연결 (HLS) ══
 function connCam(){
   if(connected){toast('이미 연결되어 있어요!');return;}
   const overlay=document.getElementById('camOverlay');
