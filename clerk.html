@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>점원 AR — 행복한 빵집</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  height:100%;background:#000;color:#fff;
+  font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;
+  overflow:hidden;
+}
+
+/* ── 상단 HUD 바 ── */
+#hud{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:8px 14px;
+  background:rgba(0,0,0,0.75);
+  border-bottom:1px solid rgba(255,60,60,0.3);
+  display:flex;align-items:center;justify-content:space-between;
+  backdrop-filter:blur(4px);
+}
+.hud-left{display:flex;align-items:center;gap:10px;}
+.hud-title{font-size:13px;font-weight:700;color:#FFD9A0;letter-spacing:.5px;}
+.live-badge{
+  background:#B71C1C;color:#fff;font-size:10px;font-weight:700;
+  padding:2px 8px;border-radius:12px;
+  animation:blink 1.4s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+.hud-right{display:flex;align-items:center;gap:8px;}
+#connStatus{
+  display:flex;align-items:center;gap:5px;
+  font-size:11px;color:rgba(255,255,255,.55);
+}
+.sdot{width:7px;height:7px;border-radius:50%;background:#444;}
+.sdot.green{background:#4CAF50;box-shadow:0 0 5px #4CAF50;}
+.sdot.yellow{background:#FFD600;animation:blink .8s infinite;}
+.sdot.red{background:#f44336;}
+
+/* ── 카메라 영역 ── */
+#camArea{
+  position:fixed;inset:0;
+  background:#0a0500;
+}
+#camIframe{
+  width:100%;height:100%;border:none;
+  display:none;
+}
+#camPlaceholder{
+  width:100%;height:100%;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:8px;color:rgba(255,255,255,.2);
+}
+.cam-ico{font-size:48px;opacity:.3;}
+.cam-msg{font-size:13px;}
+
+/* ── AR 오버레이 (포인터) ── */
+#arOverlay{
+  position:fixed;inset:0;
+  pointer-events:none;
+  z-index:50;
+}
+
+/* 전체 십자선 */
+#crossH,#crossV{
+  position:absolute;
+  background:rgba(255,40,40,0.25);
+  display:none;
+  transition:all .15s ease;
+}
+#crossH{height:1px;width:100%;left:0;}
+#crossV{width:1px;height:100%;top:0;}
+
+/* 포인터 원 */
+#pointer{
+  position:absolute;
+  width:64px;height:64px;
+  border-radius:50%;
+  border:3px solid #ff2020;
+  background:rgba(255,30,30,0.12);
+  transform:translate(-50%,-50%);
+  display:none;
+  box-shadow:0 0 24px rgba(255,0,0,0.5), inset 0 0 12px rgba(255,0,0,0.1);
+}
+#pointer::before{
+  content:'';position:absolute;
+  top:50%;left:50%;width:10px;height:10px;
+  background:#ff2020;border-radius:50%;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 8px #ff2020;
+}
+#pointer.show{display:block;animation:pointerPop .4s ease-out;}
+@keyframes pointerPop{
+  0%{transform:translate(-50%,-50%) scale(.15);opacity:0}
+  65%{transform:translate(-50%,-50%) scale(1.2);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:1}
+}
+
+/* 포인터 라벨 */
+#pointerLabel{
+  position:absolute;
+  background:rgba(200,0,0,0.88);
+  color:#fff;font-size:12px;font-weight:700;
+  padding:4px 10px;border-radius:5px;
+  transform:translate(-50%, 38px);
+  display:none;white-space:nowrap;
+}
+#pointerLabel::before{
+  content:'';position:absolute;
+  top:-5px;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;
+  border-bottom-color:rgba(200,0,0,0.88);
+  border-top:none;
+}
+
+/* AR 코너 마커 */
+.ar-corner{
+  position:fixed;width:22px;height:22px;
+  border-color:rgba(255,50,50,0.4);border-style:solid;
+}
+.ar-corner.tl{top:48px;left:8px;border-width:2px 0 0 2px;border-radius:2px 0 0 0;}
+.ar-corner.tr{top:48px;right:8px;border-width:2px 2px 0 0;border-radius:0 2px 0 0;}
+.ar-corner.bl{bottom:90px;left:8px;border-width:0 0 2px 2px;border-radius:0 0 0 2px;}
+.ar-corner.br{bottom:90px;right:8px;border-width:0 2px 2px 0;border-radius:0 0 2px 0;}
+
+/* ── 하단 정보 패널 ── */
+#infoPanel{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(0,0,0,0.82);
+  border-top:1px solid rgba(255,255,255,.08);
+  padding:8px 14px 10px;
+  backdrop-filter:blur(4px);
+}
+.info-row{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.info-key{font-size:10px;color:rgba(255,255,255,.4);min-width:64px;}
+.info-val{font-size:12px;color:#fff;font-weight:500;font-family:monospace;}
+.info-val.active{color:#ff6060;}
+
+/* ── 통화 버튼 ── */
+#callPanel{
+  position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  z-index:101;display:flex;gap:8px;align-items:center;
+}
+#callBtn{
+  padding:9px 22px;border:none;border-radius:20px;
+  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  background:#1B5E20;color:#fff;
+  box-shadow:0 2px 12px rgba(0,0,0,.4);
+  transition:all .2s;
+}
+#callBtn.ringing{background:#F57F17;animation:blink .7s infinite;}
+#callBtn.active{background:#B71C1C;}
+#callBtn:active{transform:scale(.95);}
+#micStatus{
+  font-size:11px;color:rgba(255,255,255,.4);
+  background:rgba(0,0,0,.5);padding:5px 10px;border-radius:12px;
+}
+/* 음성 시각화 */
+#vviz{
+  display:none;align-items:flex-end;gap:2px;height:20px;
+  margin-left:4px;
+}
+#vviz.on{display:flex;}
+.vb{width:3px;background:rgba(255,190,80,.75);border-radius:2px;
+    animation:vw .55s ease-in-out infinite alternate;}
+.vb:nth-child(1){animation-delay:0s}
+.vb:nth-child(2){animation-delay:.1s}
+.vb:nth-child(3){animation-delay:.2s}
+.vb:nth-child(4){animation-delay:.15s}
+.vb:nth-child(5){animation-delay:.05s}
+@keyframes vw{from{height:4px}to{height:18px}}
+
+/* 고객 메시지 알림 */
+#msgAlert{
+  position:fixed;top:52px;left:50%;transform:translateX(-50%);
+  background:rgba(184,134,11,0.92);
+  color:#fff;font-size:13px;font-weight:700;
+  padding:8px 18px;border-radius:20px;
+  display:none;z-index:200;
+  max-width:90vw;text-align:center;
+  animation:slideDown .3s ease;
+}
+@keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* 카메라 연결 버튼 */
+#camConnBtn{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:60;padding:12px 28px;
+  background:rgba(184,134,11,.9);color:#fff;
+  border:none;border-radius:14px;font-size:14px;font-weight:700;
+  cursor:pointer;font-family:inherit;
+  box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+#camConnBtn:active{transform:translate(-50%,-50%) scale(.96);}
+
+/* 타임스탬프 */
+#clock{
+  position:fixed;bottom:72px;right:10px;
+  font-size:10px;color:rgba(255,255,255,.25);
+  font-family:monospace;z-index:60;
+}
+</style>
+</head>
+<body>
+
+<!-- 상단 HUD -->
+<div id="hud">
+  <div class="hud-left">
+    <div class="hud-title">🕶️ 점원 AR — 행복한 빵집</div>
+    <div class="live-badge">● LIVE</div>
+  </div>
+  <div class="hud-right">
+    <div id="vviz"><div class="vb"></div><div class="vb"></div><div class="vb"></div><div class="vb"></div><div class="vb"></div></div>
+    <div id="connStatus">
+      <div class="sdot yellow" id="fbDot"></div>
+      <span id="fbTxt">연결 중...</span>
+    </div>
+  </div>
+</div>
+
+<!-- AR 코너 마커 -->
+<div class="ar-corner tl"></div>
+<div class="ar-corner tr"></div>
+<div class="ar-corner bl"></div>
+<div class="ar-corner br"></div>
+
+<!-- 카메라 영역 -->
+<div id="camArea">
+  <iframe id="camIframe" src="" allowfullscreen allow="autoplay"></iframe>
+  <div id="camPlaceholder">
+    <div class="cam-ico">📷</div>
+    <div class="cam-msg">카메라 버튼을 눌러 연결하세요</div>
+  </div>
+</div>
+
+<!-- AR 오버레이 -->
+<div id="arOverlay">
+  <div id="crossH"></div>
+  <div id="crossV"></div>
+  <div id="pointer"></div>
+  <div id="pointerLabel">👆 고객 지정 상품</div>
+</div>
+
+<!-- 고객 메시지 알림 -->
+<div id="msgAlert"></div>
+
+<!-- 카메라 연결 버튼 -->
+<button id="camConnBtn" onclick="connCam()">📷 카메라 연결</button>
+
+<!-- 통화 패널 -->
+<div id="callPanel">
+  <button id="callBtn" onclick="toggleCall()">📞 통화 대기 중</button>
+  <div id="micStatus">마이크 꺼짐</div>
+</div>
+
+<div id="clock"></div>
+
+<!-- 하단 정보 -->
+<div id="infoPanel">
+  <div class="info-row">
+    <span class="info-key">포인터</span>
+    <span class="info-val" id="coordVal">수신 대기 중...</span>
+  </div>
+  <div class="info-row">
+    <span class="info-key">마지막 터치</span>
+    <span class="info-val" id="lastTouch">—</span>
+  </div>
+</div>
+
+<!-- 원격 오디오 -->
+<audio id="remoteAudio" autoplay playsinline></audio>
+
+<script>
+// ═══════════════════════════════════════════
+// Firebase 설정
+// ═══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",
+  authDomain: "dongne-bakery.firebaseapp.com",
+  databaseURL: "https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dongne-bakery",
+  storageBucket: "dongne-bakery.firebasestorage.app",
+  messagingSenderId: "835419452184",
+  appId: "1:835419452184:web:e710137926fc24ffd8646d"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const CAM_URL  = 'https://camera.priceline.co.kr';
+const ROOM_ID  = 'bakery-room-001';
+
+// ── Firebase 연결 상태 ──
+db.ref('.info/connected').on('value', snap=>{
+  const ok = snap.val();
+  document.getElementById('fbDot').className = 'sdot '+(ok?'green':'red');
+  document.getElementById('fbTxt').textContent = ok?'Firebase 연결됨':'연결 끊김';
+});
+
+// ═══════════════════════════════════════════
+// 카메라 연결
+// ═══════════════════════════════════════════
+function connCam(){
+  const iframe = document.getElementById('camIframe');
+  const ph     = document.getElementById('camPlaceholder');
+  const btn    = document.getElementById('camConnBtn');
+  iframe.src = CAM_URL+'/bakery';
+  iframe.style.display = 'block';
+  ph.style.display = 'none';
+  btn.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════
+// 포인터 수신 (Firebase)
+// ═══════════════════════════════════════════
+let pointerFadeT = null;
+
+db.ref('pointer').on('value', snap=>{
+  const d = snap.val();
+  if(!d) return;
+  showPointer(d.rx, d.ry, d.t);
+});
+
+function showPointer(rx, ry, ts){
+  const ow = window.innerWidth;
+  const oh = window.innerHeight;
+  const px = rx * ow;
+  const py = ry * oh;
+
+  const ptr   = document.getElementById('pointer');
+  const lbl   = document.getElementById('pointerLabel');
+  const crossH = document.getElementById('crossH');
+  const crossV = document.getElementById('crossV');
+
+  // 포인터 원
+  ptr.style.left = px+'px';
+  ptr.style.top  = py+'px';
+  ptr.className  = 'show';
+
+  // 라벨
+  lbl.style.left = px+'px';
+  lbl.style.top  = py+'px';
+  lbl.style.display = 'block';
+
+  // 십자선
+  crossH.style.top  = py+'px'; crossH.style.display='block';
+  crossV.style.left = px+'px'; crossV.style.display='block';
+
+  // 좌표 표시
+  const xp = Math.round(rx*100);
+  const yp = Math.round(ry*100);
+  const cv = document.getElementById('coordVal');
+  cv.textContent = `X: ${xp}%  Y: ${yp}%`;
+  cv.className = 'info-val active';
+
+  // 시간
+  const d = ts ? new Date(ts) : new Date();
+  document.getElementById('lastTouch').textContent =
+    d.getHours().toString().padStart(2,'0')+':'+
+    d.getMinutes().toString().padStart(2,'0')+':'+
+    d.getSeconds().toString().padStart(2,'0');
+
+  // 5초 후 사라짐
+  if(pointerFadeT) clearTimeout(pointerFadeT);
+  pointerFadeT = setTimeout(()=>{
+    ptr.className = '';
+    lbl.style.display = 'none';
+    crossH.style.display = 'none';
+    crossV.style.display = 'none';
+    cv.textContent = '수신 대기 중...';
+    cv.className = 'info-val';
+  }, 5000);
+}
+
+// ═══════════════════════════════════════════
+// 고객 메시지 수신
+// ═══════════════════════════════════════════
+db.ref('messages').limitToLast(1).on('child_added', snap=>{
+  const d = snap.val();
+  if(!d||!d.msg) return;
+  const el = document.getElementById('msgAlert');
+  el.textContent = '💬 고객: "'+d.msg+'"';
+  el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 5000);
+});
+
+// ═══════════════════════════════════════════
+// WebRTC 통화 (점원 측 = Answer)
+// ═══════════════════════════════════════════
+let pc = null, localStream = null, callActive = false;
+
+async function toggleCall(){
+  const btn = document.getElementById('callBtn');
+  const micSt = document.getElementById('micStatus');
+
+  if(callActive){
+    endCall();
+    btn.textContent='📞 통화 대기 중';
+    btn.className='';
+    micSt.textContent='마이크 꺼짐';
+    document.getElementById('vviz').classList.remove('on');
+    return;
+  }
+
+  btn.className='ringing'; btn.textContent='⏳ 마이크 준비 중...';
+
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+  }catch(err){
+    showMsg('⚠️ 마이크 권한이 필요해요');
+    btn.className=''; btn.textContent='📞 통화 대기 중';
+    return;
+  }
+
+  micSt.textContent='마이크 켜짐';
+  await startAnswer();
+}
+
+async function startAnswer(){
+  const btn = document.getElementById('callBtn');
+  const config = {
+    iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'}
+    ]
+  };
+  pc = new RTCPeerConnection(config);
+
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  pc.ontrack = e=>{
+    document.getElementById('remoteAudio').srcObject = e.streams[0];
+  };
+
+  pc.onicecandidate = e=>{
+    if(e.candidate){
+      db.ref(`rtc/${ROOM_ID}/clerkCandidates`).push(e.candidate.toJSON());
+    }
+  };
+
+  pc.onconnectionstatechange = ()=>{
+    if(pc.connectionState==='connected'){
+      callActive=true;
+      btn.className='active'; btn.textContent='📵 통화 종료';
+      document.getElementById('vviz').classList.add('on');
+      showMsg('📞 고객과 연결됐어요!');
+    }
+  };
+
+  // Offer 수신 대기
+  db.ref(`rtc/${ROOM_ID}/offer`).on('value', async snap=>{
+    const offer = snap.val();
+    if(!offer || pc.currentRemoteDescription) return;
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await db.ref(`rtc/${ROOM_ID}/answer`).set({
+      sdp: answer.sdp, type: answer.type
+    });
+    btn.className='ringing'; btn.textContent='🔔 고객 연결 중...';
+  });
+
+  // 고객 ICE 후보 수신
+  db.ref(`rtc/${ROOM_ID}/customerCandidates`).on('child_added', async snap=>{
+    const c = snap.val();
+    if(c && pc) await pc.addIceCandidate(new RTCIceCandidate(c));
+  });
+}
+
+function endCall(){
+  if(pc){pc.close();pc=null;}
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  db.ref(`rtc/${ROOM_ID}`).remove();
+  document.getElementById('remoteAudio').srcObject=null;
+  callActive=false;
+}
+
+function showMsg(msg){
+  const el=document.getElementById('msgAlert');
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>{el.style.display='none';},3500);
+}
+
+// ── 시계 ──
+setInterval(()=>{
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    n.getHours().toString().padStart(2,'0')+':'+
+    n.getMinutes().toString().padStart(2,'0')+':'+
+    n.getSeconds().toString().padStart(2,'0');
+},1000);
+</script>
+</body>
+</html>
