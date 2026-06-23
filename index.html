@@ -6,6 +6,8 @@
 <title>행복한 빵집 — 원격 쇼핑</title>
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
 :root {
   --bg:#FFFBF4; --cream:#FFF3E0; --warm:#F5DEB3;
@@ -44,21 +46,16 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .step-item:not(.active):not(.done) .step-lbl{color:var(--soft);}
 .cam-box{background:var(--dbrown);border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);margin-bottom:12px;}
 .cam-screen{position:relative;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;background:#0a0500;overflow:hidden;}
-
-/* 카메라 영상 */
 #hlsVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
 #camOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#180B00,#2d1800,#180900);z-index:5;transition:opacity .5s;}
 #camOverlay.hidden{opacity:0;pointer-events:none;}
 .cam-ph{text-align:center;color:rgba(255,190,80,.7);}
 .cam-ph .ico{font-size:2.8rem;display:block;margin-bottom:8px;}
 .cam-ph p{font-size:.78rem;line-height:1.6;}
-
-/* 연결 상태 배지 */
 #streamStatus{position:absolute;top:8px;right:8px;z-index:10;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(0,0,0,.6);}
 #streamStatus.live{background:var(--red);color:#fff;}
 #streamStatus.connecting{background:var(--gold);color:#fff;}
 #streamStatus.off{background:rgba(0,0,0,.5);color:rgba(255,255,255,.5);}
-
 .cam-grid{position:absolute;inset:0;background:linear-gradient(rgba(184,134,11,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(184,134,11,.03) 1px,transparent 1px);background-size:36px 36px;z-index:3;pointer-events:none;}
 .drag-lbl{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:.55rem;color:rgba(255,190,80,.4);pointer-events:none;z-index:20;}
 .call-bar{background:rgba(0,0,0,.5);padding:7px 12px;display:flex;align-items:center;gap:8px;}
@@ -148,7 +145,6 @@ input[type=range]{width:100%;accent-color:var(--gold);}
 </head>
 <body>
 <div class="app">
-
 <header>
   <div class="hdr">
     <div>
@@ -158,75 +154,51 @@ input[type=range]{width:100%;accent-color:var(--gold);}
     <div class="live-pill"><div class="live-dot"></div>LIVE</div>
   </div>
 </header>
-
 <div class="tabs">
   <button class="tab on" onclick="goTab('cam',this)"><span>📷</span>카메라</button>
   <button class="tab"    onclick="goTab('menu',this)"><span>🍞</span>메뉴</button>
   <button class="tab"    onclick="goTab('cart',this)"><span>🛒</span>장바구니</button>
   <button class="tab"    onclick="goTab('guide',this)"><span>📋</span>안내</button>
 </div>
-
-<!-- ══ 카메라 탭 ══ -->
 <div class="sec on" id="cam">
-
   <div class="step-banner">
     <div class="step-item active" id="st1"><div class="step-num">①</div><div class="step-lbl">카메라<br>접속</div></div>
     <div class="step-item" id="st2"><div class="step-num">②</div><div class="step-lbl">점원<br>통화</div></div>
     <div class="step-item" id="st3"><div class="step-num">③</div><div class="step-lbl">빵<br>선택</div></div>
     <div class="step-item" id="st4"><div class="step-num">④</div><div class="step-lbl">결제<br>완료</div></div>
   </div>
-
   <div class="cam-box">
-    <div class="cam-screen" id="camScr"onclick="sendPointer(event)" ontouchstart="sendPointer(event)">
-
-      <!-- HLS 영상 -->
+    <div class="cam-screen" id="camScr" onclick="sendPointer(event)" ontouchstart="sendPointer(event)">
       <video id="hlsVideo" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;display:none;"></video>
-
-      <!-- 연결 전 오버레이 -->
       <div id="camOverlay" style="position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#180B00,#2d1800,#180900);">
         <div class="cam-ph">
           <span class="ico">📷</span>
           <p>카메라 연결 대기 중<br><span style="font-size:.62rem;opacity:.6;">아래 [연결] 버튼을 눌러주세요</span></p>
         </div>
       </div>
-
-      <!-- 연결 상태 배지 -->
       <div id="streamStatus" class="off" style="position:absolute;top:8px;right:8px;z-index:10;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:12px;">⚫ 대기</div>
-
-      <!-- 그리드 오버레이 -->
       <div class="cam-grid" style="z-index:3;pointer-events:none;"></div>
-
       <div class="drag-lbl" id="dragLbl" style="z-index:20;">실시간 카메라 영상</div>
     </div>
-
-    <!-- 통화 상태 -->
     <div class="call-bar">
       <div class="cdot" id="cdot"></div>
       <span class="ctxt" id="ctxt">🎧 점원 연결 대기 중</span>
       <button class="cbtn v-on" id="callBtn" onclick="toggleCall()">📞 통화 연결</button>
     </div>
-
-    <!-- 카카오톡 -->
     <div style="padding:0 12px 12px;">
       <a href="http://pf.kakao.com/_rFrnX/chat" target="_blank" style="display:block;width:100%;padding:11px;background:#FEE500;border:none;border-radius:10px;text-align:center;font-family:'Noto Sans KR',sans-serif;font-size:.82rem;font-weight:700;color:#3A1D1D;text-decoration:none;box-shadow:0 2px 8px rgba(254,229,0,0.4);">
         💬 카카오톡으로 점원과 대화하기
       </a>
     </div>
-
-    <!-- 카메라 버튼 -->
     <div class="cam-btns">
       <button class="cbtn2 c-p" onclick="connCam()">📷 연결</button>
       <button class="cbtn2 c-s" onclick="snap()">📸 캡처</button>
       <button class="cbtn2 c-d" onclick="discCam()">⏹ 끊기</button>
     </div>
-
-    <!-- 줌 -->
     <div class="zoom-row">
       <div class="zoom-lbl">🔍 줌 조절 (PTZ)</div>
       <input type="range" min="1" max="25" value="1" oninput="toast('줌: '+this.value+'x')">
     </div>
-
-    <!-- 점원에게 메시지 -->
     <div class="pick-box">
       <div class="pick-lbl">💬 점원에게 직접 요청</div>
       <div class="pick-row">
@@ -236,14 +208,10 @@ input[type=range]{width:100%;accent-color:var(--gold);}
     </div>
   </div>
 </div>
-
-<!-- ══ 메뉴 탭 ══ -->
 <div class="sec" id="menu">
   <p class="sec-title">🍞 오늘의 빵</p>
   <div class="menu-grid" id="menuGrid"></div>
 </div>
-
-<!-- ══ 장바구니 탭 ══ -->
 <div class="sec" id="cart">
   <p class="sec-title">🛒 장바구니</p>
   <div id="cartList">
@@ -261,12 +229,10 @@ input[type=range]{width:100%;accent-color:var(--gold);}
     <button class="pay-btn" onclick="openPayModal()">💳 결제하기</button>
   </div>
 </div>
-
-<!-- ══ 안내 탭 ══ -->
 <div class="sec" id="guide">
   <p class="sec-title">📋 이용 안내</p>
   <div class="url-box">
-    <div class="url-txt">🔗 pricelien.netlify.app</div>
+    <div class="url-txt">🔗 iyzoo44-design.github.io/hikvision-web/</div>
     <p>이 주소가 빵집 전용 쇼핑 주소예요.</p>
     <button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button>
   </div>
@@ -302,19 +268,16 @@ input[type=range]{width:100%;accent-color:var(--gold);}
     </a>
   </div>
   <div style="text-align:center;padding:16px 0;color:var(--soft);font-size:.68rem;">
-    행복한 빵집 · pricelien.netlify.app<br>© 2025 BakeryCam
+    행복한 빵집 · iyzoo44-design.github.io/hikvision-web/<br>© 2025 BakeryCam
   </div>
 </div>
-
-</div><!-- /app -->
-
+</div>
 <div class="bottom-bar">
   <button class="btab on" onclick="goBottom('cam',this)"><span class="ico">📷</span>카메라</button>
   <button class="btab" onclick="goBottom('menu',this)"><span class="ico">🍞</span>메뉴</button>
   <button class="btab" onclick="goBottom('cart',this)"><span class="ico">🛒</span>장바구니<div class="ccnt" id="ccnt">0</div></button>
   <button class="btab" onclick="goBottom('guide',this)"><span class="ico">📋</span>안내</button>
 </div>
-
 <div class="modal-bg" id="doneModal">
   <div class="modal">
     <div style="font-size:3rem;margin-bottom:8px;">🎉</div>
@@ -323,7 +286,6 @@ input[type=range]{width:100%;accent-color:var(--gold);}
     <button class="modal-btn" onclick="closeDone()">확인</button>
   </div>
 </div>
-
 <div class="modal-bg" id="payModal">
   <div class="pay-modal">
     <h3>💳 결제하기</h3>
@@ -343,14 +305,9 @@ input[type=range]{width:100%;accent-color:var(--gold);}
     <button class="cancel-btn" onclick="closePayModal()">취소</button>
   </div>
 </div>
-
 <div class="toast" id="toastEl"></div>
-
-<script type="module">
+<script>
 // ══ Firebase 설정 ══
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",
   authDomain: "dongne-bakery.firebaseapp.com",
@@ -360,11 +317,12 @@ const firebaseConfig = {
   messagingSenderId: "835419452184",
   appId: "1:835419452184:web:e710137926fc24ffd8646d"
 };
+const fbApp = firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-const fbApp = initializeApp(firebaseConfig);
-const db = getDatabase(fbApp);// ══ HLS 스트림 설정 ══
-// ngrok 주소 (PC가 꺼지거나 ngrok 재시작시 이 주소가 바뀝니다)
-const HLS_URL ='https://camera.priceline.co.kr';
+// ══ HLS 스트림 설정 ══
+const HLS_URL = 'https://camera.priceline.co.kr';
+
 const MENU = [
   {id:1,e:'🥐',name:'크루아상', desc:'버터향 가득 바삭',   price:3200},
   {id:2,e:'🥖',name:'바게트',   desc:'겉바속촉 정통',    price:4500},
@@ -378,7 +336,6 @@ const MENU = [
 
 let cart={}, callOn=false, selPayMethod='', hlsInstance=null, connected=false;
 
-// ══ 탭 전환 ══
 function goTab(id,btn){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
@@ -391,20 +348,18 @@ function goBottom(id,btn){
   document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));
   document.getElementById(id).classList.add('on');
   btn.classList.add('on');
-  const idx=['cam','menu','cart','guide'].indexOf(id);
 }
 function syncBottom(id){
   const idx=['cam','menu','cart','guide'].indexOf(id);
   document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));
 }
 
-// ══ 포인터 기능 ══
 function sendPointer(e){
   const scr=document.getElementById('camScr');
   const rect=scr.getBoundingClientRect();
   const rx=((e.clientX||e.touches[0].clientX)-rect.left)/rect.width;
   const ry=((e.clientY||e.touches[0].clientY)-rect.top)/rect.height;
-  set(ref(db,'pointer'),{rx,ry,t:Date.now()});
+  db.ref('pointer').set({rx,ry,t:Date.now()});
   showPointer(rx,ry);
 }
 function showPointer(rx,ry){
@@ -419,11 +374,11 @@ function showPointer(rx,ry){
   dot.style.left=(rx*scr.offsetWidth)+'px';
   dot.style.top=(ry*scr.offsetHeight)+'px';
 }
-// 점원 화면에서 고객 포인터 수신
-onValue(ref(db,'pointer'),snap=>{
+db.ref('pointer').on('value',function(snap){
   const d=snap.val();
   if(d)showPointer(d.rx,d.ry);
-});// ══ 카메라 연결 (HLS) ══
+});
+
 function connCam(){
   if(connected){toast('이미 연결되어 있어요!');return;}
   const overlay=document.getElementById('camOverlay');
@@ -443,63 +398,15 @@ function connCam(){
   setStep(2);
   toast('📹 카메라 연결됐어요!');
 }
-function loadHLS(video, overlay, status){
-  if(Hls.isSupported()){
-    hlsInstance=new Hls({
-      xhrSetup: function(xhr, url){
-        xhr.setRequestHeader('ngrok-skip-browser-warning','true');
-        xhr.setRequestHeader('Access-Control-Allow-Origin','*');
-      },
-      enableWorker: false,
-      lowLatencyMode: false,
-      manifestLoadingTimeOut: 10000,
-      manifestLoadingMaxRetry: 3,
-    });
-    hlsInstance.loadSource(HLS_URL);
-    hlsInstance.attachMedia(video);
-    hlsInstance.on(Hls.Events.MANIFEST_PARSED,function(){
-      video.play();
-      video.style.display='block';
-      overlay.style.display='none';
-      status.textContent='🔴 LIVE';
-      status.style.background='#B71C1C';
-      connected=true;
-      setStep(2);
-      toast('📷 빵집 카메라 연결됐어요!');
-    });
-    hlsInstance.on(Hls.Events.ERROR,function(e,data){
-      if(data.fatal){
-        status.textContent='⚫ 연결 실패';
-        status.style.background='rgba(0,0,0,.6)';status.style.color='rgba(255,255,255,.5)';
-        toast('❌ 연결 실패 — PC에서 MediaMTX가 실행 중인지 확인해주세요');
-      }
-    });
-  } else if(video.canPlayType('application/vnd.apple.mpegurl')){
-    // iOS Safari
-    video.src=HLS_URL + '?ngrok-skip-browser-warning=true';
-    video.addEventListener('loadedmetadata',function(){
-      video.play();
-      video.style.display='block';
-      overlay.style.display='none';
-      status.textContent='🔴 LIVE';
-      status.style.background='#B71C1C';
-      connected=true;
-      setStep(2);
-      toast('📷 빵집 카메라 연결됐어요!');
-    });
-    video.addEventListener('error',function(){
-      toast('❌ 연결 실패 — PC에서 MediaMTX가 실행 중인지 확인해주세요');
-    });
-  } else {
-    toast('❌ 이 브라우저는 HLS를 지원하지 않아요');
-  }
-}
 
 function discCam(){
   if(hlsInstance){hlsInstance.destroy();hlsInstance=null;}
   const video=document.getElementById('hlsVideo');
   const overlay=document.getElementById('camOverlay');
   const status=document.getElementById('streamStatus');
+  const scr=document.getElementById('camScr');
+  const iframe=scr.querySelector('iframe');
+  if(iframe)iframe.remove();
   video.style.display='none';
   video.src='';
   overlay.style.display='flex';
@@ -512,7 +419,6 @@ function discCam(){
 
 function snap(){toast('📸 화면 캡처됐어요!');}
 
-// ══ 메뉴 ══
 function renderMenu(){
   document.getElementById('menuGrid').innerHTML=MENU.map(m=>`
     <div class="mc" onclick="addCart(${m.id})">
@@ -526,7 +432,6 @@ function renderMenu(){
     </div>`).join('');
 }
 
-// ══ 장바구니 ══
 function addCart(id){
   const m=MENU.find(x=>x.id===id);if(!m)return;
   cart[id]=cart[id]||{...m,qty:0};cart[id].qty++;
@@ -567,7 +472,6 @@ function updateCart(){
     </div>`).join('');
 }
 
-// ══ 단계 표시 ══
 function setStep(n){
   for(let i=1;i<=4;i++){
     const el=document.getElementById('st'+i);
@@ -577,7 +481,6 @@ function setStep(n){
   }
 }
 
-// ══ 통화 ══
 function toggleCall(){
   callOn=!callOn;
   const btn=document.getElementById('callBtn');
@@ -594,14 +497,12 @@ function toggleCall(){
   }
 }
 
-// ══ 픽업 요청 ══
 function sendPick(){
   const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;
   toast('💬 점원에게 전달: "'+msg+'"');
   document.getElementById('pickMsg').value='';
 }
 
-// ══ 결제 ══
 function openPayModal(){
   if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}
   document.getElementById('payModal').classList.add('open');
@@ -628,15 +529,13 @@ function closeDone(){
   document.getElementById('addrInp').value='';
 }
 
-// ══ 주소 복사 ══
 function copyUrl(){
-  const url='https://pricelien.netlify.app';
+  const url='https://iyzoo44-design.github.io/hikvision-web/';
   if(navigator.clipboard){
     navigator.clipboard.writeText(url).then(()=>toast('📋 주소 복사됐어요!'));
   } else {toast('주소: '+url);}
 }
 
-// ══ 토스트 ══
 function toast(msg){
   const el=document.getElementById('toastEl');
   el.textContent=msg;el.classList.add('show');
