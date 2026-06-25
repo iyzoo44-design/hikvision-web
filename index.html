@@ -394,7 +394,7 @@ async function toggleCall(){
   const btn=document.getElementById('callBtn'),dot=document.getElementById('cdot'),txt=document.getElementById('ctxt');
   if(pc){endCall();btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';txt.textContent='🎧 점원 연결 대기 중';document.getElementById('voiceViz').classList.remove('on');toast('통화가 종료됐어요');return;}
   btn.className='cbtn v-ring';btn.textContent='⏳ 연결 중...';dot.className='cdot ring';txt.textContent='🔔 점원 호출 중...';
-  try{localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});}
+  try{localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}),video:false});}
   catch(err){toast('⚠️ 마이크 권한이 필요해요');btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';return;}
   await startWebRTC();
   btn.className='cbtn v-off';btn.textContent='📵 통화 종료';dot.className='cdot on';txt.textContent='🔴 통화 중 — 점원 AR 안경 연결됨';
