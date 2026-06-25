@@ -410,7 +410,7 @@ async function toggleCall(){
   btn.className='ringing'; btn.textContent='⏳ 마이크 준비 중...';
 
   try{
-    localStream = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    localStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}),video:false});
   }catch(err){
     showMsg('⚠️ 마이크 권한이 필요해요');
     btn.className=''; btn.textContent='📞 통화 대기 중';
