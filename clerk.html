@@ -131,7 +131,7 @@ html,body{
 
 /* ── 하단 정보 패널 ── */
 #infoPanel{
-  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  position:fixed;bottom:160px;left:0;right:0;z-index:100;
   background:rgba(0,0,0,0.82);
   border-top:1px solid rgba(255,255,255,.08);
   padding:8px 14px 10px;
@@ -144,7 +144,7 @@ html,body{
 
 /* ── 통화 버튼 ── */
 #callPanel{
-  position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  position:fixed;bottom:230px;left:50%;transform:translateX(-50%);
   z-index:101;display:flex;gap:8px;align-items:center;
 }
 #callBtn{
@@ -204,6 +204,46 @@ html,body{
   position:fixed;bottom:72px;right:10px;
   font-size:10px;color:rgba(255,255,255,.25);
   font-family:monospace;z-index:60;
+}
+
+/* 상품 추가 패널 */
+#orderPanel{
+  position:fixed;bottom:0;left:0;right:0;z-index:110;
+  background:rgba(10,5,0,0.95);
+  border-top:1px solid rgba(184,134,11,0.3);
+  padding:8px 10px 10px;
+}
+#orderTotal{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;padding:6px 10px;
+  background:rgba(184,134,11,0.15);border-radius:8px;
+}
+#orderTotalAmt{
+  font-size:1.1rem;font-weight:700;color:#FFD9A0;font-family:monospace;
+}
+.order-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;
+}
+.order-btn{
+  padding:7px 2px;border:none;border-radius:8px;
+  background:rgba(255,255,255,0.08);color:rgba(255,190,80,0.9);
+  font-family:'Noto Sans KR',sans-serif;font-size:0.62rem;font-weight:700;
+  cursor:pointer;text-align:center;line-height:1.4;
+  transition:all .15s;-webkit-user-select:none;user-select:none;
+}
+.order-btn:active{background:rgba(184,134,11,0.6);transform:scale(0.94);}
+.order-btn .ob-em{font-size:1.1rem;display:block;margin-bottom:2px;}
+.order-btn .ob-price{font-size:0.55rem;color:rgba(255,190,80,0.5);}
+.order-row{display:flex;gap:5px;}
+#orderClearBtn{
+  flex:1;padding:7px;border:none;border-radius:8px;
+  background:rgba(123,28,28,0.7);color:#fff;
+  font-family:'Noto Sans KR',sans-serif;font-size:0.68rem;font-weight:700;cursor:pointer;
+}
+#orderConfirmBtn{
+  flex:2;padding:7px;border:none;border-radius:8px;
+  background:rgba(27,94,32,0.9);color:#fff;
+  font-family:'Noto Sans KR',sans-serif;font-size:0.72rem;font-weight:700;cursor:pointer;
 }
 </style>
 </head>
@@ -270,6 +310,20 @@ html,body{
   <div class="info-row">
     <span class="info-key">마지막 터치</span>
     <span class="info-val" id="lastTouch">—</span>
+  </div>
+</div>
+
+<!-- 상품 추가 패널 -->
+<div id="orderPanel">
+  <div id="orderTotal">
+    <span style="font-size:.65rem;color:rgba(255,190,80,.5);">🧾 현재 합계</span>
+    <span id="orderTotalAmt">₩0</span>
+    <span id="orderItemCount" style="font-size:.6rem;color:rgba(255,190,80,.4);">0개</span>
+  </div>
+  <div class="order-grid" id="orderGrid"></div>
+  <div class="order-row">
+    <button id="orderClearBtn" onclick="clearOrder()">🗑 전체 취소</button>
+    <button id="orderConfirmBtn" onclick="confirmOrder()">✅ 결제 요청 전송</button>
   </div>
 </div>
 
@@ -410,7 +464,7 @@ async function toggleCall(){
   btn.className='ringing'; btn.textContent='⏳ 마이크 준비 중...';
 
   try{
-    localStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+    localStream = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
   }catch(err){
     showMsg('⚠️ 마이크 권한이 필요해요');
     btn.className=''; btn.textContent='📞 통화 대기 중';
@@ -485,6 +539,79 @@ function showMsg(msg){
   el.textContent=msg; el.style.display='block';
   setTimeout(()=>{el.style.display='none';},3500);
 }
+
+
+// ═══════════════════════════════════════════
+// 상품 추가 (점원용)
+// ═══════════════════════════════════════════
+const MENU = [
+  {id:1,e:'🥐',name:'크루아상',price:3200},
+  {id:2,e:'🥖',name:'바게트',price:4500},
+  {id:3,e:'🍞',name:'식빵',price:5500},
+  {id:4,e:'🫓',name:'단팥빵',price:2500},
+  {id:5,e:'🧁',name:'소보로',price:2800},
+  {id:6,e:'🧇',name:'머핀',price:3500},
+  {id:7,e:'🍩',name:'도넛',price:2200},
+  {id:8,e:'🫙',name:'베이글',price:3800}
+];
+
+let orderItems = [];
+
+function renderOrderGrid(){
+  const grid = document.getElementById('orderGrid');
+  grid.innerHTML = MENU.map(m => `
+    <button class="order-btn" onclick="addItem(${m.id})">
+      <span class="ob-em">${m.e}</span>
+      ${m.name}
+      <span class="ob-price">₩${m.price.toLocaleString()}</span>
+    </button>
+  `).join('');
+}
+
+function addItem(id){
+  const m = MENU.find(x=>x.id===id);
+  if(!m) return;
+  const exist = orderItems.find(x=>x.id===id);
+  if(exist){ exist.qty++; }
+  else { orderItems.push({...m, qty:1}); }
+  updateOrderDisplay();
+  sendOrderToFirebase();
+  showMsg(`${m.e} ${m.name} 추가!`);
+}
+
+function updateOrderDisplay(){
+  const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
+  const count = orderItems.reduce((s,i)=>s+i.qty, 0);
+  document.getElementById('orderTotalAmt').textContent = '₩'+total.toLocaleString();
+  document.getElementById('orderItemCount').textContent = count+'개';
+}
+
+function sendOrderToFirebase(){
+  const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
+  const count = orderItems.reduce((s,i)=>s+i.qty, 0);
+  db.ref('liveOrder').set({
+    items: orderItems,
+    total: total,
+    count: count,
+    t: Date.now()
+  });
+}
+
+function clearOrder(){
+  orderItems = [];
+  updateOrderDisplay();
+  db.ref('liveOrder').set({items:[], total:0, count:0, t:Date.now()});
+  showMsg('🗑 주문이 초기화됐어요');
+}
+
+function confirmOrder(){
+  const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
+  if(total === 0){ showMsg('⚠️ 상품을 먼저 추가해주세요'); return; }
+  db.ref('liveOrder').update({confirmed:true, t:Date.now()});
+  showMsg('✅ 결제 요청을 고객에게 전송했어요!');
+}
+
+renderOrderGrid();
 
 // ── 시계 ──
 setInterval(()=>{
