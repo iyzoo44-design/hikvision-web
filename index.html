@@ -353,6 +353,13 @@ const camScr=document.getElementById('camScr');
 camScr.addEventListener('touchstart',function(e){if(e.touches.length===2){pinchStartDist=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);pinchStartZoom=curZoom;e.preventDefault();}},{passive:false});
 camScr.addEventListener('touchmove',function(e){if(e.touches.length===2){const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);setZoom(pinchStartZoom*(d/pinchStartDist));e.preventDefault();}},{passive:false});
 
+
+// ── PTZ 프리셋 이동 ──
+function gotoPreset(presetNo){
+  db.ref('ptz').set({cmd:'preset', preset:presetNo, t:Date.now()});
+  toast('📷 카메라 이동 중...');
+}
+
 // ── PTZ 명령 ──
 function ptz(cmd){
   db.ref('ptz').set({cmd:cmd,t:Date.now()});
@@ -394,7 +401,7 @@ async function toggleCall(){
   const btn=document.getElementById('callBtn'),dot=document.getElementById('cdot'),txt=document.getElementById('ctxt');
   if(pc){endCall();btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';txt.textContent='🎧 점원 연결 대기 중';document.getElementById('voiceViz').classList.remove('on');toast('통화가 종료됐어요');return;}
   btn.className='cbtn v-ring';btn.textContent='⏳ 연결 중...';dot.className='cdot ring';txt.textContent='🔔 점원 호출 중...';
-  try{localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});}
+  try{localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});}
   catch(err){toast('⚠️ 마이크 권한이 필요해요');btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';return;}
   await startWebRTC();
   btn.className='cbtn v-off';btn.textContent='📵 통화 종료';dot.className='cdot on';txt.textContent='🔴 통화 중 — 점원 AR 안경 연결됨';
@@ -413,8 +420,46 @@ async function startWebRTC(){
 }
 function endCall(){if(pc){pc.close();pc=null;}if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}db.ref(`rtc/${ROOM_ID}`).remove();document.getElementById('remoteAudio').srcObject=null;}
 
+
+// ── 실시간 주문 수신 (점원이 픽할때마다 업데이트) ──
+db.ref('liveOrder').on('value', function(snap){
+  const d = snap.val();
+  if(!d) return;
+  updateLiveOrder(d);
+});
+
+function updateLiveOrder(d){
+  const total = d.total || 0;
+  const count = d.count || 0;
+  const confirmed = d.confirmed || false;
+
+  // 카메라 화면 아래 실시간 금액 표시
+  let liveBar = document.getElementById('liveOrderBar');
+  if(!liveBar){
+    liveBar = document.createElement('div');
+    liveBar.id = 'liveOrderBar';
+    liveBar.style.cssText = 'background:rgba(44,21,3,0.95);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(184,134,11,0.3);';
+    document.querySelector('.cam-box').after(liveBar);
+  }
+
+  if(total === 0){
+    liveBar.innerHTML = '<span style="font-size:.7rem;color:rgba(255,190,80,.4);">🧾 점원이 상품을 선택 중...</span>';
+    return;
+  }
+
+  const itemList = (d.items||[]).map(i=>`${i.e}×${i.qty}`).join(' ');
+  liveBar.innerHTML = `
+    <div>
+      <div style="font-size:.6rem;color:rgba(255,190,80,.5);margin-bottom:2px;">${itemList}</div>
+      <div style="font-size:.75rem;color:rgba(255,190,80,.7);">합계 ${count}개</div>
+    </div>
+    <div style="font-size:1.2rem;font-weight:700;color:#FFD9A0;font-family:monospace;">₩${total.toLocaleString()}</div>
+    ${confirmed ? `<button onclick="openPayModal()" style="padding:7px 14px;background:#D2691E;color:#fff;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;">💳 결제하기</button>` : '<span style="font-size:.62rem;color:rgba(255,190,80,.35);">선택 중...</span>'}
+  `;
+}
+
 function sendPick(){const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;db.ref('messages').push({msg,t:Date.now()});toast('💬 점원에게 전달: "'+msg+'"');document.getElementById('pickMsg').value='';}
-function renderMenu(){document.getElementById('menuGrid').innerHTML=MENU.map(m=>`<div class="mc" onclick="addCart(${m.id})"><div class="mth">${m.e}</div><div class="mi"><div class="mn">${m.name}</div><div class="md">${m.desc}</div><div class="mp">₩${m.price.toLocaleString()}</div><button class="mbtn">+ 담기</button></div></div>`).join('');}
+function renderMenu(){document.getElementById('menuGrid').innerHTML=MENU.map(m=>`<div class="mc" onclick="gotoPreset(${m.id})"><div class="mth">${m.e}</div><div class="mi"><div class="mn">${m.name}</div><div class="md">${m.desc}</div><div class="mp">₩${m.price.toLocaleString()}</div><button class="mbtn" onclick="event.stopPropagation();gotoPreset(${m.id})">📷 카메라 이동</button></div></div>`).join('');}
 function addCart(id){const m=MENU.find(x=>x.id===id);if(!m)return;cart[id]=cart[id]||{...m,qty:0};cart[id].qty++;updateCart();setStep(3);toast(m.e+' '+m.name+' 담았어요!');}
 function changeQty(id,d){if(!cart[id])return;cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];updateCart();}
 function updateCart(){const items=Object.values(cart);const total=items.reduce((s,i)=>s+i.price*i.qty,0);const count=items.reduce((s,i)=>s+i.qty,0);const badge=document.getElementById('ccnt');badge.textContent=count;count>0?badge.classList.add('show'):badge.classList.remove('show');document.getElementById('totalPr').textContent='₩'+total.toLocaleString();document.getElementById('payTotalVal').textContent='₩'+(total+3000).toLocaleString();const box=document.getElementById('cartBottom');const list=document.getElementById('cartList');if(!items.length){list.innerHTML='<div class="cart-empty"><span class="emo">🛒</span>장바구니가 비어 있어요</div>';box.style.display='none';return;}box.style.display='block';list.innerHTML=items.map(i=>`<div class="ci"><div class="ci-em">${i.e}</div><div class="ci-info"><div class="ci-nm">${i.name}</div><div class="ci-pr">₩${i.price.toLocaleString()} × ${i.qty} = ₩${(i.price*i.qty).toLocaleString()}</div></div><div class="ci-qty"><button class="qb" onclick="changeQty(${i.id},-1)">−</button><span style="font-size:.8rem;font-weight:700;min-width:14px;text-align:center;">${i.qty}</span><button class="qb" onclick="changeQty(${i.id},1)">+</button></div></div>`).join('');}
