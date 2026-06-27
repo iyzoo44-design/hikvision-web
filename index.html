@@ -428,11 +428,22 @@ db.ref('liveOrder').on('value', function(snap){
   updateLiveOrder(d);
 });
 
+// ── Firebase liveOrder → 장바구니 자동 동기화 ──
+function syncCartFromOrder(items){
+  if(!items || items.length===0){ cart={}; updateCart(); return; }
+  cart = {};
+  items.forEach(i=>{
+    cart[i.id] = {...i};
+  });
+  updateCart();
+}
+
 function updateLiveOrder(d){
   const total = d.total || 0;
   const count = d.count || 0;
   const confirmed = d.confirmed || false;
   const items = d.items || [];
+  syncCartFromOrder(items); // 장바구니 자동 동기화
 
   let liveBar = document.getElementById('liveOrderBar');
   if(!liveBar){
