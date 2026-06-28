@@ -311,9 +311,12 @@ async function connCam(){
   try {
     camPc = new RTCPeerConnection();
 
+    const ms = new MediaStream();
+    video.srcObject = ms;
+
     camPc.ontrack = (e) => {
+      ms.addTrack(e.track);
       if(e.track.kind === 'video'){
-        video.srcObject = e.streams[0];
         video.play().catch(()=>{});
         overlay.style.display = 'none';
         status.textContent = '🔴 LIVE';
