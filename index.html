@@ -178,7 +178,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
     <div class="cam-screen" id="camScr">
       <div id="voiceViz"><div class="vbar"></div><div class="vbar"></div><div class="vbar"></div><div class="vbar"></div><div class="vbar"></div></div>
       <div id="zoomWrap">
-        <video id="camVideo" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;"></video>
+        <iframe id="camIframe" src="" allowfullscreen allow="autoplay"></iframe>
         <div class="cam-grid"></div>
       </div>
       <div id="pointerLayer"></div>
@@ -290,7 +290,6 @@ const firebaseConfig={apiKey:"AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",authDomai
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 const HLS_URL='https://camera.priceline.co.kr';
-const WHEP_URL='https://whep.priceline.co.kr';
 const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800}];
 let cart={},selPayMethod='',connected=false,isFullscreen=false;
 
@@ -299,85 +298,22 @@ function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classLi
 function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
 
 // ── 카메라 ──
-let camPc = null;
-
-async function connCam(){
-  if(connected) return;
-  const video = document.getElementById('camVideo');
-  const overlay = document.getElementById('camOverlay');
-  const status = document.getElementById('streamStatus');
-  status.textContent = '🟡 연결 중...';
-
-  try {
-    camPc = new RTCPeerConnection();
-
-    const ms = new MediaStream();
-    video.srcObject = ms;
-
-    camPc.ontrack = (e) => {
-      ms.addTrack(e.track);
-      if(e.track.kind === 'video'){
-        video.play().catch(()=>{});
-        overlay.style.display = 'none';
-        status.textContent = '🔴 LIVE';
-        status.style.background = '#B71C1C';
-        status.style.color = '#fff';
-        connected = true;
-        setStep(2);
-        initPointer();
-      }
-    };
-
-    camPc.addTransceiver('video', {direction:'recvonly'});
-    camPc.addTransceiver('audio', {direction:'recvonly'});
-
-    const offer = await camPc.createOffer();
-    await camPc.setLocalDescription(offer);
-
-    // ICE 후보 수집 완료 대기
-    await new Promise(resolve => {
-      if(camPc.iceGatheringState === 'complete') resolve();
-      camPc.onicegatheringstatechange = () => {
-        if(camPc.iceGatheringState === 'complete') resolve();
-      };
-      setTimeout(resolve, 2000); // 최대 2초 대기
-    });
-
-    const resp = await fetch(WHEP_URL + '/bakery/whep', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/sdp'},
-      body: camPc.localDescription.sdp
-    });
-
-    if(!resp.ok) throw new Error('WHEP 응답 오류: ' + resp.status);
-
-    const sdp = await resp.text();
-    await camPc.setRemoteDescription({type:'answer', sdp});
-    console.log('[WHEP] 카메라 연결 성공!');
-
-  } catch(err) {
-    console.warn('[WHEP 실패, HLS 폴백]', err);
-    // HLS 폴백
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
-    iframe.src = HLS_URL + '/bakery';
-    video.parentNode.insertBefore(iframe, video);
-    video.style.display = 'none';
-    setTimeout(()=>{
-      overlay.style.display = 'none';
-      status.textContent = '🔴 LIVE';
-      status.style.background = '#B71C1C';
-      status.style.color = '#fff';
-      connected = true;
-      setStep(2);
-      initPointer();
-    }, 2000);
-  }
+function connCam(){
+  if(connected)return;
+  const iframe=document.getElementById('camIframe');
+  const overlay=document.getElementById('camOverlay');
+  const status=document.getElementById('streamStatus');
+  iframe.src=HLS_URL+'/bakery';
+  setTimeout(()=>{
+    overlay.style.display='none';
+    status.textContent='🔴 LIVE';
+    status.style.background='#B71C1C';
+    status.style.color='#fff';
+    connected=true;setStep(2);initPointer();
+  },2000);
 }
 function discCam(){
-  const v = document.getElementById('camVideo');
-  if(v && v.srcObject){ v.srcObject.getTracks().forEach(t=>t.stop()); v.srcObject=null; }
-  if(camPc){ camPc.close(); camPc=null; }
+  document.getElementById('camIframe').src='';
   const o=document.getElementById('camOverlay');
   o.style.display='flex';
   o.querySelector('p').innerHTML='카메라 연결 대기 중<br><span style="font-size:.62rem;opacity:.6;">아래 [연결] 버튼을 눌러주세요</span>';
