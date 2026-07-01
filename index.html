@@ -273,7 +273,7 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 // ── WHEP URL ──
-const IVS_URL='https://1419114aceae.ap-northeast-2.playback.live-video.net/api/video/v1/ap-northeast-2.481766170628.channel.2TbXiTs1diD6.m3u8';
+const WHEP_URL='http://182.227.163.91:8889';
 
 const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800}];
 let cart={},selPayMethod='',connected=false,isFullscreen=false;
@@ -288,29 +288,12 @@ async function connCam(){
   if(connected)return;
   const status=document.getElementById('streamStatus');
   status.textContent='🟡 연결 중...';
-  try {
-    const video=document.getElementById('camVideo');
-      const overlay=document.getElementById('camOverlay');
-      if(window.Hls&&Hls.isSupported()){
-  const hls=new Hls();
-  hls.loadSource(IVS_URL);
-  hls.attachMedia(video);
-  hls.on(Hls.Events.MANIFEST_PARSED,function(){video.play();});
-}else{
-  video.src=IVS_URL;
-  video.play();
-}
-      overlay.style.display='none';
-      status.textContent='🔴 LIVE';
-      status.style.background='#B71C1C';
-      status.style.color='#fff';
-      connected=true;
-      setStep(2);
-      initPointer();
-  } catch(e) {
-    console.error('WHEP 연결 실패:', e);
+  try{
+    await startWHEP();
+  }catch(e){
+    console.error('연결 실패:',e);
     status.textContent='⚠️ 재시도 중...';
-    whepRetryTimer = setTimeout(connCam, 3000);
+    whepRetryTimer=setTimeout(connCam,3000);
   }
 }
 
