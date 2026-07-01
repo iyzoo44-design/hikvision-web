@@ -138,6 +138,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .confirm-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
 .cancel-btn{width:100%;padding:10px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -290,8 +291,15 @@ async function connCam(){
   try {
     const video=document.getElementById('camVideo');
       const overlay=document.getElementById('camOverlay');
-      video.src=IVS_URL;
-      video.play();
+      if(window.Hls&&Hls.isSupported()){
+  const hls=new Hls();
+  hls.loadSource(IVS_URL);
+  hls.attachMedia(video);
+  hls.on(Hls.Events.MANIFEST_PARSED,function(){video.play();});
+}else{
+  video.src=IVS_URL;
+  video.play();
+}
       overlay.style.display='none';
       status.textContent='🔴 LIVE';
       status.style.background='#B71C1C';
