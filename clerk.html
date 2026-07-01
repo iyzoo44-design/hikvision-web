@@ -245,7 +245,10 @@ html,body{
   background:rgba(27,94,32,0.9);color:#fff;
   font-family:'Noto Sans KR',sans-serif;font-size:0.72rem;font-weight:700;cursor:pointer;
 }
+
+
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
 </head>
 <body>
 
@@ -346,7 +349,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const CAM_URL  = 'https://camera.priceline.co.kr';
+const WHEP_URL = 'https://whep.priceline.co.kr';
 const ROOM_ID  = 'bakery-room-001';
 
 // ── Firebase 연결 상태 ──
@@ -359,16 +362,73 @@ db.ref('.info/connected').on('value', snap=>{
 // ═══════════════════════════════════════════
 // 카메라 연결
 // ═══════════════════════════════════════════
-function connCam(){
-  const iframe = document.getElementById('camIframe');
-  const ph     = document.getElementById('camPlaceholder');
-  const btn    = document.getElementById('camConnBtn');
-  iframe.src = CAM_URL+'/bakery';
-  iframe.style.display = 'block';
-  ph.style.display = 'none';
-  btn.style.display = 'none';
+let camPc=null, camRetryTimer=null, camConnected=false;
+
+async function connCam(){
+  const btn=document.getElementById('camConnBtn');
+  btn.style.display='none';
+  document.getElementById('camPlaceholder').style.display='none';
+  await startCamWHEP();
 }
 
+async function startCamWHEP(){
+  if(camPc){camPc.close();camPc=null;}
+  const video=document.createElement('video');
+  video.autoplay=true;
+  video.playsinline=true;
+  video.muted=true;
+  video.style.cssText='width:100%;height:100%;object-fit:cover;';
+  const camArea=document.getElementById('camArea');
+  camArea.innerHTML='';
+  camArea.appendChild(video);
+
+  const pc2=new RTCPeerConnection({
+    iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+      {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}
+    ]
+  });
+  camPc=pc2;
+
+  pc2.ontrack=function(e){
+    if(e.track.kind==='video'){
+      video.srcObject=e.streams[0];
+      video.onloadedmetadata=function(){
+        video.play().catch(()=>{});
+        camConnected=true;
+      };
+    }
+  };
+
+  pc2.oniceconnectionstatechange=function(){
+    if(pc2.iceConnectionState==='failed'||pc2.iceConnectionState==='disconnected'){
+      camConnected=false;
+      camRetryTimer=setTimeout(startCamWHEP,3000);
+    }
+  };
+
+  pc2.addTransceiver('video',{direction:'recvonly'});
+  pc2.addTransceiver('audio',{direction:'recvonly'});
+
+  const offer=await pc2.createOffer();
+  await pc2.setLocalDescription(offer);
+
+  await new Promise(resolve=>{
+    if(pc2.iceGatheringState==='complete'){resolve();return;}
+    pc2.onicegatheringstatechange=()=>{if(pc2.iceGatheringState==='complete')resolve();};
+    setTimeout(resolve,3000);
+  });
+
+  const resp=await fetch(WHEP_URL+'/bakery/whep',{
+    method:'POST',
+    headers:{'Content-Type':'application/sdp'},
+    body:pc2.localDescription.sdp
+  });
+  if(!resp.ok) throw new Error('WHEP 오류: '+resp.status);
+  const answerSdp=await resp.text();
+  await pc2.setRemoteDescription({type:'answer',sdp:answerSdp});
+}
 // ═══════════════════════════════════════════
 // 포인터 수신 (Firebase)
 // ═══════════════════════════════════════════
