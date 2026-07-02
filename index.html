@@ -139,6 +139,14 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .cancel-btn{width:100%;padding:10px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+<script>
+(function(){
+  const pw = prompt('🔐 접속 비밀번호를 입력하세요');
+  if(pw !== '9999'){
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a0a00;color:#FFD9A0;font-size:1.2rem;font-family:sans-serif;">⛔ 접속 권한이 없습니다</div>';
+  }
+})();
+</script>
 </head>
 <body>
 <div class="app">
