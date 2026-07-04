@@ -245,8 +245,6 @@ html,body{
   background:rgba(27,94,32,0.9);color:#fff;
   font-family:'Noto Sans KR',sans-serif;font-size:0.72rem;font-weight:700;cursor:pointer;
 }
-#clerkZoomBtns{position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;gap:4px;}
-.czb{width:36px;height:36px;border:none;border-radius:8px;background:rgba(0,0,0,.6);color:rgba(255,190,80,.9);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;}
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
@@ -293,10 +291,9 @@ html,body{
 
 <!-- 고객 메시지 알림 -->
 <div id="msgAlert"></div>
-<div id="clerkZoomBtns">
-  <button class="czb" onclick="setClerkZoom(clerkZoom+0.5)">＋</button>
-  <button class="czb" onclick="setClerkZoom(clerkZoom-0.5)">－</button>
-  <button class="czb" onclick="setClerkZoom(1)" style="font-size:.6rem;">1x</button>
+<div id="clerkPtzZoom" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;gap:4px;">
+  <button class="czb" onmousedown="ptz('zoomin')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomin')" ontouchend="ptz('stop')">🔍＋</button>
+  <button class="czb" onmousedown="ptz('zoomout')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomout')" ontouchend="ptz('stop')">🔍－</button>
 </div>
 <!-- 카메라 연결 버튼 -->
 <button id="camConnBtn" onclick="connCam()">📷 카메라 연결</button>
@@ -375,10 +372,7 @@ async function connCam(){
   document.getElementById('camPlaceholder').style.display='none';
   await startCamWHEP();
 }
-let clerkZoom=1,clerkPinchDist=0,clerkPinchZoom=1;
-function setClerkZoom(v){clerkZoom=Math.min(5,Math.max(0.5,v));const v2=document.getElementById('clerkVideo');if(v2)v2.style.transform=`scale(${clerkZoom})`;}
-
-async function startCamWHEP(){
+  async function startCamWHEP(){
   if(camPc){camPc.close();camPc=null;}
   const video=document.createElement('video');
   video.autoplay=true;
@@ -389,8 +383,7 @@ video.id='clerkVideo';
   const camArea=document.getElementById('camArea');
   camArea.innerHTML='';
   camArea.appendChild(video);
-  camArea.addEventListener('touchstart',function(e){if(e.touches.length===2){clerkPinchDist=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);clerkPinchZoom=clerkZoom;e.preventDefault();}},{passive:false});
-  camArea.addEventListener('touchmove',function(e){if(e.touches.length===2){const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);setClerkZoom(clerkPinchZoom*(d/clerkPinchDist));e.preventDefault();}},{passive:false});
+  
   const pc2=new RTCPeerConnection({
     iceServers:[
       {urls:'stun:stun.l.google.com:19302'},
