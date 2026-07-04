@@ -595,7 +595,7 @@ function endCall(){
   document.getElementById('remoteAudio').srcObject=null;
   callActive=false;
 }
-
+function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 function showMsg(msg){
   const el=document.getElementById('msgAlert');
   el.textContent=msg; el.style.display='block';
