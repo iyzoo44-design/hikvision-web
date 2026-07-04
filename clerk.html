@@ -291,9 +291,9 @@ html,body{
 
 <!-- 고객 메시지 알림 -->
 <div id="msgAlert"></div>
-<div id="clerkPtzZoom" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;gap:4px;">
-  <button class="czb" onmousedown="ptz('zoomin')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomin')" ontouchend="ptz('stop')">🔍＋</button>
-  <button class="czb" onmousedown="ptz('zoomout')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomout')" ontouchend="ptz('stop')">🔍－</button>
+<div id="clerkPtzZoom" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;gap:16px;">
+  <button class="czb" onmousedown="ptz('zoomin')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomin')" ontouchend="ptz('stop')" style="-webkit-user-select:none;user-select:none;">확대</button>
+  <button class="czb" onmousedown="ptz('zoomout')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomout')" ontouchend="ptz('stop')" style="-webkit-user-select:none;user-select:none;">축소</button>
 </div>
 <!-- 카메라 연결 버튼 -->
 <button id="camConnBtn" onclick="connCam()">📷 카메라 연결</button>
