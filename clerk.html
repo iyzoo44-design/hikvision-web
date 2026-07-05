@@ -447,7 +447,7 @@ db.ref('pointer').on('value', snap=>{
   if(!d) return;
   showPointer(d.rx, d.ry, d.t);
 });
-
+db.ref('zoom').on('value',function(snap){const d=snap.val();if(d&&d.v){const video=document.getElementById('clerkVideo');if(video){video.style.transform=`scale(${d.v})`;video.style.transformOrigin='center center';}}});
 function showPointer(rx, ry, ts){
   const video=document.getElementById('clerkVideo');
   const rect=video?video.getBoundingClientRect():{left:0,top:0,width:window.innerWidth,height:window.innerHeight};
