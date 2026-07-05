@@ -449,10 +449,10 @@ db.ref('pointer').on('value', snap=>{
 });
 
 function showPointer(rx, ry, ts){
-  const ow = window.innerWidth;
-  const oh = window.innerHeight;
-  const px = rx * ow;
-  const py = ry * oh;
+  const video=document.getElementById('clerkVideo');
+  const rect=video?video.getBoundingClientRect():{left:0,top:0,width:window.innerWidth,height:window.innerHeight};
+  const px=rect.left+rx*rect.width;
+  const py=rect.top+ry*rect.height;
 
   const ptr   = document.getElementById('pointer');
   const lbl   = document.getElementById('pointerLabel');
