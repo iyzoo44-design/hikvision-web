@@ -409,7 +409,7 @@ const arrow=document.getElementById('arrowPointer');
 let pRx=0.5,pRy=0.5,isDragging=false;
 function initPointer(){const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';sendPointerFB(pRx,pRy);}
 function moveArrow(rx,ry){pRx=Math.min(0.97,Math.max(0,rx));pRy=Math.min(0.97,Math.max(0,ry));const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';}
-function sendPointerFB(rx,ry){db.ref('pointer').set({rx,ry,t:Date.now()});}
+function sendPointerFB(rx,ry){const camScrEl=document.getElementById('camScr');db.ref('pointer').set({rx,ry,zoom:curZoom,viewW:camScrEl.offsetWidth,viewH:camScrEl.offsetHeight,t:Date.now()});}
 pointerLayer.addEventListener('mousedown',function(e){if(!connected)return;isDragging=true;doMove(e);});
 pointerLayer.addEventListener('mousemove',function(e){if(!isDragging||!connected)return;doMove(e);});
 pointerLayer.addEventListener('mouseup',function(){if(!isDragging)return;isDragging=false;sendPointerFB(pRx,pRy);});
