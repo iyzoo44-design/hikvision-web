@@ -187,12 +187,14 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
       <svg id="arrowPointer" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
         <polygon points="3,3 3,30 12,22 16,35 21,33 17,20 28,20" fill="#ff2020" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
       </svg>
-      <div class="zoom-btn-row">
-        <button class="z-btn" onclick="zoomStep(1)">＋</button>
-        <button class="z-btn" onclick="zoomStep(-1)">－</button>
-        <button class="z-btn" onclick="zoomReset()" style="font-size:.6rem;">1x</button>
-      </div>
-      <div id="zoomLbl">1.0x</div>
+      <div style="position:absolute;right:8px;bottom:50px;z-index:30;display:flex;flex-direction:column;align-items:center;gap:4px;">
+  <span style="font-size:.55rem;color:rgba(255,190,80,.5);">확대</span>
+  <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1"
+    style="writing-mode:vertical-lr;direction:rtl;width:28px;height:120px;cursor:pointer;accent-color:#B8860B;"
+    oninput="onZoomSlide(this.value)">
+  <span style="font-size:.55rem;color:rgba(255,190,80,.5);">축소</span>
+  <span id="zoomLbl" style="font-size:.55rem;color:rgba(255,190,80,.5);">1.0x</span>
+</div>
     </div>
     <div class="call-bar">
       <div class="cdot" id="cdot"></div>
@@ -397,6 +399,7 @@ let curZoom=1,pinchStartDist=0,pinchStartZoom=1;
 function setZoom(v){curZoom=Math.min(5,Math.max(1,v));document.getElementById('zoomWrap').style.transform=`scale(${curZoom})`;document.getElementById('zoomLbl').textContent=curZoom.toFixed(1)+'x';}
 function zoomStep(d){setZoom(curZoom+d*0.5);}
 function zoomReset(){setZoom(1);}
+function onZoomSlide(v){setZoom(parseFloat(v));db.ref('zoom').set({v:parseFloat(v),t:Date.now()});}  
 const camScr=document.getElementById('camScr');
 camScr.addEventListener('touchstart',function(e){if(e.touches.length===2){pinchStartDist=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);pinchStartZoom=curZoom;e.preventDefault();}},{passive:false});
 camScr.addEventListener('touchmove',function(e){if(e.touches.length===2){const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);setZoom(pinchStartZoom*(d/pinchStartDist));e.preventDefault();}},{passive:false});
