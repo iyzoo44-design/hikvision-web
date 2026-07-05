@@ -423,7 +423,7 @@ pointerLayer.addEventListener('touchend',function(e){if(!isDragging)return;isDra
 function doMove(e){const r=camScr.getBoundingClientRect();moveArrow((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);}
 function doMoveT(t){const r=camScr.getBoundingClientRect();moveArrow((t.clientX-r.left)/r.width,(t.clientY-r.top)/r.height);}
 db.ref('pointer').on('value',function(snap){const d=snap.val();if(d&&!isDragging)moveArrow(d.rx,d.ry);});
-
+db.ref('zoom').on('value',function(snap){const d=snap.val();if(d&&d.v&&!isDragging){setZoom(d.v);document.getElementById('zoomSlider').value=d.v;}});
 const ROOM_ID='bakery-room-001';
 let pc=null,localStream=null;
 async function toggleCall(){
