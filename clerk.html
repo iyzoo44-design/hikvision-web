@@ -45,7 +45,12 @@ html,body{
 /* ── 카메라 영역 ── */
 #camArea{
   position:fixed;
-  inset:0;
+  top:40px;
+  left:0;
+  right:0;
+  width:100%;
+  aspect-ratio:4/3;
+  overflow:hidden;
   background:#0a0500;
 }
 #camIframe{
@@ -443,6 +448,8 @@ db.ref('pointer').on('value', snap=>{
   showPointer(d.rx, d.ry, d.t);
 });
 
+function showPointer(rx, ry, ts){
+  const video=document.getElementById('clerkVideo');
   const rect=video?video.getBoundingClientRect():{left:0,top:0,width:window.innerWidth,height:window.innerHeight};
   const px=rect.left+rx*rect.width;
   const py=rect.top+ry*rect.height;
@@ -490,6 +497,7 @@ db.ref('pointer').on('value', snap=>{
     cv.textContent = '수신 대기 중...';
     cv.className = 'info-val';
   }, 5000);
+}
 
 // ═══════════════════════════════════════════
 // 고객 메시지 수신
