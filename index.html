@@ -50,10 +50,28 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 #fullBtn{position:absolute;top:6px;right:6px;z-index:30;width:30px;height:30px;border:none;border-radius:6px;background:rgba(0,0,0,.55);color:rgba(255,190,80,.9);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 #fullBtn:active{background:rgba(184,134,11,.7);}
 .cam-screen.fullscreen{position:fixed;inset:0;z-index:500;aspect-ratio:unset;width:100vw;height:100vh;border-radius:0;}
-.zoom-btn-row{position:absolute;bottom:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:30;}
-.z-btn{width:32px;height:32px;border:none;border-radius:8px;background:rgba(0,0,0,.55);color:rgba(255,190,80,.9);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;}
-.z-btn:active{background:rgba(184,134,11,.7);}
-#zoomLbl{position:absolute;bottom:8px;left:8px;font-size:.58rem;color:rgba(255,190,80,.5);z-index:30;pointer-events:none;}
+#zoomSliderWrap{
+  position:absolute;top:50%;right:8px;transform:translateY(-50%);
+  z-index:30;display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:rgba(0,0,0,.5);padding:8px 6px;border-radius:14px;
+}
+#zoomSliderWrap .zs-ico{font-size:.7rem;color:rgba(255,190,80,.85);}
+.zs-track-wrap{width:28px;height:110px;display:flex;align-items:center;justify-content:center;}
+#zoomSlider{
+  width:100px;height:26px;
+  transform:rotate(-90deg);
+  -webkit-appearance:none;appearance:none;
+  background:rgba(255,255,255,.15);border-radius:10px;outline:none;
+}
+#zoomSlider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+  background:#D2691E;border:2px solid #fff;cursor:pointer;
+}
+#zoomSlider::-moz-range-thumb{
+  width:20px;height:20px;border-radius:50%;
+  background:#D2691E;border:2px solid #fff;cursor:pointer;
+}
+#zoomLbl{font-size:.6rem;color:rgba(255,190,80,.85);font-weight:700;}
 #voiceViz{display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:30;gap:2px;align-items:flex-end;height:18px;}
 #voiceViz.on{display:flex;}
 .vbar{width:3px;background:rgba(255,190,80,.7);border-radius:2px;animation:vwave .6s ease-in-out infinite alternate;}
@@ -70,14 +88,18 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .cbtn2{flex:1;padding:8px 4px;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;transition:all .2s;}
 .cbtn2:active{transform:scale(.96);}
 .c-p{background:var(--gold);color:#fff;}.c-s{background:rgba(255,255,255,.08);color:rgba(255,210,160,.8);}.c-d{background:#7B1C1C;color:#fff;}
-.ptz-wrap{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.06);}
-.ptz-lbl{font-size:.6rem;color:rgba(255,190,80,.4);margin-bottom:6px;text-align:center;}
-.ptz-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-width:150px;margin:0 auto 6px;}
-.ptz-btn{width:100%;aspect-ratio:1;border:none;border-radius:8px;background:rgba(255,255,255,.08);color:rgba(255,190,80,.9);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;-webkit-user-select:none;user-select:none;}
-.ptz-btn:active{background:rgba(184,134,11,.6);transform:scale(.92);}
-.ptz-center{background:rgba(255,255,255,.03);cursor:default;font-size:.6rem;color:rgba(255,190,80,.3);}
-.ptz-zoom{display:flex;gap:5px;max-width:150px;margin:0 auto;}
-.ptz-zoom .ptz-btn{flex:1;aspect-ratio:unset;padding:6px;font-size:.7rem;}
+.joystick-wrap{padding:10px 12px 12px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;align-items:center;}
+.ptz-lbl{font-size:.6rem;color:rgba(255,190,80,.4);margin-bottom:8px;text-align:center;}
+.joystick-base{
+  position:relative;width:120px;height:120px;border-radius:50%;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  touch-action:none;
+}
+.joystick-knob{
+  position:absolute;top:50%;left:50%;width:46px;height:46px;border-radius:50%;
+  background:rgba(184,134,11,.85);border:2px solid rgba(255,210,160,.6);
+  transform:translate(-50%,-50%);
+}
 .pick-box{padding:0 12px 12px;border-top:1px solid rgba(255,255,255,.06);}
 .pick-lbl{font-size:.6rem;color:rgba(255,190,80,.5);margin-bottom:5px;padding-top:8px;}
 .pick-row{display:flex;gap:5px;}
@@ -187,12 +209,14 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
       <svg id="arrowPointer" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
         <polygon points="3,3 3,30 12,22 16,35 21,33 17,20 28,20" fill="#ff2020" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
       </svg>
-      <div class="zoom-btn-row">
-        <button class="z-btn" onclick="zoomStep(1)">＋</button>
-        <button class="z-btn" onclick="zoomStep(-1)">－</button>
-        <button class="z-btn" onclick="zoomReset()" style="font-size:.6rem;">1x</button>
+      <div id="zoomSliderWrap">
+        <span class="zs-ico">🔍＋</span>
+        <div class="zs-track-wrap">
+          <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1" oninput="onZoomSlide(this.value)">
+        </div>
+        <span class="zs-ico">🔍－</span>
+        <span id="zoomLbl">1.0x</span>
       </div>
-      <div id="zoomLbl">1.0x</div>
     </div>
     <div class="call-bar">
       <div class="cdot" id="cdot"></div>
@@ -207,22 +231,10 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
       <button class="cbtn2 c-s" onclick="snap()">📸 캡처</button>
       <button class="cbtn2 c-d" onclick="discCam()">⏹ 끊기</button>
     </div>
-    <div class="ptz-wrap">
-      <div class="ptz-lbl">🎮 카메라 방향 조절</div>
-      <div class="ptz-grid">
-        <div></div>
-        <button class="ptz-btn" ontouchstart="ptz('up')" ontouchend="ptz('stop')" onmousedown="ptz('up')" onmouseup="ptz('stop')">▲</button>
-        <div></div>
-        <button class="ptz-btn" ontouchstart="ptz('left')" ontouchend="ptz('stop')" onmousedown="ptz('left')" onmouseup="ptz('stop')">◀</button>
-        <div class="ptz-btn ptz-center">PTZ</div>
-        <button class="ptz-btn" ontouchstart="ptz('right')" ontouchend="ptz('stop')" onmousedown="ptz('right')" onmouseup="ptz('stop')">▶</button>
-        <div></div>
-        <button class="ptz-btn" ontouchstart="ptz('down')" ontouchend="ptz('stop')" onmousedown="ptz('down')" onmouseup="ptz('stop')">▼</button>
-        <div></div>
-      </div>
-      <div class="ptz-zoom">
-        <button class="ptz-btn" ontouchstart="ptz('zoomin')" ontouchend="ptz('stop')" onmousedown="ptz('zoomin')" onmouseup="ptz('stop')">🔍＋ 확대</button>
-        <button class="ptz-btn" ontouchstart="ptz('zoomout')" ontouchend="ptz('stop')" onmousedown="ptz('zoomout')" onmouseup="ptz('stop')">🔍－ 축소</button>
+    <div class="joystick-wrap">
+      <div class="ptz-lbl">🎮 카메라 방향 조절 (드래그)</div>
+      <div class="joystick-base" id="joyBase">
+        <div class="joystick-knob" id="joyKnob"></div>
       </div>
     </div>
     <div class="pick-box">
@@ -394,7 +406,17 @@ function toggleFull(){
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isFullscreen)toggleFull();});
 
 let curZoom=1,pinchStartDist=0,pinchStartZoom=1;
-function setZoom(v){curZoom=Math.min(5,Math.max(1,v));document.getElementById('zoomWrap').style.transform=`scale(${curZoom})`;document.getElementById('zoomLbl').textContent=curZoom.toFixed(1)+'x';}
+let zoomFBTimer=null;
+function setZoom(v){
+  curZoom=Math.min(5,Math.max(1,v));
+  document.getElementById('zoomWrap').style.transform=`scale(${curZoom})`;
+  document.getElementById('zoomLbl').textContent=curZoom.toFixed(1)+'x';
+  const slider=document.getElementById('zoomSlider');
+  if(slider) slider.value=curZoom;
+  if(zoomFBTimer) clearTimeout(zoomFBTimer);
+  zoomFBTimer=setTimeout(()=>{ db.ref('customerZoom').set({zoom:curZoom,t:Date.now()}); }, 80);
+}
+function onZoomSlide(v){ setZoom(parseFloat(v)); }
 function zoomStep(d){setZoom(curZoom+d*0.5);}
 function zoomReset(){setZoom(1);}
 const camScr=document.getElementById('camScr');
@@ -403,6 +425,39 @@ camScr.addEventListener('touchmove',function(e){if(e.touches.length===2){const d
 
 function gotoPreset(presetNo){db.ref('ptz').set({cmd:'preset',preset:presetNo,t:Date.now()});toast('📷 카메라 이동 중...');}
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
+
+// ── 조이스틱 (PTZ 방향, 항상 즉시 stop) ──
+(function(){
+  const base=document.getElementById('joyBase');
+  const knob=document.getElementById('joyKnob');
+  if(!base) return;
+  let dragging=false, activeDir=null;
+  const maxR=38, deadzone=14;
+
+  function centerOf(el){ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2, y:r.top+r.height/2}; }
+  function setKnob(dx,dy){ knob.style.transition='none'; knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; }
+  function resetKnob(){ knob.style.transition='transform .15s ease'; knob.style.transform='translate(-50%,-50%)'; }
+  function dirFrom(dx,dy){
+    if(Math.hypot(dx,dy) < deadzone) return null;
+    return Math.abs(dx) > Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
+  }
+  function handleMove(clientX,clientY){
+    const c=centerOf(base);
+    let dx=clientX-c.x, dy=clientY-c.y;
+    const dist=Math.hypot(dx,dy);
+    if(dist>maxR){ dx=dx/dist*maxR; dy=dy/dist*maxR; }
+    setKnob(dx,dy);
+    const dir=dirFrom(dx,dy);
+    if(dir!==activeDir){ activeDir=dir; ptz(dir || 'stop'); }
+  }
+  function endDrag(){ dragging=false; resetKnob(); if(activeDir){ ptz('stop'); activeDir=null; } }
+
+  base.addEventListener('pointerdown',e=>{ dragging=true; base.setPointerCapture(e.pointerId); handleMove(e.clientX,e.clientY); });
+  base.addEventListener('pointermove',e=>{ if(!dragging) return; handleMove(e.clientX,e.clientY); });
+  base.addEventListener('pointerup',endDrag);
+  base.addEventListener('pointercancel',endDrag);
+  window.addEventListener('blur',()=>{ if(dragging) endDrag(); });
+})();
 
 const pointerLayer=document.getElementById('pointerLayer');
 const arrow=document.getElementById('arrowPointer');
