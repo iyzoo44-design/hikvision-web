@@ -297,9 +297,11 @@ html,body{
 
 <!-- 고객 메시지 알림 -->
 <div id="msgAlert"></div>
-<div id="clerkPtzZoom" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;gap:16px;">
-  <button class="czb" onmousedown="ptz('zoomin')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomin')" ontouchend="ptz('stop')" style="-webkit-user-select:none;user-select:none;">확대</button>
-  <button class="czb" onmousedown="ptz('zoomout')" onmouseup="ptz('stop')" ontouchstart="ptz('zoomout')" ontouchend="ptz('stop')" style="-webkit-user-select:none;user-select:none;">축소</button>
+<div id="clerkZoomCtrl" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;align-items:center;gap:6px;">
+  <span style="font-size:.65rem;color:rgba(255,190,80,.7);">🔍 광학줌</span>
+  <div id="czTrack" style="position:relative;width:44px;height:130px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);touch-action:none;">
+    <div id="czKnob" style="position:absolute;left:50%;top:50%;width:38px;height:38px;border-radius:50%;background:rgba(184,134,11,.9);border:2px solid rgba(255,210,160,.6);transform:translate(-50%,-50%);"></div>
+  </div>
 </div>
 <!-- 카메라 연결 버튼 -->
 <button id="camConnBtn" onclick="connCam()">📷 카메라 연결</button>
@@ -384,11 +386,18 @@ async function connCam(){
   video.autoplay=true;
   video.playsinline=true;
   video.muted=true;
-  video.style.cssText='width:100%;height:100%;object-fit:cover;transition:transform .1s ease-out;transform-origin:center center;';
-video.id='clerkVideo';
+  video.style.cssText='width:100%;height:100%;object-fit:cover;display:block;';
+  video.id='clerkVideo';
+
+  const stage=document.createElement('div');
+  stage.id='clerkZoomStage';
+  stage.style.cssText='position:absolute;inset:0;width:100%;height:100%;transform-origin:center center;transition:transform .1s ease-out;';
+  stage.appendChild(video);
+
   const camArea=document.getElementById('camArea');
   camArea.innerHTML='';
-  camArea.appendChild(video);
+  camArea.appendChild(stage);
+  applyClerkZoom(lastCustomerZoom);
   
   const pc2=new RTCPeerConnection({
     iceServers:[
@@ -442,6 +451,18 @@ video.id='clerkVideo';
 // ═══════════════════════════════════════════
 let pointerFadeT = null;
 
+// ── 고객 디지털 줌 동기화 ──
+let lastCustomerZoom=1;
+function applyClerkZoom(z){
+  lastCustomerZoom=z||1;
+  const stage=document.getElementById('clerkZoomStage');
+  if(stage) stage.style.transform='scale('+lastCustomerZoom+')';
+}
+db.ref('customerZoom').on('value', snap=>{
+  const d=snap.val();
+  if(d && typeof d.zoom==='number') applyClerkZoom(d.zoom);
+});
+
 db.ref('pointer').on('value', snap=>{
   const d = snap.val();
   if(!d) return;
@@ -449,8 +470,8 @@ db.ref('pointer').on('value', snap=>{
 });
 
 function showPointer(rx, ry, ts){
-  const video=document.getElementById('clerkVideo');
-  const rect=video?video.getBoundingClientRect():{left:0,top:0,width:window.innerWidth,height:window.innerHeight};
+  const camArea=document.getElementById('camArea');
+  const rect=camArea.getBoundingClientRect();
   const px=rect.left+rx*rect.width;
   const py=rect.top+ry*rect.height;
 
@@ -602,6 +623,35 @@ function endCall(){
   callActive=false;
 }
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
+
+// ── 점원 광학줌 슬라이더 (위로 밀면 확대, 아래로 밀면 축소, 손 떼면 즉시 stop) ──
+(function(){
+  const track=document.getElementById('czTrack');
+  const knob=document.getElementById('czKnob');
+  if(!track) return;
+  let dragging=false, activeDir=null;
+  const maxR=42, deadzone=16;
+
+  function setKnob(dy){ knob.style.transition='none'; knob.style.transform=`translate(-50%, calc(-50% + ${dy}px))`; }
+  function resetKnob(){ knob.style.transition='transform .15s ease'; knob.style.transform='translate(-50%,-50%)'; }
+  function handleMove(clientY){
+    const r=track.getBoundingClientRect();
+    const cy=r.top+r.height/2;
+    let dy=clientY-cy;
+    if(Math.abs(dy)>maxR) dy=dy>0?maxR:-maxR;
+    setKnob(dy);
+    let dir=null;
+    if(Math.abs(dy)>deadzone) dir = dy<0 ? 'zoomin' : 'zoomout';
+    if(dir!==activeDir){ activeDir=dir; ptz(dir || 'stop'); }
+  }
+  function endDrag(){ dragging=false; resetKnob(); if(activeDir){ ptz('stop'); activeDir=null; } }
+
+  track.addEventListener('pointerdown',e=>{ dragging=true; track.setPointerCapture(e.pointerId); handleMove(e.clientY); });
+  track.addEventListener('pointermove',e=>{ if(!dragging) return; handleMove(e.clientY); });
+  track.addEventListener('pointerup',endDrag);
+  track.addEventListener('pointercancel',endDrag);
+  window.addEventListener('blur',()=>{ if(dragging) endDrag(); });
+})();
 function showMsg(msg){
   const el=document.getElementById('msgAlert');
   el.textContent=msg; el.style.display='block';
