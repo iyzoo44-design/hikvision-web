@@ -205,6 +205,16 @@ html,body{
 }
 #camConnBtn:active{transform:translate(-50%,-50%) scale(.96);}
 
+/* 점원 광학줌 버튼 */
+.cz-btn{
+  width:46px;height:40px;border:none;border-radius:10px;
+  background:rgba(0,0,0,.55);color:rgba(255,190,80,.95);
+  font-size:1rem;font-weight:700;cursor:pointer;
+  -webkit-user-select:none;user-select:none;
+}
+.cz-btn:active{background:rgba(184,134,11,.75);}
+.cz-btn.cz-reset{font-size:.66rem;}
+
 /* 타임스탬프 */
 #clock{
   position:fixed;bottom:72px;right:10px;
@@ -253,7 +263,7 @@ html,body{
 }
 
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+
 </head>
 <body>
 
@@ -297,11 +307,11 @@ html,body{
 
 <!-- 고객 메시지 알림 -->
 <div id="msgAlert"></div>
-<div id="clerkZoomCtrl" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;align-items:center;gap:6px;">
-  <span style="font-size:.65rem;color:rgba(255,190,80,.7);">🔍 광학줌</span>
-  <div id="czTrack" style="position:relative;width:44px;height:130px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);touch-action:none;">
-    <div id="czKnob" style="position:absolute;left:50%;top:50%;width:38px;height:38px;border-radius:50%;background:rgba(184,134,11,.9);border:2px solid rgba(255,210,160,.6);transform:translate(-50%,-50%);"></div>
-  </div>
+<div id="clerkZoomCtrl" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;">
+  <span style="font-size:.62rem;color:rgba(255,190,80,.7);">🔍 광학줌</span>
+  <button class="cz-btn" onclick="zoomPulse('zoomin')">🔍＋</button>
+  <button class="cz-btn" onclick="zoomPulse('zoomout')">🔍－</button>
+  <button class="cz-btn cz-reset" onclick="zoomResetApprox()">1x</button>
 </div>
 <!-- 카메라 연결 버튼 -->
 <button id="camConnBtn" onclick="connCam()">📷 카메라 연결</button>
@@ -434,7 +444,7 @@ async function connCam(){
   await new Promise(resolve=>{
     if(pc2.iceGatheringState==='complete'){resolve();return;}
     pc2.onicegatheringstatechange=()=>{if(pc2.iceGatheringState==='complete')resolve();};
-    setTimeout(resolve,3000);
+    setTimeout(resolve,1200);
   });
 
   const resp=await fetch(WHEP_URL+'/bakery/whep',{
@@ -624,34 +634,20 @@ function endCall(){
 }
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 
-// ── 점원 광학줌 슬라이더 (위로 밀면 확대, 아래로 밀면 축소, 손 떼면 즉시 stop) ──
-(function(){
-  const track=document.getElementById('czTrack');
-  const knob=document.getElementById('czKnob');
-  if(!track) return;
-  let dragging=false, activeDir=null;
-  const maxR=42, deadzone=16;
-
-  function setKnob(dy){ knob.style.transition='none'; knob.style.transform=`translate(-50%, calc(-50% + ${dy}px))`; }
-  function resetKnob(){ knob.style.transition='transform .15s ease'; knob.style.transform='translate(-50%,-50%)'; }
-  function handleMove(clientY){
-    const r=track.getBoundingClientRect();
-    const cy=r.top+r.height/2;
-    let dy=clientY-cy;
-    if(Math.abs(dy)>maxR) dy=dy>0?maxR:-maxR;
-    setKnob(dy);
-    let dir=null;
-    if(Math.abs(dy)>deadzone) dir = dy<0 ? 'zoomin' : 'zoomout';
-    if(dir!==activeDir){ activeDir=dir; ptz(dir || 'stop'); }
-  }
-  function endDrag(){ dragging=false; resetKnob(); if(activeDir){ ptz('stop'); activeDir=null; } }
-
-  track.addEventListener('pointerdown',e=>{ dragging=true; track.setPointerCapture(e.pointerId); handleMove(e.clientY); });
-  track.addEventListener('pointermove',e=>{ if(!dragging) return; handleMove(e.clientY); });
-  track.addEventListener('pointerup',endDrag);
-  track.addEventListener('pointercancel',endDrag);
-  window.addEventListener('blur',()=>{ if(dragging) endDrag(); });
-})();
+// ── 점원 광학줌: 탭 한 번 = 짧은 펄스(0.18초)만 이동, 훅 튀는 문제 방지 ──
+let __zoomPulseTimer=null;
+function zoomPulse(dir){
+  ptz(dir);
+  if(__zoomPulseTimer) clearTimeout(__zoomPulseTimer);
+  __zoomPulseTimer=setTimeout(()=>{ ptz('stop'); }, 180);
+}
+function zoomResetApprox(){
+  // 광학줌 절대 리셋 명령이 없어 '광각 끝까지'로 근사 이동합니다
+  ptz('zoomout');
+  if(__zoomPulseTimer) clearTimeout(__zoomPulseTimer);
+  __zoomPulseTimer=setTimeout(()=>{ ptz('stop'); }, 4000);
+  showMsg('↩️ 최대 광각으로 되돌리는 중...');
+}
 function showMsg(msg){
   const el=document.getElementById('msgAlert');
   el.textContent=msg; el.style.display='block';
