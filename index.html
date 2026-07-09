@@ -368,7 +368,8 @@ function tryClaimActive(){
     if(nowActive!==amActive){
       amActive=nowActive;
       setControlsEnabled(amActive);
-      if(amActive) startHeartbeat(); else stopHeartbeat();
+      if(amActive){ startHeartbeat(); toast('✅ 지금부터 이용하실 수 있어요'); }
+      else stopHeartbeat();
     }
   });
 }
@@ -380,7 +381,8 @@ db.ref('activeSession').on('value', snap=>{
   if(isMe!==amActive){
     amActive=isMe;
     setControlsEnabled(amActive);
-    if(amActive) startHeartbeat(); else stopHeartbeat();
+    if(amActive){ startHeartbeat(); toast('✅ 지금부터 이용하실 수 있어요'); }
+    else stopHeartbeat();
   }
 });
 tryClaimActive();
@@ -498,10 +500,15 @@ async function startWHEP(){
 
 // ── 내가 활성 고객이면 제어 권한을 내려놓기 (다음 대기 고객에게 즉시 넘김) ──
 function releaseActiveIfMine(){
+  const wasActive = amActive;
   stopHeartbeat();
   db.ref('activeSession').transaction(cur=>{
     if(cur && cur.clientId===myClientId) return null; // 삭제 → 다음 손님이 즉시 잡을 수 있게
     return cur;
+  }, (err, committed, snap)=>{
+    if(err){ console.error('[권한 반납 실패]', err); toast('⚠️ 권한 반납 중 오류가 발생했어요'); return; }
+    console.log('[권한 반납]', committed ? '완료' : '이미 다른 상태였음(넘길 필요 없음)');
+    if(wasActive && committed) toast('🔓 다음 손님에게 이용 권한을 넘겼어요');
   });
 }
 
