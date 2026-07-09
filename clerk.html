@@ -309,8 +309,8 @@ html,body{
 <div id="msgAlert"></div>
 <div id="clerkZoomCtrl" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;">
   <span style="font-size:.62rem;color:rgba(255,190,80,.7);">🔍 광학줌</span>
-  <button class="cz-btn" onclick="zoomPulse('zoomin')">🔍＋</button>
-  <button class="cz-btn" onclick="zoomPulse('zoomout')">🔍－</button>
+  <button class="cz-btn" id="czIn">🔍＋</button>
+  <button class="cz-btn" id="czOut">🔍－</button>
   <button class="cz-btn cz-reset" onclick="zoomResetApprox()">1x</button>
 </div>
 <!-- 카메라 연결 버튼 -->
@@ -634,18 +634,41 @@ function endCall(){
 }
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 
-// ── 점원 광학줌: 탭 한 번 = 짧은 펄스(0.18초)만 이동, 훅 튀는 문제 방지 ──
-let __zoomPulseTimer=null;
-function zoomPulse(dir){
+// ── 점원 광학줌: 누르고 있는 동안만 이동, 떼면 즉시 정지 (최소 0.25초는 보장) ──
+const Z_MIN_PULSE = 250;
+let __zDir=null, __zStart=0, __zMinTimer=null;
+function zoomDown(dir){
+  if(__zMinTimer){ clearTimeout(__zMinTimer); __zMinTimer=null; }
+  __zDir=dir; __zStart=Date.now();
   ptz(dir);
-  if(__zoomPulseTimer) clearTimeout(__zoomPulseTimer);
-  __zoomPulseTimer=setTimeout(()=>{ ptz('stop'); }, 180);
 }
+function zoomUp(){
+  if(!__zDir) return;
+  const elapsed=Date.now()-__zStart;
+  __zDir=null;
+  if(elapsed<Z_MIN_PULSE){
+    __zMinTimer=setTimeout(()=>{ ptz('stop'); __zMinTimer=null; }, Z_MIN_PULSE-elapsed);
+  } else {
+    ptz('stop');
+  }
+}
+(function(){
+  const inBtn=document.getElementById('czIn');
+  const outBtn=document.getElementById('czOut');
+  [[inBtn,'zoomin'],[outBtn,'zoomout']].forEach(([btn,dir])=>{
+    if(!btn) return;
+    btn.addEventListener('pointerdown', e=>{ e.preventDefault(); zoomDown(dir); });
+    btn.addEventListener('pointerup', zoomUp);
+    btn.addEventListener('pointercancel', zoomUp);
+    btn.addEventListener('pointerleave', ()=>{ if(__zDir===dir) zoomUp(); });
+  });
+  window.addEventListener('blur', ()=>{ if(__zDir) zoomUp(); });
+})();
 function zoomResetApprox(){
   // 광학줌 절대 리셋 명령이 없어 '광각 끝까지'로 근사 이동합니다
   ptz('zoomout');
-  if(__zoomPulseTimer) clearTimeout(__zoomPulseTimer);
-  __zoomPulseTimer=setTimeout(()=>{ ptz('stop'); }, 4000);
+  if(__zMinTimer) clearTimeout(__zMinTimer);
+  setTimeout(()=>{ ptz('stop'); }, 4000);
   showMsg('↩️ 최대 광각으로 되돌리는 중...');
 }
 function showMsg(msg){
