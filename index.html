@@ -352,6 +352,9 @@ function startHeartbeat(){
   hbTimer=setInterval(()=>{ db.ref('activeSession').update({ts:Date.now()}); }, 5000);
   db.ref('activeSession').onDisconnect().remove();
 }
+function stopHeartbeat(){
+  if(hbTimer){ clearInterval(hbTimer); hbTimer=null; }
+}
 
 function tryClaimActive(){
   db.ref('activeSession').transaction(cur=>{
@@ -365,7 +368,7 @@ function tryClaimActive(){
     if(nowActive!==amActive){
       amActive=nowActive;
       setControlsEnabled(amActive);
-      if(amActive) startHeartbeat();
+      if(amActive) startHeartbeat(); else stopHeartbeat();
     }
   });
 }
@@ -377,7 +380,7 @@ db.ref('activeSession').on('value', snap=>{
   if(isMe!==amActive){
     amActive=isMe;
     setControlsEnabled(amActive);
-    if(amActive) startHeartbeat();
+    if(amActive) startHeartbeat(); else stopHeartbeat();
   }
 });
 tryClaimActive();
@@ -493,6 +496,15 @@ async function startWHEP(){
   await pc.setRemoteDescription({type:'answer',sdp:answerSdp});
 }
 
+// ── 내가 활성 고객이면 제어 권한을 내려놓기 (다음 대기 고객에게 즉시 넘김) ──
+function releaseActiveIfMine(){
+  stopHeartbeat();
+  db.ref('activeSession').transaction(cur=>{
+    if(cur && cur.clientId===myClientId) return null; // 삭제 → 다음 손님이 즉시 잡을 수 있게
+    return cur;
+  });
+}
+
 function discCam(){
   if(whepRetryTimer){clearTimeout(whepRetryTimer);whepRetryTimer=null;}
   if(whepPc){whepPc.close();whepPc=null;}
@@ -504,6 +516,7 @@ function discCam(){
   const s=document.getElementById('streamStatus');
   s.textContent='⚫ 대기';s.style.background='rgba(0,0,0,.5)';s.style.color='rgba(255,255,255,.5)';
   connected=false;setStep(1);zoomReset();
+  releaseActiveIfMine();
 }
 function snap(){toast('📸 화면 캡처됐어요!');}
 
