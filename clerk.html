@@ -205,15 +205,34 @@ html,body{
 }
 #camConnBtn:active{transform:translate(-50%,-50%) scale(.96);}
 
-/* 점원 광학줌 버튼 */
-.cz-btn{
-  width:46px;height:40px;border:none;border-radius:10px;
+/* 점원 광학줌 슬라이드 */
+.cz-reset-btn{
+  width:46px;height:34px;border:none;border-radius:8px;
   background:rgba(0,0,0,.55);color:rgba(255,190,80,.95);
-  font-size:1rem;font-weight:700;cursor:pointer;
-  -webkit-user-select:none;user-select:none;touch-action:none;
+  font-size:.66rem;font-weight:700;cursor:pointer;
+  -webkit-user-select:none;user-select:none;
 }
-.cz-btn:active{background:rgba(184,134,11,.75);}
-.cz-btn.cz-reset{font-size:.66rem;}
+.cz-reset-btn:active{background:rgba(184,134,11,.75);}
+#czTrack{
+  position:relative;width:46px;height:150px;border-radius:23px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  touch-action:none;
+}
+#czTrack .cz-mark{
+  position:absolute;left:50%;width:18px;height:1px;
+  background:rgba(255,255,255,.15);transform:translateX(-50%);
+}
+#czTrack .cz-lbl-top,#czTrack .cz-lbl-bottom{
+  position:absolute;left:50%;transform:translateX(-50%);
+  font-size:.6rem;color:rgba(255,190,80,.55);pointer-events:none;
+}
+#czTrack .cz-lbl-top{top:6px;}
+#czTrack .cz-lbl-bottom{bottom:6px;}
+#czKnob{
+  position:absolute;left:50%;top:50%;width:40px;height:40px;border-radius:50%;
+  background:rgba(184,134,11,.9);border:2px solid rgba(255,210,160,.6);
+  transform:translate(-50%,-50%);
+}
 
 /* 타임스탬프 */
 #clock{
@@ -309,9 +328,13 @@ html,body{
 <div id="msgAlert"></div>
 <div id="clerkZoomCtrl" style="position:fixed;top:50px;right:10px;z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;">
   <span style="font-size:.62rem;color:rgba(255,190,80,.7);">🔍 광학줌</span>
-  <button class="cz-btn" id="czIn">🔍＋</button>
-  <button class="cz-btn" id="czOut">🔍－</button>
-  <button class="cz-btn cz-reset" onclick="zoomResetApprox()">1x</button>
+  <div id="czTrack">
+    <span class="cz-lbl-top">＋</span>
+    <div class="cz-mark" style="top:50%;"></div>
+    <span class="cz-lbl-bottom">－</span>
+    <div id="czKnob"></div>
+  </div>
+  <button class="cz-reset-btn" onclick="zoomResetApprox()">1x</button>
 </div>
 <!-- 카메라 연결 버튼 -->
 <button id="camConnBtn" onclick="connCam()">📷 카메라 연결</button>
@@ -667,16 +690,39 @@ function zoomUp(){
   }
 }
 (function(){
-  const inBtn=document.getElementById('czIn');
-  const outBtn=document.getElementById('czOut');
-  [[inBtn,'zoomin'],[outBtn,'zoomout']].forEach(([btn,dir])=>{
-    if(!btn) return;
-    btn.addEventListener('pointerdown', e=>{ e.preventDefault(); zoomDown(dir); });
-    btn.addEventListener('pointerup', zoomUp);
-    btn.addEventListener('pointercancel', zoomUp);
-    btn.addEventListener('pointerleave', ()=>{ if(__zDir===dir) zoomUp(); });
-  });
-  window.addEventListener('blur', ()=>{ if(__zDir) zoomUp(); });
+  const track=document.getElementById('czTrack');
+  const knob=document.getElementById('czKnob');
+  if(!track) return;
+  let dragging=false, curDir=null;
+  const maxR=55, deadzone=18;
+
+  function setKnob(dy){ knob.style.transition='none'; knob.style.transform=`translate(-50%, calc(-50% + ${dy}px))`; }
+  function resetKnob(){ knob.style.transition='transform .15s ease'; knob.style.transform='translate(-50%,-50%)'; }
+
+  function handleMove(clientY){
+    const r=track.getBoundingClientRect();
+    const cy=r.top+r.height/2;
+    let dy=clientY-cy;
+    if(Math.abs(dy)>maxR) dy=dy>0?maxR:-maxR;
+    setKnob(dy);
+    let dir=null;
+    if(Math.abs(dy)>deadzone) dir = dy<0 ? 'zoomin' : 'zoomout';
+    if(dir!==curDir){
+      if(curDir) zoomUp();
+      curDir=dir;
+      if(curDir) zoomDown(curDir);
+    }
+  }
+  function endDrag(){
+    dragging=false; resetKnob();
+    if(curDir){ zoomUp(); curDir=null; }
+  }
+
+  track.addEventListener('pointerdown', e=>{ dragging=true; track.setPointerCapture(e.pointerId); handleMove(e.clientY); });
+  track.addEventListener('pointermove', e=>{ if(!dragging) return; handleMove(e.clientY); });
+  track.addEventListener('pointerup', endDrag);
+  track.addEventListener('pointercancel', endDrag);
+  window.addEventListener('blur', ()=>{ if(dragging) endDrag(); });
 })();
 function zoomResetApprox(){
   // 광학줌 절대 리셋 명령이 없어 '광각 끝까지'로 근사 이동합니다
