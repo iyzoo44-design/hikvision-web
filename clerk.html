@@ -210,7 +210,7 @@ html,body{
   width:46px;height:40px;border:none;border-radius:10px;
   background:rgba(0,0,0,.55);color:rgba(255,190,80,.95);
   font-size:1rem;font-weight:700;cursor:pointer;
-  -webkit-user-select:none;user-select:none;
+  -webkit-user-select:none;user-select:none;touch-action:none;
 }
 .cz-btn:active{background:rgba(184,134,11,.75);}
 .cz-btn.cz-reset{font-size:.66rem;}
@@ -321,6 +321,7 @@ html,body{
   <button id="callBtn" onclick="toggleCall()">📞 통화 대기 중</button>
   <div id="micStatus">마이크 꺼짐</div>
 </div>
+<button id="nextCustBtn" onclick="forceNextCustomer()" style="position:fixed;bottom:190px;left:50%;transform:translateX(-50%);z-index:101;padding:7px 16px;border:none;border-radius:16px;background:rgba(184,134,11,.85);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;">🙋 다음 고객으로 넘기기</button>
 
 <div id="clock"></div>
 
@@ -634,22 +635,35 @@ function endCall(){
 }
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 
-// ── 점원 광학줌: 누르고 있는 동안만 이동, 떼면 즉시 정지 (최소 0.25초는 보장) ──
+// ── 점원이 직접 "다음 고객으로 넘기기" (현재 활성 고객을 강제로 내림) ──
+function forceNextCustomer(){
+  db.ref('activeSession').remove();
+  showMsg('🙋 다음 고객에게 넘겼어요');
+}
+
+// ── 점원 광학줌: 누르는 동안 0.3초마다 반복 전송(신호 씹힘 방지), 뗄 때 정지 신호 2회(이중 안전장치) ──
 const Z_MIN_PULSE = 250;
-let __zDir=null, __zStart=0, __zMinTimer=null;
+let __zDir=null, __zStart=0, __zMinTimer=null, __zRepeatTimer=null;
 function zoomDown(dir){
   if(__zMinTimer){ clearTimeout(__zMinTimer); __zMinTimer=null; }
+  if(__zRepeatTimer){ clearInterval(__zRepeatTimer); __zRepeatTimer=null; }
   __zDir=dir; __zStart=Date.now();
   ptz(dir);
+  __zRepeatTimer=setInterval(()=>{ if(__zDir===dir) ptz(dir); }, 300);
+}
+function sendStopTwice(){
+  ptz('stop');
+  setTimeout(()=>{ ptz('stop'); }, 100);
 }
 function zoomUp(){
   if(!__zDir) return;
   const elapsed=Date.now()-__zStart;
   __zDir=null;
+  if(__zRepeatTimer){ clearInterval(__zRepeatTimer); __zRepeatTimer=null; }
   if(elapsed<Z_MIN_PULSE){
-    __zMinTimer=setTimeout(()=>{ ptz('stop'); __zMinTimer=null; }, Z_MIN_PULSE-elapsed);
+    __zMinTimer=setTimeout(()=>{ sendStopTwice(); __zMinTimer=null; }, Z_MIN_PULSE-elapsed);
   } else {
-    ptz('stop');
+    sendStopTwice();
   }
 }
 (function(){
@@ -666,9 +680,11 @@ function zoomUp(){
 })();
 function zoomResetApprox(){
   // 광학줌 절대 리셋 명령이 없어 '광각 끝까지'로 근사 이동합니다
+  if(__zRepeatTimer){ clearInterval(__zRepeatTimer); __zRepeatTimer=null; }
+  if(__zMinTimer){ clearTimeout(__zMinTimer); __zMinTimer=null; }
+  __zDir=null;
   ptz('zoomout');
-  if(__zMinTimer) clearTimeout(__zMinTimer);
-  setTimeout(()=>{ ptz('stop'); }, 4000);
+  setTimeout(()=>{ sendStopTwice(); }, 4000);
   showMsg('↩️ 최대 광각으로 되돌리는 중...');
 }
 function showMsg(msg){
