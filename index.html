@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <title>행복한 빵집 — 원격 쇼핑</title>
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://whep.priceline.co.kr">
+<link rel="preconnect" href="https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app">
+<link rel="preconnect" href="https://www.gstatic.com">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -55,7 +58,14 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   z-index:30;display:flex;flex-direction:column;align-items:center;gap:4px;
   background:rgba(0,0,0,.5);padding:8px 6px;border-radius:14px;
 }
-#zoomSliderWrap .zs-ico{font-size:.7rem;color:rgba(255,190,80,.85);}
+#zoomSliderWrap .zs-btn{
+  width:30px;height:30px;border:none;border-radius:8px;
+  background:rgba(255,255,255,.14);color:rgba(255,190,80,.95);
+  font-size:.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  -webkit-user-select:none;user-select:none;
+}
+#zoomSliderWrap .zs-btn:active{background:rgba(184,134,11,.75);}
+#zoomSliderWrap .zs-btn.zs-reset{font-size:.6rem;font-weight:700;}
 .zs-track-wrap{width:28px;height:110px;display:flex;align-items:center;justify-content:center;}
 #zoomSlider{
   width:100px;height:26px;
@@ -160,7 +170,6 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .confirm-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
 .cancel-btn{width:100%;padding:10px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
 <script>
 (function(){
   const pw = prompt('🔐 접속 비밀번호를 입력하세요');
@@ -177,7 +186,10 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 <header>
   <div class="hdr">
     <div><div class="logo">🥐 행복한 빵집</div><div class="logo-sub">ONLINE LIVE SHOPPING</div></div>
-    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+      <span id="queueCount" style="font-size:.54rem;color:rgba(255,210,160,.55);"></span>
+    </div>
   </div>
 </header>
 <div class="tabs">
@@ -210,11 +222,12 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
         <polygon points="3,3 3,30 12,22 16,35 21,33 17,20 28,20" fill="#ff2020" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
       </svg>
       <div id="zoomSliderWrap">
-        <span class="zs-ico">🔍＋</span>
+        <button class="zs-btn" onclick="zoomNudge(0.1)">🔍＋</button>
         <div class="zs-track-wrap">
           <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1" oninput="onZoomSlide(this.value)">
         </div>
-        <span class="zs-ico">🔍－</span>
+        <button class="zs-btn" onclick="zoomNudge(-0.1)">🔍－</button>
+        <button class="zs-btn zs-reset" onclick="zoomReset()">1x</button>
         <span id="zoomLbl">1.0x</span>
       </div>
     </div>
@@ -297,6 +310,104 @@ const db=firebase.database();
 // ── WHEP URL ──
 const WHEP_URL='https://whep.priceline.co.kr';
 
+// ═══════════════════════════════════════════
+// 다중 고객 동시 접속 관리 (활성 고객 1명 + 대기 고객)
+// ═══════════════════════════════════════════
+function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+let myClientId = sessionStorage.getItem('dongneClientId');
+if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
+let amActive = false;
+let hbTimer = null;
+
+function setControlsEnabled(enabled){
+  const callBtn=document.getElementById('callBtn');
+  const joyBase=document.getElementById('joyBase');
+  const zoomSlider=document.getElementById('zoomSlider');
+  const pointerLayer=document.getElementById('pointerLayer');
+  const pickMsg=document.getElementById('pickMsg');
+  const pickSend=document.querySelector('.pick-send');
+  if(callBtn) callBtn.disabled=!enabled;
+  if(joyBase){ joyBase.style.pointerEvents=enabled?'auto':'none'; joyBase.style.opacity=enabled?'1':'.35'; }
+  if(zoomSlider) zoomSlider.disabled=!enabled;
+  document.querySelectorAll('.zs-btn').forEach(b=>b.disabled=!enabled);
+  if(pointerLayer) pointerLayer.style.pointerEvents=enabled?'auto':'none';
+  if(pickMsg) pickMsg.disabled=!enabled;
+  if(pickSend) pickSend.disabled=!enabled;
+
+  let badge=document.getElementById('waitBadge');
+  if(!enabled){
+    if(!badge){
+      badge=document.createElement('div');
+      badge.id='waitBadge';
+      badge.style.cssText='position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:35;background:rgba(0,0,0,.72);color:#FFD9A0;font-size:.66rem;font-weight:700;padding:5px 12px;border-radius:14px;text-align:center;max-width:88%;';
+      badge.textContent='🙋 다른 고객 상담 중 · 화면만 함께 보실 수 있어요';
+      const scr=document.getElementById('camScr');
+      if(scr) scr.appendChild(badge);
+    }
+  } else if(badge){ badge.remove(); }
+}
+
+function startHeartbeat(){
+  if(hbTimer) clearInterval(hbTimer);
+  hbTimer=setInterval(()=>{ db.ref('activeSession').update({ts:Date.now()}); }, 5000);
+  db.ref('activeSession').onDisconnect().remove();
+}
+
+function tryClaimActive(){
+  db.ref('activeSession').transaction(cur=>{
+    const now=Date.now();
+    if(!cur || !cur.ts || (now-cur.ts)>15000) return {clientId:myClientId, ts:now};
+    if(cur.clientId===myClientId) return {clientId:myClientId, ts:now};
+    return; // 이미 다른 고객이 활성 상태 → 그대로 둠
+  }, (err,committed,snap)=>{
+    const d = snap ? snap.val() : null;
+    const nowActive = !!(d && d.clientId===myClientId);
+    if(nowActive!==amActive){
+      amActive=nowActive;
+      setControlsEnabled(amActive);
+      if(amActive) startHeartbeat();
+    }
+  });
+}
+
+db.ref('activeSession').on('value', snap=>{
+  const d=snap.val();
+  if(!d){ tryClaimActive(); return; }
+  const isMe = d.clientId===myClientId;
+  if(isMe!==amActive){
+    amActive=isMe;
+    setControlsEnabled(amActive);
+    if(amActive) startHeartbeat();
+  }
+});
+tryClaimActive();
+
+// ── 접속 인원 표시 ──
+const myPresenceRef=db.ref('onlineCustomers/'+myClientId);
+db.ref('.info/connected').on('value', snap=>{
+  if(snap.val()){ myPresenceRef.set(Date.now()); myPresenceRef.onDisconnect().remove(); }
+});
+db.ref('onlineCustomers').on('value', snap=>{
+  const n = snap.numChildren();
+  const el=document.getElementById('queueCount');
+  if(el) el.textContent = n>1 ? ('현재 '+n+'명 접속 중') : '';
+});
+
+// ── 대기 고객용: 활성 고객의 디지털 줌을 그대로 반영 ──
+function applyIncomingZoom(z){
+  curZoom=Math.min(5,Math.max(1,z));
+  const wrap=document.getElementById('zoomWrap');
+  if(wrap) wrap.style.transform=`scale(${curZoom})`;
+  const lbl=document.getElementById('zoomLbl');
+  if(lbl) lbl.textContent=curZoom.toFixed(1)+'x';
+  const slider=document.getElementById('zoomSlider');
+  if(slider) slider.value=curZoom;
+}
+db.ref('customerZoom').on('value', snap=>{
+  const d=snap.val();
+  if(d && typeof d.zoom==='number' && !amActive) applyIncomingZoom(d.zoom);
+});
+
 const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800}];
 let cart={},selPayMethod='',connected=false,isFullscreen=false;
 let whepPc=null,whepRetryTimer=null;
@@ -369,7 +480,7 @@ async function startWHEP(){
   await new Promise(resolve=>{
     if(pc.iceGatheringState==='complete'){resolve();return;}
     pc.onicegatheringstatechange=()=>{if(pc.iceGatheringState==='complete')resolve();};
-    setTimeout(resolve,3000);
+    setTimeout(resolve,1200);
   });
 
   const resp=await fetch(WHEP_URL+'/bakery/whep',{
@@ -417,6 +528,7 @@ function setZoom(v){
   zoomFBTimer=setTimeout(()=>{ db.ref('customerZoom').set({zoom:curZoom,t:Date.now()}); }, 80);
 }
 function onZoomSlide(v){ setZoom(parseFloat(v)); }
+function zoomNudge(d){ setZoom(curZoom+d); }
 function zoomStep(d){setZoom(curZoom+d*0.5);}
 function zoomReset(){setZoom(1);}
 const camScr=document.getElementById('camScr');
@@ -479,6 +591,7 @@ db.ref('pointer').on('value',function(snap){const d=snap.val();if(d&&!isDragging
 const ROOM_ID='bakery-room-001';
 let pc=null,localStream=null;
 async function toggleCall(){
+  if(!amActive){ toast('⏳ 대기 중에는 통화를 걸 수 없어요'); return; }
   const btn=document.getElementById('callBtn'),dot=document.getElementById('cdot'),txt=document.getElementById('ctxt');
   if(pc){endCall();btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';txt.textContent='🎧 점원 연결 대기 중';document.getElementById('voiceViz').classList.remove('on');toast('통화가 종료됐어요');return;}
   btn.className='cbtn v-ring';btn.textContent='⏳ 연결 중...';dot.className='cdot ring';txt.textContent='🔔 점원 호출 중...';
@@ -528,7 +641,7 @@ function copyUrl(){const url='https://iyzoo44-design.github.io/hikvision-web/';i
 function toast(msg){const el=document.getElementById('toastEl');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);}
 
 renderMenu();
-window.addEventListener('load',function(){setTimeout(connCam,800);});
+window.addEventListener('load',function(){connCam();});
 </script>
 </body>
 </html>
