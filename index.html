@@ -356,6 +356,72 @@ function stopHeartbeat(){
   if(hbTimer){ clearInterval(hbTimer); hbTimer=null; }
 }
 
+// ── 유휴시간 자동 반납 설정 (숫자만 바꾸면 시간 조정됨) ──
+const IDLE_TIMEOUT_MS = 60000;   // 1분 동안 조작 없으면 자동으로 다음 고객에게 넘김
+const IDLE_WARN_BEFORE_MS = 15000; // 넘어가기 15초 전에 경고 문구 표시 (0으로 하면 경고 없이 바로 넘어감)
+
+let lastActivityTime = Date.now();
+let idleWarned = false;
+let idleCheckTimer = null;
+
+function markActivity(){
+  lastActivityTime = Date.now();
+  idleWarned = false;
+}
+
+function startIdleWatcher(){
+  lastActivityTime = Date.now();
+  idleWarned = false;
+  if(idleCheckTimer) clearInterval(idleCheckTimer);
+  idleCheckTimer = setInterval(()=>{
+    if(!amActive) return;
+    if(typeof pc!=='undefined' && pc){ lastActivityTime=Date.now(); idleWarned=false; return; } // 통화 중엔 자동 회수 안 함
+    const idleFor = Date.now() - lastActivityTime;
+    if(IDLE_WARN_BEFORE_MS>0 && !idleWarned && idleFor >= (IDLE_TIMEOUT_MS - IDLE_WARN_BEFORE_MS)){
+      idleWarned = true;
+      const secLeft = Math.round((IDLE_TIMEOUT_MS - idleFor)/1000);
+      toast('⏳ '+secLeft+'초 후 다음 고객에게 넘어갑니다 (화면을 조작하면 취소돼요)');
+    }
+    if(idleFor >= IDLE_TIMEOUT_MS){
+      toast('⏳ 장시간 조작이 없어 다음 고객에게 넘겼어요');
+      releaseActiveIfMine();
+    }
+  }, 3000);
+}
+function stopIdleWatcher(){
+  if(idleCheckTimer){ clearInterval(idleCheckTimer); idleCheckTimer=null; }
+}
+
+// 권한을 잃었을 때(스스로 반납했든, 점원이 강제로 다음 고객에게 넘겼든) 4초간은
+// 본인이 셀프로 다시 잡지 않도록 유예 → 대기 중이던 다른 고객에게 우선권을 줌
+let justReleased = false;
+let justReleasedTimer = null;
+function armReleaseGrace(){
+  justReleased = true;
+  if(justReleasedTimer) clearTimeout(justReleasedTimer);
+  justReleasedTimer = setTimeout(()=>{
+    justReleased = false;
+    // 유예 시간이 지나도 아무도 안 잡았으면(혼자 테스트 중 등) 그때는 다시 이용 가능하게
+    db.ref('activeSession').once('value', s=>{ if(!s.val()) tryClaimActive(); });
+  }, 4000);
+}
+
+function applyActiveState(nowActive){
+  if(nowActive===amActive) return;
+  const wasActive = amActive;
+  amActive = nowActive;
+  setControlsEnabled(amActive);
+  if(amActive){
+    startHeartbeat();
+    startIdleWatcher();
+    toast('✅ 지금부터 이용하실 수 있어요');
+  } else {
+    stopHeartbeat();
+    stopIdleWatcher();
+    if(wasActive){ toast('⏳ 이용 권한이 다른 고객에게 넘어갔어요'); armReleaseGrace(); }
+  }
+}
+
 function tryClaimActive(){
   db.ref('activeSession').transaction(cur=>{
     const now=Date.now();
@@ -364,26 +430,18 @@ function tryClaimActive(){
     return; // 이미 다른 고객이 활성 상태 → 그대로 둠
   }, (err,committed,snap)=>{
     const d = snap ? snap.val() : null;
-    const nowActive = !!(d && d.clientId===myClientId);
-    if(nowActive!==amActive){
-      amActive=nowActive;
-      setControlsEnabled(amActive);
-      if(amActive){ startHeartbeat(); toast('✅ 지금부터 이용하실 수 있어요'); }
-      else stopHeartbeat();
-    }
+    applyActiveState(!!(d && d.clientId===myClientId));
   });
 }
 
 db.ref('activeSession').on('value', snap=>{
   const d=snap.val();
-  if(!d){ tryClaimActive(); return; }
-  const isMe = d.clientId===myClientId;
-  if(isMe!==amActive){
-    amActive=isMe;
-    setControlsEnabled(amActive);
-    if(amActive){ startHeartbeat(); toast('✅ 지금부터 이용하실 수 있어요'); }
-    else stopHeartbeat();
+  if(!d){
+    if(justReleased) return; // 방금 권한을 잃은 직후엔 다른 대기 고객에게 우선권을 줌
+    tryClaimActive();
+    return;
   }
+  applyActiveState(d.clientId===myClientId);
 });
 tryClaimActive();
 
@@ -500,16 +558,14 @@ async function startWHEP(){
 
 // ── 내가 활성 고객이면 제어 권한을 내려놓기 (다음 대기 고객에게 즉시 넘김) ──
 function releaseActiveIfMine(){
-  const wasActive = amActive;
-  stopHeartbeat();
+  if(!amActive) return; // 애초에 내가 활성 상태가 아니면 할 일 없음
   db.ref('activeSession').transaction(cur=>{
     if(cur && cur.clientId===myClientId) return null; // 삭제 → 다음 손님이 즉시 잡을 수 있게
     return cur;
-  }, (err, committed, snap)=>{
-    if(err){ console.error('[권한 반납 실패]', err); toast('⚠️ 권한 반납 중 오류가 발생했어요'); return; }
-    console.log('[권한 반납]', committed ? '완료' : '이미 다른 상태였음(넘길 필요 없음)');
-    if(wasActive && committed) toast('🔓 다음 손님에게 이용 권한을 넘겼어요');
+  }, (err)=>{
+    if(err) console.error('[권한 반납 실패]', err);
   });
+  applyActiveState(false); // 서버 응답을 기다리지 않고 내 화면 상태부터 즉시 반영(잠금 + 유예 타이머 시작)
 }
 
 function discCam(){
@@ -547,9 +603,9 @@ function setZoom(v){
   if(zoomFBTimer) clearTimeout(zoomFBTimer);
   zoomFBTimer=setTimeout(()=>{ db.ref('customerZoom').set({zoom:curZoom,t:Date.now()}); }, 80);
 }
-function onZoomSlide(v){ setZoom(parseFloat(v)); }
-function zoomNudge(d){ setZoom(curZoom+d); }
-function zoomStep(d){setZoom(curZoom+d*0.5);}
+function onZoomSlide(v){ markActivity(); setZoom(parseFloat(v)); }
+function zoomNudge(d){ markActivity(); setZoom(curZoom+d); }
+function zoomStep(d){markActivity();setZoom(curZoom+d*0.5);}
 function zoomReset(){setZoom(1);}
 const camScr=document.getElementById('camScr');
 camScr.addEventListener('touchstart',function(e){if(e.touches.length===2){pinchStartDist=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);pinchStartZoom=curZoom;e.preventDefault();}},{passive:false});
@@ -580,6 +636,7 @@ function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
     if(dist>maxR){ dx=dx/dist*maxR; dy=dy/dist*maxR; }
     setKnob(dx,dy);
     const dir=dirFrom(dx,dy);
+    if(dir) markActivity();
     if(dir!==activeDir){ activeDir=dir; ptz(dir || 'stop'); }
   }
   function endDrag(){ dragging=false; resetKnob(); if(activeDir){ ptz('stop'); activeDir=null; } }
@@ -604,8 +661,8 @@ pointerLayer.addEventListener('mouseleave',function(){if(isDragging){isDragging=
 pointerLayer.addEventListener('touchstart',function(e){if(!connected||e.touches.length!==1)return;isDragging=true;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
 pointerLayer.addEventListener('touchmove',function(e){if(!isDragging||!connected||e.touches.length!==1)return;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
 pointerLayer.addEventListener('touchend',function(e){if(!isDragging)return;isDragging=false;sendPointerFB(pRx,pRy);e.preventDefault();},{passive:false});
-function doMove(e){const r=camScr.getBoundingClientRect();moveArrow((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);}
-function doMoveT(t){const r=camScr.getBoundingClientRect();moveArrow((t.clientX-r.left)/r.width,(t.clientY-r.top)/r.height);}
+function doMove(e){markActivity();const r=camScr.getBoundingClientRect();moveArrow((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);}
+function doMoveT(t){markActivity();const r=camScr.getBoundingClientRect();moveArrow((t.clientX-r.left)/r.width,(t.clientY-r.top)/r.height);}
 db.ref('pointer').on('value',function(snap){const d=snap.val();if(d&&!isDragging)moveArrow(d.rx,d.ry);});
 
 const ROOM_ID='bakery-room-001';
@@ -646,7 +703,7 @@ function updateLiveOrder(d){
   liveBar.innerHTML=`<div style="padding:8px 16px;background:rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;"><span style="font-size:.65rem;color:rgba(255,190,80,.5);">🧾 현재 선택된 상품</span></div>${itemHTML}<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(0,0,0,.2);"><span style="font-size:.8rem;color:rgba(255,190,80,.7);">합계 ${count}개</span><span style="font-size:1.4rem;font-weight:700;color:#FFD9A0;font-family:monospace;">₩${total.toLocaleString()}</span></div>${confirmed?`<div style="padding:8px 12px;"><button onclick="openPayModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,#D2691E,#8B3500);color:#fff;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;">💳 결제하기</button></div>`:`<div style="padding:6px 16px 10px;text-align:center;font-size:.62rem;color:rgba(255,190,80,.3);">점원이 선택 중... 잠시만 기다려주세요</div>`}`;
 }
 
-function sendPick(){const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;db.ref('messages').push({msg,t:Date.now()});toast('💬 점원에게 전달: "'+msg+'"');document.getElementById('pickMsg').value='';}
+function sendPick(){markActivity();const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;db.ref('messages').push({msg,t:Date.now()});toast('💬 점원에게 전달: "'+msg+'"');document.getElementById('pickMsg').value='';}
 function renderMenu(){document.getElementById('menuGrid').innerHTML=MENU.map(m=>`<div class="mc" onclick="gotoPreset(${m.id})"><div class="mth">${m.e}</div><div class="mi"><div class="mn">${m.name}</div><div class="md">${m.desc}</div><div class="mp">₩${m.price.toLocaleString()}</div><button class="mbtn" onclick="event.stopPropagation();gotoPreset(${m.id})">📷 카메라 이동</button></div></div>`).join('');}
 function addCart(id){const m=MENU.find(x=>x.id===id);if(!m)return;cart[id]=cart[id]||{...m,qty:0};cart[id].qty++;updateCart();setStep(3);toast(m.e+' '+m.name+' 담았어요!');}
 function changeQty(id,d){if(!cart[id])return;cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];updateCart();}
