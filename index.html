@@ -5,12 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <title>행복한 빵집 — 원격 쇼핑</title>
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-<link rel="preconnect" href="https://dongne-market-fk0sibkc.livekit.cloud">
+<link rel="preconnect" href="https://whep.priceline.co.kr">
 <link rel="preconnect" href="https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app">
 <link rel="preconnect" href="https://www.gstatic.com">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
 <style>
 :root{--bg:#FFFBF4;--cream:#FFF3E0;--warm:#F5DEB3;--brown:#5C3317;--dbrown:#2E1503;--gold:#B8860B;--accent:#D2691E;--soft:#8B6347;--white:#fff;--green:#1B5E20;--red:#B71C1C;--shadow:rgba(44,21,3,0.12);}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -308,10 +307,8 @@ const firebaseConfig={apiKey:"AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",authDomai
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-// ── LiveKit 설정 (기존 WHEP 대체) ──
-const LK_URL='wss://dongne-market-fk0sibkc.livekit.cloud';
-const LK_TOKEN='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBUElMbUh6c1pMaEt6Z0YiLCJzdWIiOiJjdXN0b21lciIsImV4cCI6MTc4NjQxMDgyMSwibmJmIjoxNzgzODE4ODIxLCJpYXQiOjE3ODM4MTg4MjEsImlkZW50aXR5IjoiY3VzdG9tZXIiLCJuYW1lIjoiY3VzdG9tZXIiLCJ2aWRlbyI6eyJyb29tSm9pbiI6dHJ1ZSwicm9vbSI6ImJha2VyeSJ9fQ.vkLI6oZpXsxEeQwTAIPonfIwJYrGQsv356nJV68eDso';
-let lkRoom=null;
+// ── WHEP URL ──
+const WHEP_URL='https://whep.priceline.co.kr';
 
 // ═══════════════════════════════════════════
 // 다중 고객 동시 접속 관리 (활성 고객 1명 + 대기 고객)
@@ -476,19 +473,19 @@ db.ref('customerZoom').on('value', snap=>{
 
 const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800}];
 let cart={},selPayMethod='',connected=false,isFullscreen=false;
-let whepRetryTimer=null;
+let whepPc=null,whepRetryTimer=null;
 
 function goTab(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');syncBottom(id);}
 function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');}
 function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
 
-// ── LiveKit 카메라 연결 ──
+// ── WHEP 카메라 연결 ──
 async function connCam(){
   if(connected)return;
   const status=document.getElementById('streamStatus');
   status.textContent='🟡 연결 중...';
   try{
-    await startLiveKit();
+    await startWHEP();
   }catch(e){
     console.error('연결 실패:',e);
     status.textContent='⚠️ 재시도 중...';
@@ -496,42 +493,67 @@ async function connCam(){
   }
 }
 
-async function startLiveKit(){
-  if(lkRoom){ try{ await lkRoom.disconnect(); }catch(e){} lkRoom=null; }
+async function startWHEP(){
+  if(whepPc){ whepPc.close(); whepPc=null; }
   const video=document.getElementById('camVideo');
   const overlay=document.getElementById('camOverlay');
   const status=document.getElementById('streamStatus');
 
-  const room=new LivekitClient.Room({adaptiveStream:true, dynacast:true});
-  lkRoom=room;
+  const pc=new RTCPeerConnection({
+    iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+      {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}
+    ],
+    iceTransportPolicy:'all'
+  });
+  whepPc=pc;
 
-  room.on(LivekitClient.RoomEvent.TrackSubscribed,(track,pub,participant)=>{
-    if(track.kind==='video'){
-      // track.attach()를 쓰지 않고 스트림만 기존 <video>에 직접 연결
-      // → LiveKit이 DOM 구조를 건드리지 않아 camScr 크기/포인터 좌표계가 그대로 유지됨
-      video.srcObject = new MediaStream([track.mediaStreamTrack]);
-      video.play().catch(()=>{});
-      overlay.style.display='none';
-      status.textContent='🔴 LIVE';
-      status.style.background='#B71C1C';
-      status.style.color='#fff';
-      connected=true;
-      setStep(2);
-      initPointer();
+  pc.ontrack=function(e){
+    if(e.track.kind==='video'){
+      video.srcObject=e.streams[0];
+      video.onloadedmetadata=function(){
+        video.play().catch(()=>{});
+        overlay.style.display='none';
+        status.textContent='🔴 LIVE';
+        status.style.background='#B71C1C';
+        status.style.color='#fff';
+        connected=true;
+        setStep(2);
+        initPointer();
+      };
     }
-    if(track.kind==='audio'){
-      document.getElementById('remoteAudio').srcObject = new MediaStream([track.mediaStreamTrack]);
+  };
+
+  pc.oniceconnectionstatechange=function(){
+    if(pc.iceConnectionState==='failed'||pc.iceConnectionState==='disconnected'){
+      connected=false;
+      status.textContent='⚠️ 재연결 중...';
+      whepRetryTimer=setTimeout(connCam,3000);
     }
+  };
+
+  pc.addTransceiver('video',{direction:'recvonly'});
+  pc.addTransceiver('audio',{direction:'recvonly'});
+
+  const offer=await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  // ICE 수집 완료 대기
+  await new Promise(resolve=>{
+    if(pc.iceGatheringState==='complete'){resolve();return;}
+    pc.onicegatheringstatechange=()=>{if(pc.iceGatheringState==='complete')resolve();};
+    setTimeout(resolve,1200);
   });
 
-  room.on(LivekitClient.RoomEvent.Disconnected,()=>{
-    connected=false;
-    status.textContent='⚠️ 재연결 중...';
-    if(whepRetryTimer) clearTimeout(whepRetryTimer);
-    whepRetryTimer=setTimeout(connCam,3000);
+  const resp=await fetch(WHEP_URL+'/bakery/whep',{
+    method:'POST',
+    headers:{'Content-Type':'application/sdp'},
+    body:pc.localDescription.sdp
   });
-
-  await room.connect(LK_URL, LK_TOKEN);
+  if(!resp.ok) throw new Error('WHEP 서버 응답 오류: '+resp.status);
+  const answerSdp=await resp.text();
+  await pc.setRemoteDescription({type:'answer',sdp:answerSdp});
 }
 
 // ── 내가 활성 고객이면 제어 권한을 내려놓기 (다음 대기 고객에게 즉시 넘김) ──
@@ -548,7 +570,7 @@ function releaseActiveIfMine(){
 
 function discCam(){
   if(whepRetryTimer){clearTimeout(whepRetryTimer);whepRetryTimer=null;}
-  if(lkRoom){ try{ lkRoom.disconnect(); }catch(e){} lkRoom=null; }
+  if(whepPc){whepPc.close();whepPc=null;}
   const video=document.getElementById('camVideo');
   video.srcObject=null;
   const o=document.getElementById('camOverlay');
