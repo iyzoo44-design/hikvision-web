@@ -507,7 +507,9 @@ async function startLiveKit(){
 
   room.on(LivekitClient.RoomEvent.TrackSubscribed,(track,pub,participant)=>{
     if(track.kind==='video'){
-      track.attach(video);
+      // track.attach()를 쓰지 않고 스트림만 기존 <video>에 직접 연결
+      // → LiveKit이 DOM 구조를 건드리지 않아 camScr 크기/포인터 좌표계가 그대로 유지됨
+      video.srcObject = new MediaStream([track.mediaStreamTrack]);
       video.play().catch(()=>{});
       overlay.style.display='none';
       status.textContent='🔴 LIVE';
@@ -518,7 +520,7 @@ async function startLiveKit(){
       initPointer();
     }
     if(track.kind==='audio'){
-      track.attach(document.getElementById('remoteAudio'));
+      document.getElementById('remoteAudio').srcObject = new MediaStream([track.mediaStreamTrack]);
     }
   });
 
