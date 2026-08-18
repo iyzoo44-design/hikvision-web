@@ -431,7 +431,7 @@ async function connCam(){
   const camArea=document.getElementById('camArea');
   camArea.innerHTML='';
   camArea.appendChild(stage);
-  applyClerkZoom(lastCustomerZoom);
+  applyClerkZoom(lastCustomerZoom, lastCustomerPanX, lastCustomerPanY);
   
   const pc2=new RTCPeerConnection({
     iceServers:[
@@ -485,16 +485,31 @@ async function connCam(){
 // ═══════════════════════════════════════════
 let pointerFadeT = null;
 
-// ── 고객 디지털 줌 동기화 ──
-let lastCustomerZoom=1;
-function applyClerkZoom(z){
-  lastCustomerZoom=z||1;
+// ── 고객 디지털 줌·화면이동 동기화 ──
+let lastCustomerZoom=1, lastCustomerPanX=0, lastCustomerPanY=0;
+function applyClerkZoom(z, px, py){
+  lastCustomerZoom = z||1;
+  lastCustomerPanX = typeof px==='number' ? px : 0;
+  lastCustomerPanY = typeof py==='number' ? py : 0;
   const stage=document.getElementById('clerkZoomStage');
-  if(stage) stage.style.transform='scale('+lastCustomerZoom+')';
+  if(!stage) return;
+  const camArea=document.getElementById('camArea');
+  const w=camArea.offsetWidth, h=camArea.offsetHeight;
+  stage.style.transform=`translate(${lastCustomerPanX*w}px, ${lastCustomerPanY*h}px) scale(${lastCustomerZoom})`;
 }
 db.ref('customerZoom').on('value', snap=>{
   const d=snap.val();
-  if(d && typeof d.zoom==='number') applyClerkZoom(d.zoom);
+  if(d && typeof d.zoom==='number') applyClerkZoom(d.zoom, d.panX, d.panY);
+});
+// ── 활성 고객이 바뀌면(새 손님 시작) 이전 줌/이동 값이 남아있지 않도록 즉시 리셋 ──
+let lastActiveClientId=null;
+db.ref('activeSession').on('value', snap=>{
+  const d=snap.val();
+  const cid = d ? d.clientId : null;
+  if(cid!==lastActiveClientId){
+    lastActiveClientId = cid;
+    if(cid) applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
+  }
 });
 
 db.ref('pointer').on('value', snap=>{
