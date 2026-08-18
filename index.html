@@ -414,6 +414,7 @@ function applyActiveState(nowActive){
   if(amActive){
     startHeartbeat();
     startIdleWatcher();
+    zoomReset(); // 새로 활성 고객이 되면 이전 고객이 남긴 줌/화면이동을 리셋 → 포인터 어긋남 방지
     toast('✅ 지금부터 이용하실 수 있어요');
   } else {
     stopHeartbeat();
@@ -456,19 +457,16 @@ db.ref('onlineCustomers').on('value', snap=>{
   if(el) el.textContent = n>1 ? ('현재 '+n+'명 접속 중') : '';
 });
 
-// ── 대기 고객용: 활성 고객의 디지털 줌을 그대로 반영 ──
-function applyIncomingZoom(z){
+// ── 대기 고객용: 활성 고객의 디지털 줌·화면이동을 그대로 반영 ──
+function applyIncomingZoom(z, px, py){
   curZoom=Math.min(5,Math.max(1,z));
-  const wrap=document.getElementById('zoomWrap');
-  if(wrap) wrap.style.transform=`scale(${curZoom})`;
-  const lbl=document.getElementById('zoomLbl');
-  if(lbl) lbl.textContent=curZoom.toFixed(1)+'x';
-  const slider=document.getElementById('zoomSlider');
-  if(slider) slider.value=curZoom;
+  panXRatio = typeof px==='number' ? px : 0;
+  panYRatio = typeof py==='number' ? py : 0;
+  renderZoomPan();
 }
 db.ref('customerZoom').on('value', snap=>{
   const d=snap.val();
-  if(d && typeof d.zoom==='number' && !amActive) applyIncomingZoom(d.zoom);
+  if(d && typeof d.zoom==='number' && !amActive) applyIncomingZoom(d.zoom, d.panX, d.panY);
 });
 
 const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800}];
@@ -592,24 +590,65 @@ function toggleFull(){
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isFullscreen)toggleFull();});
 
-let curZoom=1,pinchStartDist=0,pinchStartZoom=1;
+let curZoom=1,panXRatio=0,panYRatio=0;
+let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
 let zoomFBTimer=null;
-function setZoom(v){
-  curZoom=Math.min(5,Math.max(1,v));
-  document.getElementById('zoomWrap').style.transform=`scale(${curZoom})`;
+
+// pan은 "컨테이너 폭/높이에 대한 비율(-0.5~0.5 근처)"로 관리 → 고객·점원 화면 크기가 달라도 동일한 지점을 가리킴
+function clampPanRatio(zoom, px, py){
+  const maxR = Math.max(0,(zoom-1)/2);
+  return [Math.max(-maxR, Math.min(maxR, px)), Math.max(-maxR, Math.min(maxR, py))];
+}
+function renderZoomPan(){
+  const wrap=document.getElementById('zoomWrap');
+  const w=camScr.offsetWidth, h=camScr.offsetHeight;
+  wrap.style.transform=`translate(${panXRatio*w}px, ${panYRatio*h}px) scale(${curZoom})`;
   document.getElementById('zoomLbl').textContent=curZoom.toFixed(1)+'x';
   const slider=document.getElementById('zoomSlider');
   if(slider) slider.value=curZoom;
-  if(zoomFBTimer) clearTimeout(zoomFBTimer);
-  zoomFBTimer=setTimeout(()=>{ db.ref('customerZoom').set({zoom:curZoom,t:Date.now()}); }, 80);
 }
+function broadcastZoomPan(){
+  if(zoomFBTimer) clearTimeout(zoomFBTimer);
+  zoomFBTimer=setTimeout(()=>{ db.ref('customerZoom').set({zoom:curZoom,panX:panXRatio,panY:panYRatio,t:Date.now()}); }, 80);
+}
+function setZoomPan(z, px, py){
+  curZoom=Math.min(5,Math.max(1,z));
+  [panXRatio,panYRatio]=clampPanRatio(curZoom, px, py);
+  renderZoomPan();
+  broadcastZoomPan();
+}
+function setZoom(v){ setZoomPan(v, panXRatio, panYRatio); }
 function onZoomSlide(v){ markActivity(); setZoom(parseFloat(v)); }
 function zoomNudge(d){ markActivity(); setZoom(curZoom+d); }
 function zoomStep(d){markActivity();setZoom(curZoom+d*0.5);}
-function zoomReset(){setZoom(1);}
+function zoomReset(){markActivity();setZoomPan(1,0,0);}
 const camScr=document.getElementById('camScr');
-camScr.addEventListener('touchstart',function(e){if(e.touches.length===2){pinchStartDist=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);pinchStartZoom=curZoom;e.preventDefault();}},{passive:false});
-camScr.addEventListener('touchmove',function(e){if(e.touches.length===2){const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);setZoom(pinchStartZoom*(d/pinchStartDist));e.preventDefault();}},{passive:false});
+camScr.addEventListener('touchstart',function(e){
+  if(e.touches.length===2){
+    markActivity();
+    const t0=e.touches[0], t1=e.touches[1];
+    pinchStartDist=Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
+    pinchStartZoom=curZoom;
+    pinchStartMidX=(t0.clientX+t1.clientX)/2;
+    pinchStartMidY=(t0.clientY+t1.clientY)/2;
+    pinchStartPanX=panXRatio; pinchStartPanY=panYRatio;
+    e.preventDefault();
+  }
+},{passive:false});
+camScr.addEventListener('touchmove',function(e){
+  if(e.touches.length===2){
+    markActivity();
+    const t0=e.touches[0], t1=e.touches[1];
+    const dist=Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
+    const midX=(t0.clientX+t1.clientX)/2, midY=(t0.clientY+t1.clientY)/2;
+    const newZoom=pinchStartZoom*(dist/pinchStartDist);
+    const r=camScr.getBoundingClientRect();
+    const dPanX=(midX-pinchStartMidX)/r.width;
+    const dPanY=(midY-pinchStartMidY)/r.height;
+    setZoomPan(newZoom, pinchStartPanX+dPanX, pinchStartPanY+dPanY);
+    e.preventDefault();
+  }
+},{passive:false});
 
 function gotoPreset(presetNo){db.ref('ptz').set({cmd:'preset',preset:presetNo,t:Date.now()});toast('📷 카메라 이동 중...');}
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
