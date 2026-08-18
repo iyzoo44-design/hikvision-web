@@ -326,6 +326,7 @@ function setControlsEnabled(enabled){
   const pointerLayer=document.getElementById('pointerLayer');
   const pickMsg=document.getElementById('pickMsg');
   const pickSend=document.querySelector('.pick-send');
+  const arrowPointer=document.getElementById('arrowPointer');
   if(callBtn) callBtn.disabled=!enabled;
   if(joyBase){ joyBase.style.pointerEvents=enabled?'auto':'none'; joyBase.style.opacity=enabled?'1':'.35'; }
   if(zoomSlider) zoomSlider.disabled=!enabled;
@@ -333,6 +334,8 @@ function setControlsEnabled(enabled){
   if(pointerLayer) pointerLayer.style.pointerEvents=enabled?'auto':'none';
   if(pickMsg) pickMsg.disabled=!enabled;
   if(pickSend) pickSend.disabled=!enabled;
+  // 대기 중인 고객은 활성 고객의 포인터 신호가 타이밍상 살짝 어긋나 보일 수 있어, 아예 숨김 처리
+  if(arrowPointer) arrowPointer.style.display = enabled ? 'block' : 'none';
 
   let badge=document.getElementById('waitBadge');
   if(!enabled){
@@ -624,8 +627,11 @@ function zoomStep(d){markActivity();setZoom(curZoom+d*0.5);}
 function zoomReset(){markActivity();setZoomPan(1,0,0);}
 const camScr=document.getElementById('camScr');
 camScr.addEventListener('touchstart',function(e){
+  if(!amActive) return; // 대기 중인 고객은 핀치줌/화면이동 불가 (활성 고객 화면을 그대로 보기만 함)
   if(e.touches.length===2){
     markActivity();
+    const wrap=document.getElementById('zoomWrap');
+    if(wrap) wrap.style.transition='none'; // 드래그 중엔 부드럽게 움직이는 효과를 끄고 손가락과 1:1로 즉시 반응
     const t0=e.touches[0], t1=e.touches[1];
     pinchStartDist=Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
     pinchStartZoom=curZoom;
@@ -636,6 +642,7 @@ camScr.addEventListener('touchstart',function(e){
   }
 },{passive:false});
 camScr.addEventListener('touchmove',function(e){
+  if(!amActive) return; // 대기 중인 고객은 핀치줌/화면이동 불가
   if(e.touches.length===2){
     markActivity();
     const t0=e.touches[0], t1=e.touches[1];
@@ -649,6 +656,12 @@ camScr.addEventListener('touchmove',function(e){
     e.preventDefault();
   }
 },{passive:false});
+function restoreZoomTransition(){
+  const wrap=document.getElementById('zoomWrap');
+  if(wrap) wrap.style.transition='transform .1s ease-out'; // 손 뗀 뒤엔 슬라이더 등 다른 조작이 다시 부드럽게 보이도록 복원
+}
+camScr.addEventListener('touchend', restoreZoomTransition);
+camScr.addEventListener('touchcancel', restoreZoomTransition);
 
 function gotoPreset(presetNo){db.ref('ptz').set({cmd:'preset',preset:presetNo,t:Date.now()});toast('📷 카메라 이동 중...');}
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
