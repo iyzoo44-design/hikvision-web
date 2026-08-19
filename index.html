@@ -441,6 +441,7 @@ function tryClaimActive(){
 db.ref('activeSession').on('value', snap=>{
   const d=snap.val();
   if(!d){
+    if(amActive) applyActiveState(false); // 내가 활성 상태였는데 사라졌다면(점원이 강제로 넘긴 경우 등) 먼저 잃은 것으로 처리 + 유예 시작
     if(justReleased) return; // 방금 권한을 잃은 직후엔 다른 대기 고객에게 우선권을 줌
     tryClaimActive();
     return;
