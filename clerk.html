@@ -48,8 +48,8 @@ html,body{
   top:40px;
   left:0;
   right:0;
+  bottom:0;
   width:100%;
-  aspect-ratio:4/3;
   overflow:hidden;
   background:#0a0500;
 }
@@ -136,8 +136,69 @@ html,body{
 .ar-corner.br{bottom:90px;right:8px;border-width:0 2px 2px 0;border-radius:0 0 2px 0;}
 
 /* ── 하단 정보 패널 ── */
+/* 슬라이드형 주문 패널 (평소엔 숨김, 고객 선택 시 또는 수동으로 열림) */
+#orderPanel{
+  position:fixed;left:0;right:0;bottom:0;z-index:150;
+  background:rgba(10,5,0,0.97);
+  border-top:1px solid rgba(184,134,11,0.4);
+  padding:10px 10px 14px;
+  max-height:62vh;overflow-y:auto;
+  transform:translateY(100%);
+  transition:transform .28s ease;
+  box-shadow:0 -4px 20px rgba(0,0,0,.5);
+}
+#orderPanel.open{ transform:translateY(0); }
+#orderHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+#orderHead .oh-title{font-size:.78rem;font-weight:700;color:#FFD9A0;}
+#orderCloseBtn{border:none;background:rgba(255,255,255,.1);color:#fff;border-radius:8px;width:28px;height:28px;font-size:.9rem;cursor:pointer;}
+#orderTotal{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;padding:6px 10px;
+  background:rgba(184,134,11,0.15);border-radius:8px;
+}
+#orderTotalAmt{
+  font-size:1.1rem;font-weight:700;color:#FFD9A0;font-family:monospace;
+}
+.order-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;
+}
+.order-btn{
+  padding:7px 2px;border:none;border-radius:8px;
+  background:rgba(255,255,255,0.08);color:rgba(255,190,80,0.9);
+  font-family:'Noto Sans KR',sans-serif;font-size:0.62rem;font-weight:700;
+  cursor:pointer;text-align:center;line-height:1.4;
+  transition:all .15s;-webkit-user-select:none;user-select:none;
+}
+.order-btn.picked{background:rgba(184,134,11,0.5);outline:2px solid #FFD9A0;}
+.order-btn:active{background:rgba(184,134,11,0.6);transform:scale(0.94);}
+.order-btn .ob-em{font-size:1.1rem;display:block;margin-bottom:2px;}
+.order-btn .ob-price{font-size:0.55rem;color:rgba(255,190,80,0.5);}
+.order-row{display:flex;gap:5px;}
+#orderClearBtn{
+  flex:1;padding:7px;border:none;border-radius:8px;
+  background:rgba(123,28,28,0.7);color:#fff;
+  font-family:'Noto Sans KR',sans-serif;font-size:0.68rem;font-weight:700;cursor:pointer;
+}
+#orderConfirmBtn{
+  flex:2;padding:7px;border:none;border-radius:8px;
+  background:rgba(27,94,32,0.9);color:#fff;
+  font-family:'Noto Sans KR',sans-serif;font-size:0.72rem;font-weight:700;cursor:pointer;
+}
+/* 항상 떠있는 열기 버튼 */
+#orderToggleBtn{
+  position:fixed;right:10px;bottom:16px;z-index:151;
+  padding:10px 16px;border:none;border-radius:22px;
+  background:rgba(184,134,11,.92);color:#fff;
+  font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.72rem;cursor:pointer;
+  box-shadow:0 2px 12px rgba(0,0,0,.45);
+}
+#orderToggleBtn .ob-badge{
+  display:inline-block;margin-left:5px;background:#B71C1C;color:#fff;
+  border-radius:10px;padding:1px 7px;font-size:.64rem;
+}
+
 #infoPanel{
-  position:fixed;bottom:160px;left:0;right:0;z-index:100;
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
   background:rgba(0,0,0,0.82);
   border-top:1px solid rgba(255,255,255,.08);
   padding:8px 14px 10px;
@@ -150,7 +211,7 @@ html,body{
 
 /* ── 통화 버튼 ── */
 #callPanel{
-  position:fixed;bottom:230px;left:50%;transform:translateX(-50%);
+  position:fixed;bottom:76px;left:50%;transform:translateX(-50%);
   z-index:101;display:flex;gap:8px;align-items:center;
 }
 #callBtn{
@@ -241,46 +302,6 @@ html,body{
   font-family:monospace;z-index:60;
 }
 
-/* 상품 추가 패널 */
-#orderPanel{
-  position:fixed;bottom:0;left:0;right:0;z-index:110;
-  background:rgba(10,5,0,0.95);
-  border-top:1px solid rgba(184,134,11,0.3);
-  padding:8px 10px 10px;
-}
-#orderTotal{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:8px;padding:6px 10px;
-  background:rgba(184,134,11,0.15);border-radius:8px;
-}
-#orderTotalAmt{
-  font-size:1.1rem;font-weight:700;color:#FFD9A0;font-family:monospace;
-}
-.order-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;
-}
-.order-btn{
-  padding:7px 2px;border:none;border-radius:8px;
-  background:rgba(255,255,255,0.08);color:rgba(255,190,80,0.9);
-  font-family:'Noto Sans KR',sans-serif;font-size:0.62rem;font-weight:700;
-  cursor:pointer;text-align:center;line-height:1.4;
-  transition:all .15s;-webkit-user-select:none;user-select:none;
-}
-.order-btn:active{background:rgba(184,134,11,0.6);transform:scale(0.94);}
-.order-btn .ob-em{font-size:1.1rem;display:block;margin-bottom:2px;}
-.order-btn .ob-price{font-size:0.55rem;color:rgba(255,190,80,0.5);}
-.order-row{display:flex;gap:5px;}
-#orderClearBtn{
-  flex:1;padding:7px;border:none;border-radius:8px;
-  background:rgba(123,28,28,0.7);color:#fff;
-  font-family:'Noto Sans KR',sans-serif;font-size:0.68rem;font-weight:700;cursor:pointer;
-}
-#orderConfirmBtn{
-  flex:2;padding:7px;border:none;border-radius:8px;
-  background:rgba(27,94,32,0.9);color:#fff;
-  font-family:'Noto Sans KR',sans-serif;font-size:0.72rem;font-weight:700;cursor:pointer;
-}
-
 </style>
 
 </head>
@@ -360,10 +381,15 @@ html,body{
   </div>
 </div>
 
-<!-- 상품 추가 패널 -->
+<!-- 슬라이드형 주문 패널 -->
+<button id="orderToggleBtn" onclick="toggleOrderPanel()">🧾 주문<span class="ob-badge" id="orderBadge" style="display:none;">0</span></button>
 <div id="orderPanel">
+  <div id="orderHead">
+    <span class="oh-title">🧾 주문 담기</span>
+    <button id="orderCloseBtn" onclick="toggleOrderPanel(false)">✕</button>
+  </div>
   <div id="orderTotal">
-    <span style="font-size:.65rem;color:rgba(255,190,80,.5);">🧾 현재 합계</span>
+    <span style="font-size:.65rem;color:rgba(255,190,80,.5);">현재 합계</span>
     <span id="orderTotalAmt">₩0</span>
     <span id="orderItemCount" style="font-size:.6rem;color:rgba(255,190,80,.4);">0개</span>
   </div>
@@ -754,9 +780,8 @@ function showMsg(msg){
   setTimeout(()=>{el.style.display='none';},3500);
 }
 
-
 // ═══════════════════════════════════════════
-// 상품 추가 (점원용)
+// 슬라이드형 주문 패널 (평소엔 숨김, 고객이 메뉴 선택하면 자동으로 열림)
 // ═══════════════════════════════════════════
 const MENU = [
   {id:1,e:'🥐',name:'크루아상',price:3200},
@@ -768,18 +793,24 @@ const MENU = [
   {id:7,e:'🍩',name:'도넛',price:2200},
   {id:8,e:'🫙',name:'베이글',price:3800}
 ];
-
 let orderItems = [];
+let lastPickedId = null;
 
 function renderOrderGrid(){
   const grid = document.getElementById('orderGrid');
   grid.innerHTML = MENU.map(m => `
-    <button class="order-btn" onclick="addItem(${m.id})">
+    <button class="order-btn${m.id===lastPickedId?' picked':''}" onclick="addItem(${m.id})">
       <span class="ob-em">${m.e}</span>
       ${m.name}
       <span class="ob-price">₩${m.price.toLocaleString()}</span>
     </button>
   `).join('');
+}
+
+function toggleOrderPanel(force){
+  const panel=document.getElementById('orderPanel');
+  const open = typeof force==='boolean' ? force : !panel.classList.contains('open');
+  panel.classList.toggle('open', open);
 }
 
 function addItem(id){
@@ -788,6 +819,8 @@ function addItem(id){
   const exist = orderItems.find(x=>x.id===id);
   if(exist){ exist.qty++; }
   else { orderItems.push({...m, qty:1}); }
+  lastPickedId = id;
+  renderOrderGrid();
   updateOrderDisplay();
   sendOrderToFirebase();
   showMsg(`${m.e} ${m.name} 추가!`);
@@ -798,21 +831,21 @@ function updateOrderDisplay(){
   const count = orderItems.reduce((s,i)=>s+i.qty, 0);
   document.getElementById('orderTotalAmt').textContent = '₩'+total.toLocaleString();
   document.getElementById('orderItemCount').textContent = count+'개';
+  const badge=document.getElementById('orderBadge');
+  if(count>0){ badge.style.display='inline-block'; badge.textContent=count; }
+  else { badge.style.display='none'; }
 }
 
 function sendOrderToFirebase(){
   const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
   const count = orderItems.reduce((s,i)=>s+i.qty, 0);
-  db.ref('liveOrder').set({
-    items: orderItems,
-    total: total,
-    count: count,
-    t: Date.now()
-  });
+  db.ref('liveOrder').set({ items: orderItems, total: total, count: count, t: Date.now() });
 }
 
 function clearOrder(){
   orderItems = [];
+  lastPickedId = null;
+  renderOrderGrid();
   updateOrderDisplay();
   db.ref('liveOrder').set({items:[], total:0, count:0, t:Date.now()});
   showMsg('🗑 주문이 초기화됐어요');
@@ -826,6 +859,17 @@ function confirmOrder(){
 }
 
 renderOrderGrid();
+
+// ── 고객이 메뉴에서 상품을 선택하면: 화면은 안 가리고, 알림+배지만으로 조용히 담아둠 ──
+// (점원이 실물을 집는 순간 카메라가 가려지면 안 되므로, 패널은 자동으로 열지 않음)
+let lastPickT = 0;
+db.ref('customerPick').on('value', snap=>{
+  const d = snap.val();
+  if(!d || !d.t || d.t===lastPickT) return;
+  lastPickT = d.t;
+  showMsg(`${d.e||'🥐'} 고객이 ${d.name}을(를) 선택했어요`);
+  addItem(d.id); // 담기는 하되, 패널을 강제로 열지는 않음 — 우측 하단 배지 숫자로만 확인 가능
+});
 
 // ── 시계 ──
 setInterval(()=>{
