@@ -480,6 +480,13 @@ let whepPc=null,whepRetryTimer=null;
 function goTab(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');syncBottom(id);}
 function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');}
 function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
+function switchToCam(){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('cam').classList.add('on');
+  document.querySelector('.tab[onclick*="\'cam\'"]')?.classList.add('on');
+  document.querySelector('.btab[onclick*="\'cam\'"]')?.classList.add('on');
+}
 
 // ── WHEP 카메라 연결 ──
 async function connCam(){
@@ -757,7 +764,16 @@ function updateLiveOrder(d){
 }
 
 function sendPick(){markActivity();const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;db.ref('messages').push({msg,t:Date.now()});toast('💬 점원에게 전달: "'+msg+'"');document.getElementById('pickMsg').value='';}
-function renderMenu(){document.getElementById('menuGrid').innerHTML=MENU.map(m=>`<div class="mc" onclick="gotoPreset(${m.id})"><div class="mth">${m.e}</div><div class="mi"><div class="mn">${m.name}</div><div class="md">${m.desc}</div><div class="mp">₩${m.price.toLocaleString()}</div><button class="mbtn" onclick="event.stopPropagation();gotoPreset(${m.id})">📷 카메라 이동</button></div></div>`).join('');}
+function renderMenu(){document.getElementById('menuGrid').innerHTML=MENU.map(m=>`<div class="mc" onclick="pickMenuItem(${m.id})"><div class="mth">${m.e}</div><div class="mi"><div class="mn">${m.name}</div><div class="md">${m.desc}</div><div class="mp">₩${m.price.toLocaleString()}</div><button class="mbtn" onclick="event.stopPropagation();pickMenuItem(${m.id})">📷 카메라 이동</button></div></div>`).join('');}
+function pickMenuItem(id){
+  markActivity();
+  const m=MENU.find(x=>x.id===id);
+  if(!m) return;
+  gotoPreset(id);
+  db.ref('customerPick').set({id:m.id, name:m.name, e:m.e, price:m.price, t:Date.now()});
+  toast('📷 '+m.e+' '+m.name+' 위치로 이동 중 — 화면을 짚어서 정확히 알려주세요');
+  switchToCam();
+}
 function addCart(id){const m=MENU.find(x=>x.id===id);if(!m)return;cart[id]=cart[id]||{...m,qty:0};cart[id].qty++;updateCart();setStep(3);toast(m.e+' '+m.name+' 담았어요!');}
 function changeQty(id,d){if(!cart[id])return;cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];updateCart();}
 function updateCart(){const items=Object.values(cart);const total=items.reduce((s,i)=>s+i.price*i.qty,0);const count=items.reduce((s,i)=>s+i.qty,0);const badge=document.getElementById('ccnt');badge.textContent=count;count>0?badge.classList.add('show'):badge.classList.remove('show');document.getElementById('totalPr').textContent='₩'+total.toLocaleString();document.getElementById('payTotalVal').textContent='₩'+total.toLocaleString();const box=document.getElementById('cartBottom');const list=document.getElementById('cartList');if(!items.length){list.innerHTML='<div class="cart-empty"><span class="emo">🛒</span>장바구니가 비어 있어요</div>';box.style.display='none';return;}box.style.display='block';list.innerHTML=items.map(i=>`<div class="ci"><div class="ci-em">${i.e}</div><div class="ci-info"><div class="ci-nm">${i.name}</div><div class="ci-pr">₩${i.price.toLocaleString()} × ${i.qty} = ₩${(i.price*i.qty).toLocaleString()}</div></div><div class="ci-qty"><button class="qb" onclick="changeQty(${i.id},-1)">−</button><span style="font-size:.8rem;font-weight:700;min-width:14px;text-align:center;">${i.qty}</span><button class="qb" onclick="changeQty(${i.id},1)">+</button></div></div>`).join('');}
