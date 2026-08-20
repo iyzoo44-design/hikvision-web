@@ -542,14 +542,18 @@ db.ref('customerZoom').on('value', snap=>{
   const d=snap.val();
   if(d && typeof d.zoom==='number') applyClerkZoom(d.zoom, d.panX, d.panY);
 });
-// ── 활성 고객이 바뀌면(새 손님 시작) 이전 줌/이동 값이 남아있지 않도록 즉시 리셋 ──
+// ── 활성 고객이 바뀌면(새 손님 시작) 이전 줌/이동/주문 내역이 남아있지 않도록 즉시 리셋 ──
 let lastActiveClientId=null;
 db.ref('activeSession').on('value', snap=>{
   const d=snap.val();
   const cid = d ? d.clientId : null;
   if(cid!==lastActiveClientId){
+    const isRealHandoff = lastActiveClientId!==null && cid!==null; // 페이지 첫 접속 시엔 진행 중인 주문을 지우지 않음
     lastActiveClientId = cid;
     if(cid) applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
+    if(isRealHandoff && typeof clearOrder==='function'){
+      clearOrder(); // 새 손님으로 넘어갔으니 이전 손님이 담았던 상품은 자동으로 비움
+    }
   }
 });
 
