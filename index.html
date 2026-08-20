@@ -211,12 +211,6 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
     </div>
   </div>
 </header>
-<div class="tabs">
-  <button class="tab on" onclick="goTab('cam',this)"><span>📷</span>카메라</button>
-  <button class="tab" onclick="toggleMenuOverlay()"><span>🍞</span>메뉴</button>
-  <button class="tab" onclick="goTab('cart',this)"><span>🛒</span>장바구니</button>
-  <button class="tab" onclick="goTab('guide',this)"><span>📋</span>안내</button>
-</div>
 <div class="sec on" id="cam">
   <div class="step-banner">
     <div class="step-item active" id="st1"><div class="step-num">①</div><div class="step-lbl">카메라<br>접속</div></div>
@@ -826,6 +820,7 @@ function toggleMenuOverlay(force){
   const el=document.getElementById('camMenuOverlay');
   if(!el) return;
   const open = typeof force==='boolean' ? force : !el.classList.contains('open');
+  if(open) switchToCam(); // 장바구니·안내 탭 등 다른 화면에 있어도 카메라 화면으로 먼저 전환해서 메뉴가 보이게
   el.classList.toggle('open', open);
 }
 function pickMenuItem(id){
