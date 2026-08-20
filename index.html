@@ -221,6 +221,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
       <svg id="arrowPointer" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
         <polygon points="3,3 3,30 12,22 16,35 21,33 17,20 28,20" fill="#ff2020" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
       </svg>
+      <div id="camOrderBadge" style="position:absolute;top:8px;left:8px;z-index:30;background:rgba(0,0,0,.68);color:#FFD9A0;font-size:.66rem;font-weight:700;padding:6px 10px;border-radius:10px;display:none;max-width:64%;line-height:1.5;"></div>
       <div id="zoomSliderWrap">
         <button class="zs-btn" onclick="zoomNudge(0.1)">🔍＋</button>
         <div class="zs-track-wrap">
@@ -756,6 +757,17 @@ function syncCartFromOrder(items){if(!items||items.length===0){cart={};updateCar
 function updateLiveOrder(d){
   const total=d.total||0,count=d.count||0,confirmed=d.confirmed||false,items=d.items||[];
   syncCartFromOrder(items);
+  const badge=document.getElementById('camOrderBadge');
+  if(badge){
+    if(total===0){ badge.style.display='none'; }
+    else{
+      const last = items[items.length-1];
+      const moreCount = items.length-1;
+      const lastTxt = last ? `${last.e} ${last.name} × ${last.qty}` : '';
+      badge.innerHTML = `🧾 ${lastTxt}${moreCount>0?' 외 '+moreCount+'개':''}<br>합계 ${count}개 · ₩${total.toLocaleString()}`;
+      badge.style.display='block';
+    }
+  }
   let liveBar=document.getElementById('liveOrderBar');
   if(!liveBar){liveBar=document.createElement('div');liveBar.id='liveOrderBar';liveBar.style.cssText='background:var(--dbrown);border-radius:12px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.3);';document.querySelector('.cam-box').after(liveBar);}
   if(total===0){liveBar.innerHTML=`<div style="padding:12px 16px;text-align:center;color:rgba(255,190,80,.4);font-size:.75rem;">🧾 점원이 상품을 선택 중이에요...</div>`;return;}
