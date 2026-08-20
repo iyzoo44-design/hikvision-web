@@ -221,7 +221,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
       <svg id="arrowPointer" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
         <polygon points="3,3 3,30 12,22 16,35 21,33 17,20 28,20" fill="#ff2020" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
       </svg>
-      <div id="camOrderBadge" style="position:absolute;top:8px;left:8px;z-index:30;background:rgba(0,0,0,.68);color:#FFD9A0;font-size:.66rem;font-weight:700;padding:6px 10px;border-radius:10px;display:none;max-width:64%;line-height:1.5;"></div>
+      <div id="camOrderBadge" style="position:absolute;top:8px;left:8px;z-index:30;color:#FFD9A0;font-size:.68rem;font-weight:700;padding:2px 4px;display:none;max-width:66%;line-height:1.55;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,1);"></div>
       <div id="zoomSliderWrap">
         <button class="zs-btn" onclick="zoomNudge(0.1)">🔍＋</button>
         <div class="zs-track-wrap">
@@ -761,10 +761,8 @@ function updateLiveOrder(d){
   if(badge){
     if(total===0){ badge.style.display='none'; }
     else{
-      const last = items[items.length-1];
-      const moreCount = items.length-1;
-      const lastTxt = last ? `${last.e} ${last.name} × ${last.qty}` : '';
-      badge.innerHTML = `🧾 ${lastTxt}${moreCount>0?' 외 '+moreCount+'개':''}<br>합계 ${count}개 · ₩${total.toLocaleString()}`;
+      const itemLines = items.map(i=>`${i.e} ${i.name} × ${i.qty}`).join('<br>');
+      badge.innerHTML = `${itemLines}<br>합계 ${count}개 · ₩${total.toLocaleString()}`;
       badge.style.display='block';
     }
   }
