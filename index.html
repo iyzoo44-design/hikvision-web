@@ -419,6 +419,7 @@ function applyActiveState(nowActive){
     startHeartbeat();
     startIdleWatcher();
     zoomReset(); // 새로 활성 고객이 되면 이전 고객이 남긴 줌/화면이동을 리셋 → 포인터 어긋남 방지
+    db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{})); // 현재 주문 상태 즉시 반영
     toast('✅ 지금부터 이용하실 수 있어요');
   } else {
     stopHeartbeat();
@@ -755,6 +756,15 @@ function endCall(){if(pc){pc.close();pc=null;}if(localStream){localStream.getTra
 db.ref('liveOrder').on('value',function(snap){const d=snap.val();if(!d)return;updateLiveOrder(d);});
 function syncCartFromOrder(items){if(!items||items.length===0){cart={};updateCart();return;}cart={};items.forEach(i=>{cart[i.id]={...i};});updateCart();}
 function updateLiveOrder(d){
+  if(!amActive){
+    // 대기 중인 고객에게는 다른 손님이 담은 상품·합계를 보여주지 않음
+    const badge0=document.getElementById('camOrderBadge');
+    if(badge0) badge0.style.display='none';
+    const bar0=document.getElementById('liveOrderBar');
+    if(bar0) bar0.remove();
+    syncCartFromOrder([]);
+    return;
+  }
   const total=d.total||0,count=d.count||0,confirmed=d.confirmed||false,items=d.items||[];
   syncCartFromOrder(items);
   const badge=document.getElementById('camOrderBadge');
