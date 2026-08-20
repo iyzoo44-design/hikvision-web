@@ -283,7 +283,8 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div id="cartList"><div class="cart-empty"><span class="emo">🛒</span>아직 담은 빵이 없어요</div></div>
   <div id="cartBottom" style="display:none;">
     <div class="cart-total"><span class="ct-lbl">합계</span><span class="ct-val" id="totalPr">₩0</span></div>
-    <button class="pay-btn" onclick="openPayModal()">💳 결제하기</button>
+    <button class="pay-btn" id="payBtn" onclick="openPayModal()">💳 결제하기</button>
+    <div id="payWaitMsg" style="display:none;text-align:center;font-size:.72rem;color:var(--soft);padding:10px 4px;">⏳ 점원이 상품을 다 담고 확정하면 결제하실 수 있어요</div>
   </div>
 </div>
 <div class="sec" id="guide">
@@ -495,6 +496,7 @@ db.ref('customerZoom').on('value', snap=>{
 
 const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200,preset:2},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500,preset:2},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500,preset:3},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500,preset:3},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800,preset:4},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500,preset:4},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200,preset:5},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800,preset:5}];
 let cart={},selPayMethod='',connected=false,isFullscreen=false;
+let orderConfirmedFlag=false; // 점원이 "결제 요청 전송"을 눌러야만 true — 그 전엔 결제 버튼 비활성
 let whepPc=null,whepRetryTimer=null;
 
 function goTab(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');syncBottom(id);}
@@ -778,13 +780,13 @@ function updateLiveOrder(d){
     // 대기 중인 고객에게는 다른 손님이 담은 상품·합계를 보여주지 않음
     const badge0=document.getElementById('camOrderBadge');
     if(badge0) badge0.style.display='none';
-    const bar0=document.getElementById('liveOrderBar');
-    if(bar0) bar0.remove();
+    orderConfirmedFlag = false;
     syncCartFromOrder([]);
     return;
   }
   const total=d.total||0,count=d.count||0,confirmed=d.confirmed||false,items=d.items||[];
   syncCartFromOrder(items);
+  orderConfirmedFlag = confirmed;
   const badge=document.getElementById('camOrderBadge');
   if(badge){
     if(total===0){ badge.style.display='none'; }
@@ -794,11 +796,7 @@ function updateLiveOrder(d){
       badge.style.display='block';
     }
   }
-  let liveBar=document.getElementById('liveOrderBar');
-  if(!liveBar){liveBar=document.createElement('div');liveBar.id='liveOrderBar';liveBar.style.cssText='background:var(--dbrown);border-radius:12px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.3);';document.querySelector('.cam-box').after(liveBar);}
-  if(total===0){liveBar.innerHTML=`<div style="padding:12px 16px;text-align:center;color:rgba(255,190,80,.4);font-size:.75rem;">🧾 점원이 상품을 선택 중이에요...</div>`;return;}
-  const itemHTML=items.map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px;border-bottom:1px solid rgba(255,255,255,.05);"><span style="font-size:.8rem;color:#FFD9A0;">${i.e} ${i.name} × ${i.qty}</span><span style="font-size:.8rem;color:rgba(255,190,80,.8);font-family:monospace;">₩${(i.price*i.qty).toLocaleString()}</span></div>`).join('');
-  liveBar.innerHTML=`<div style="padding:8px 16px;background:rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;"><span style="font-size:.65rem;color:rgba(255,190,80,.5);">🧾 현재 선택된 상품</span></div>${itemHTML}<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(0,0,0,.2);"><span style="font-size:.8rem;color:rgba(255,190,80,.7);">합계 ${count}개</span><span style="font-size:1.4rem;font-weight:700;color:#FFD9A0;font-family:monospace;">₩${total.toLocaleString()}</span></div>${confirmed?`<div style="padding:8px 12px;"><button onclick="openPayModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,#D2691E,#8B3500);color:#fff;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;">💳 결제하기</button></div>`:`<div style="padding:6px 16px 10px;text-align:center;font-size:.62rem;color:rgba(255,190,80,.3);">점원이 선택 중... 잠시만 기다려주세요</div>`}`;
+  updateCart(); // 확정 여부가 바뀌면 장바구니의 결제 버튼 표시 상태도 다시 계산
 }
 
 function sendPick(){markActivity();const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;db.ref('messages').push({msg,t:Date.now()});toast('💬 점원에게 전달: "'+msg+'"');document.getElementById('pickMsg').value='';}
@@ -834,9 +832,15 @@ function pickMenuItem(id){
   toggleMenuOverlay(false);
 }
 function addCart(id){const m=MENU.find(x=>x.id===id);if(!m)return;cart[id]=cart[id]||{...m,qty:0};cart[id].qty++;updateCart();setStep(3);toast(m.e+' '+m.name+' 담았어요!');}
-function updateCart(){const items=Object.values(cart);const total=items.reduce((s,i)=>s+i.price*i.qty,0);const count=items.reduce((s,i)=>s+i.qty,0);const badge=document.getElementById('ccnt');badge.textContent=count;count>0?badge.classList.add('show'):badge.classList.remove('show');document.getElementById('totalPr').textContent='₩'+total.toLocaleString();document.getElementById('payTotalVal').textContent='₩'+total.toLocaleString();const box=document.getElementById('cartBottom');const list=document.getElementById('cartList');if(!items.length){list.innerHTML='<div class="cart-empty"><span class="emo">🛒</span>장바구니가 비어 있어요</div>';box.style.display='none';return;}box.style.display='block';list.innerHTML=items.map(i=>`<div class="ci"><div class="ci-em">${i.e}</div><div class="ci-info"><div class="ci-nm">${i.name}</div><div class="ci-pr">₩${i.price.toLocaleString()} × ${i.qty} = ₩${(i.price*i.qty).toLocaleString()}</div></div><div class="ci-qty"><span style="font-size:.85rem;font-weight:700;color:var(--dbrown);">${i.qty}개</span></div></div>`).join('')+'<div style="text-align:center;font-size:.62rem;color:var(--soft);padding:6px 4px 2px;">수량 변경이나 취소는 통화로 점원에게 말씀해 주세요</div>';}
+function updateCart(){const items=Object.values(cart);const total=items.reduce((s,i)=>s+i.price*i.qty,0);const count=items.reduce((s,i)=>s+i.qty,0);const badge=document.getElementById('ccnt');badge.textContent=count;count>0?badge.classList.add('show'):badge.classList.remove('show');document.getElementById('totalPr').textContent='₩'+total.toLocaleString();document.getElementById('payTotalVal').textContent='₩'+total.toLocaleString();const box=document.getElementById('cartBottom');const list=document.getElementById('cartList');if(!items.length){list.innerHTML='<div class="cart-empty"><span class="emo">🛒</span>장바구니가 비어 있어요</div>';box.style.display='none';return;}box.style.display='block';list.innerHTML=items.map(i=>`<div class="ci"><div class="ci-em">${i.e}</div><div class="ci-info"><div class="ci-nm">${i.name}</div><div class="ci-pr">₩${i.price.toLocaleString()} × ${i.qty} = ₩${(i.price*i.qty).toLocaleString()}</div></div><div class="ci-qty"><span style="font-size:.85rem;font-weight:700;color:var(--dbrown);">${i.qty}개</span></div></div>`).join('')+'<div style="text-align:center;font-size:.62rem;color:var(--soft);padding:6px 4px 2px;">수량 변경이나 취소는 통화로 점원에게 말씀해 주세요</div>';
+  const payBtn=document.getElementById('payBtn'), payWait=document.getElementById('payWaitMsg');
+  if(payBtn && payWait){
+    payBtn.style.display = orderConfirmedFlag ? 'block' : 'none';
+    payWait.style.display = orderConfirmedFlag ? 'none' : 'block';
+  }
+}
 function setStep(n){for(let i=1;i<=4;i++){const el=document.getElementById('st'+i);el.classList.remove('active','done');if(i<n)el.classList.add('done');else if(i===n)el.classList.add('active');}}
-function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}const liveTotal=Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);document.getElementById('payTotalVal').textContent='₩'+liveTotal.toLocaleString();document.getElementById('payModal').classList.add('open');}
+function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}const liveTotal=Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);document.getElementById('payTotalVal').textContent='₩'+liveTotal.toLocaleString();document.getElementById('payModal').classList.add('open');}
 function closePayModal(){document.getElementById('payModal').classList.remove('open');}
 function selPay(el,name){document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');selPayMethod=name;}
 function confirmPay(){const addr=document.getElementById('addrInp').value.trim();if(!selPayMethod){toast('결제 수단을 선택해 주세요');return;}if(!addr){toast('배달 주소를 입력해 주세요');return;}closePayModal();document.getElementById('onum').textContent='BCM-'+Math.floor(Math.random()*90000+10000);document.getElementById('doneModal').classList.add('open');setStep(4);}
