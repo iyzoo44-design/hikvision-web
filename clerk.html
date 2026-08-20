@@ -159,6 +159,19 @@ html,body{
 #orderTotalAmt{
   font-size:1.1rem;font-weight:700;color:#FFD9A0;font-family:monospace;
 }
+#pickedList{margin-bottom:8px;}
+.picked-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 9px;background:rgba(255,255,255,.06);border-radius:7px;margin-bottom:4px;
+}
+.picked-row .pr-name{font-size:.7rem;color:#FFD9A0;}
+.picked-row .pr-btns{display:flex;gap:5px;}
+.picked-row button{
+  width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;
+  font-size:.85rem;font-weight:700;color:#fff;
+}
+.picked-row .pr-minus{background:rgba(123,28,28,.75);}
+.picked-row .pr-plus{background:rgba(27,94,32,.85);}
 .order-grid{
   display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px;
 }
@@ -366,6 +379,7 @@ html,body{
   <div id="micStatus">마이크 꺼짐</div>
 </div>
 <button id="nextCustBtn" onclick="forceNextCustomer()" style="position:fixed;top:50px;left:10px;z-index:200;padding:8px 12px;border:none;border-radius:14px;background:rgba(184,134,11,.9);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.66rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);text-align:center;line-height:1.5;">🙋 다음 고객으로<br>넘기기</button>
+<div id="camOrderBadge" style="position:fixed;top:110px;left:10px;z-index:200;color:#FFD9A0;font-size:.68rem;font-weight:700;line-height:1.55;display:none;max-width:60%;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,1);"></div>
 
 <div id="clock"></div>
 
@@ -393,6 +407,7 @@ html,body{
     <span id="orderTotalAmt">₩0</span>
     <span id="orderItemCount" style="font-size:.6rem;color:rgba(255,190,80,.4);">0개</span>
   </div>
+  <div id="pickedList"></div>
   <div class="order-grid" id="orderGrid"></div>
   <div class="order-row">
     <button id="orderClearBtn" onclick="clearOrder()">🗑 전체 취소</button>
@@ -821,9 +836,39 @@ function addItem(id){
   else { orderItems.push({...m, qty:1}); }
   lastPickedId = id;
   renderOrderGrid();
+  renderPickedList();
   updateOrderDisplay();
   sendOrderToFirebase();
   showMsg(`${m.e} ${m.name} 추가!`);
+}
+
+// ── 담긴 상품 목록: 잘못 담았거나 고객이 마음이 바뀌었을 때 개별로 빼거나 더할 수 있음 ──
+function renderPickedList(){
+  const el=document.getElementById('pickedList');
+  if(!el) return;
+  if(!orderItems.length){ el.innerHTML=''; return; }
+  el.innerHTML = orderItems.map(i=>`
+    <div class="picked-row">
+      <span class="pr-name">${i.e} ${i.name} × ${i.qty}</span>
+      <div class="pr-btns">
+        <button class="pr-minus" onclick="decItem(${i.id})">−</button>
+        <button class="pr-plus" onclick="incItem(${i.id})">＋</button>
+      </div>
+    </div>
+  `).join('');
+}
+function incItem(id){ addItem(id); }
+function decItem(id){
+  const idx = orderItems.findIndex(x=>x.id===id);
+  if(idx<0) return;
+  orderItems[idx].qty--;
+  const removed = orderItems[idx].qty<=0;
+  if(removed) orderItems.splice(idx,1);
+  renderOrderGrid();
+  renderPickedList();
+  updateOrderDisplay();
+  sendOrderToFirebase();
+  showMsg(removed ? '🗑 상품을 뺐어요' : '➖ 수량을 줄였어요');
 }
 
 function updateOrderDisplay(){
@@ -834,6 +879,15 @@ function updateOrderDisplay(){
   const badge=document.getElementById('orderBadge');
   if(count>0){ badge.style.display='inline-block'; badge.textContent=count; }
   else { badge.style.display='none'; }
+  const camBadge=document.getElementById('camOrderBadge');
+  if(camBadge){
+    if(count===0){ camBadge.style.display='none'; }
+    else{
+      const itemLines = orderItems.map(i=>`${i.e} ${i.name} × ${i.qty}`).join('<br>');
+      camBadge.innerHTML = `${itemLines}<br>합계 ${count}개 · ₩${total.toLocaleString()}`;
+      camBadge.style.display='block';
+    }
+  }
 }
 
 function sendOrderToFirebase(){
@@ -846,6 +900,7 @@ function clearOrder(){
   orderItems = [];
   lastPickedId = null;
   renderOrderGrid();
+  renderPickedList();
   updateOrderDisplay();
   db.ref('liveOrder').set({items:[], total:0, count:0, t:Date.now()});
   showMsg('🗑 주문이 초기화됐어요');
