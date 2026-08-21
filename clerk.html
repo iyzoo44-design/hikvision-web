@@ -48,8 +48,8 @@ html,body{
   top:40px;
   left:0;
   right:0;
-  bottom:0;
   width:100%;
+  aspect-ratio:4/3;
   overflow:hidden;
   background:#0a0500;
 }
@@ -543,18 +543,18 @@ db.ref('customerZoom').on('value', snap=>{
   if(d && typeof d.zoom==='number') applyClerkZoom(d.zoom, d.panX, d.panY);
 });
 // ── 활성 고객이 바뀌면(새 손님 시작) 이전 줌/이동/주문 내역이 남아있지 않도록 즉시 리셋 ──
-let lastActiveClientId=null;
+// 실제 손님 교체는 "A 퇴장(빈 상태) → 잠시 후 B 입장" 두 단계를 거치므로,
+// 중간의 빈 상태는 무시하고 "마지막으로 확인한 손님"과 다를 때만 비교한다.
+let lastKnownCustomerId = undefined; // undefined = 아직 아무도 관찰 안 함(점원 첫 접속)
 db.ref('activeSession').on('value', snap=>{
   const d=snap.val();
   const cid = d ? d.clientId : null;
-  if(cid!==lastActiveClientId){
-    const isRealHandoff = lastActiveClientId!==null && cid!==null; // 페이지 첫 접속 시엔 진행 중인 주문을 지우지 않음
-    lastActiveClientId = cid;
-    if(cid) applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
-    if(isRealHandoff && typeof clearOrder==='function'){
-      clearOrder(); // 새 손님으로 넘어갔으니 이전 손님이 담았던 상품은 자동으로 비움
-    }
+  if(!cid) return; // 잠시 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
+  if(lastKnownCustomerId !== undefined && cid !== lastKnownCustomerId){
+    applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
+    if(typeof clearOrder==='function') clearOrder(); // 이전 손님이 담았던 상품은 자동으로 비움
   }
+  lastKnownCustomerId = cid;
 });
 
 db.ref('pointer').on('value', snap=>{
