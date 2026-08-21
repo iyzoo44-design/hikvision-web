@@ -117,7 +117,18 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .cbtn2{flex:1;padding:8px 4px;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;transition:all .2s;}
 .cbtn2:active{transform:scale(.96);}
 .c-p{background:var(--gold);color:#fff;}.c-s{background:rgba(255,255,255,.08);color:rgba(255,210,160,.8);}.c-d{background:#7B1C1C;color:#fff;}
-.joystick-wrap{padding:10px 12px 12px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;align-items:center;}
+.joystick-wrap{padding:8px 12px;border-top:1px solid rgba(255,255,255,.06);}
+.ptz-toggle{
+  width:100%;padding:8px;border:none;border-radius:8px;
+  background:rgba(255,255,255,.06);color:rgba(255,190,80,.6);
+  font-family:'Noto Sans KR',sans-serif;font-size:.66rem;font-weight:700;cursor:pointer;
+}
+.ptz-toggle:active{background:rgba(184,134,11,.3);}
+.joystick-collapsible{
+  max-height:0;overflow:hidden;transition:max-height .25s ease;
+  display:flex;flex-direction:column;align-items:center;
+}
+.joystick-collapsible.open{max-height:200px;padding-top:10px;}
 .ptz-lbl{font-size:.6rem;color:rgba(255,190,80,.4);margin-bottom:8px;text-align:center;}
 .joystick-base{
   position:relative;width:120px;height:120px;border-radius:50%;
@@ -240,13 +251,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
         <div class="cmo-grid" id="camMenuGrid"></div>
       </div>
       <div id="zoomSliderWrap">
-        <button class="zs-btn" onclick="zoomNudge(0.1)">🔍＋</button>
-        <div class="zs-track-wrap">
-          <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1" oninput="onZoomSlide(this.value)">
-        </div>
-        <button class="zs-btn" onclick="zoomNudge(-0.1)">🔍－</button>
         <button class="zs-btn zs-reset" onclick="zoomReset()">1x</button>
-        <span id="zoomLbl">1.0x</span>
       </div>
     </div>
     <div class="call-bar">
@@ -263,9 +268,12 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
       <button class="cbtn2 c-d" onclick="discCam()">⏹ 끊기</button>
     </div>
     <div class="joystick-wrap">
-      <div class="ptz-lbl">🎮 카메라 방향 조절 (드래그)</div>
-      <div class="joystick-base" id="joyBase">
-        <div class="joystick-knob" id="joyKnob"></div>
+      <button class="ptz-toggle" id="joyToggleBtn" onclick="toggleJoystick()">🎮 카메라 방향 조절 펼치기</button>
+      <div class="joystick-collapsible" id="joyCollapsible">
+        <div class="ptz-lbl">드래그해서 카메라 방향 조절</div>
+        <div class="joystick-base" id="joyBase">
+          <div class="joystick-knob" id="joyKnob"></div>
+        </div>
       </div>
     </div>
     <div class="pick-box">
@@ -636,7 +644,8 @@ function renderZoomPan(){
   const wrap=document.getElementById('zoomWrap');
   const w=camScr.offsetWidth, h=camScr.offsetHeight;
   wrap.style.transform=`translate(${panXRatio*w}px, ${panYRatio*h}px) scale(${curZoom})`;
-  document.getElementById('zoomLbl').textContent=curZoom.toFixed(1)+'x';
+  const lbl=document.getElementById('zoomLbl');
+  if(lbl) lbl.textContent=curZoom.toFixed(1)+'x';
   const slider=document.getElementById('zoomSlider');
   if(slider) slider.value=curZoom;
 }
@@ -696,6 +705,14 @@ camScr.addEventListener('touchcancel', restoreZoomTransition);
 function gotoPreset(presetNo){db.ref('ptz').set({cmd:'preset',preset:presetNo,t:Date.now()});toast('📷 카메라 이동 중...');}
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 
+function toggleJoystick(){
+  markActivity();
+  const el=document.getElementById('joyCollapsible');
+  const btn=document.getElementById('joyToggleBtn');
+  const open=!el.classList.contains('open');
+  el.classList.toggle('open', open);
+  btn.textContent = open ? '🎮 카메라 방향 조절 접기' : '🎮 카메라 방향 조절 펼치기';
+}
 // ── 조이스틱 (PTZ 방향, 항상 즉시 stop) ──
 (function(){
   const base=document.getElementById('joyBase');
