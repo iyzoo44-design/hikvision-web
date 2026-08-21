@@ -29,15 +29,18 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .sec{display:none;padding:14px;}
 .sec.on{display:block;}
 .sec-title{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;}
-.step-banner{display:flex;margin-bottom:14px;background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 8px var(--shadow);}
-.step-item{flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--warm);}
-.step-item:last-child{border:none;}
-.step-item.active{background:var(--brown);}
-.step-item.done{background:var(--green);}
-.step-num{font-size:.62rem;font-weight:700;margin-bottom:2px;}
-.step-lbl{font-size:.58rem;line-height:1.3;}
-.step-item.active .step-num,.step-item.active .step-lbl,.step-item.done .step-num,.step-item.done .step-lbl{color:#fff;}
-.step-item:not(.active):not(.done) .step-num,.step-item:not(.active):not(.done) .step-lbl{color:var(--soft);}
+.rs-tagline{
+  text-align:center;margin-bottom:12px;font-family:'Nanum Myeongjo',serif;
+  font-size:.98rem;font-weight:800;color:var(--brown);line-height:1.5;
+}
+.rs-tagline span{display:block;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:500;color:var(--gold);margin-top:3px;letter-spacing:.3px;}
+.quick-guide{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:4px 3px;margin-bottom:14px;padding:10px 12px;
+  background:var(--white);border-radius:12px;box-shadow:0 2px 8px var(--shadow);
+}
+.quick-guide .qg-step{font-size:.64rem;color:var(--brown);font-weight:600;white-space:nowrap;}
+.quick-guide .qg-arrow{font-size:.62rem;color:var(--warm);}
 .cam-box{background:var(--dbrown);border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);margin-bottom:12px;}
 .cam-screen{position:relative;aspect-ratio:4/3;overflow:hidden;background:#0a0500;touch-action:none;}
 #zoomWrap{position:absolute;inset:0;width:100%;height:100%;transform-origin:center center;transition:transform .1s ease-out;}
@@ -223,11 +226,13 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   </div>
 </header>
 <div class="sec on" id="cam">
-  <div class="step-banner">
-    <div class="step-item active" id="st1"><div class="step-num">①</div><div class="step-lbl">카메라<br>접속</div></div>
-    <div class="step-item" id="st2"><div class="step-num">②</div><div class="step-lbl">점원<br>통화</div></div>
-    <div class="step-item" id="st3"><div class="step-num">③</div><div class="step-lbl">빵<br>선택</div></div>
-    <div class="step-item" id="st4"><div class="step-num">④</div><div class="step-lbl">결제<br>완료</div></div>
+  <p class="rs-tagline">실물을 보며 고르는 진짜 쇼핑<br><span>새로운 유통의 시작, 지금 이 화면에서</span></p>
+  <div class="quick-guide">
+    <span class="qg-step">📷 실시간 영상 보기</span><span class="qg-arrow">→</span>
+    <span class="qg-step">🍞 메뉴에서 선택</span><span class="qg-arrow">→</span>
+    <span class="qg-step">👆 화면 콕 짚기</span><span class="qg-arrow">→</span>
+    <span class="qg-step">🧑‍🍳 점원이 확인·픽업</span><span class="qg-arrow">→</span>
+    <span class="qg-step">💳 결제</span>
   </div>
   <div class="cam-box">
     <div class="cam-screen" id="camScr">
@@ -856,7 +861,7 @@ function updateCart(){const items=Object.values(cart);const total=items.reduce((
     payWait.style.display = orderConfirmedFlag ? 'none' : 'block';
   }
 }
-function setStep(n){for(let i=1;i<=4;i++){const el=document.getElementById('st'+i);el.classList.remove('active','done');if(i<n)el.classList.add('done');else if(i===n)el.classList.add('active');}}
+function setStep(n){/* 진행바를 고정 안내문으로 교체하면서 더 이상 사용하지 않음 (호출부 안전하게 유지) */}
 function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}const liveTotal=Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);document.getElementById('payTotalVal').textContent='₩'+liveTotal.toLocaleString();document.getElementById('payModal').classList.add('open');}
 function closePayModal(){document.getElementById('payModal').classList.remove('open');}
 function selPay(el,name){document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');selPayMethod=name;}
