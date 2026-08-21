@@ -631,9 +631,60 @@ db.ref('messages').limitToLast(1).on('child_added', snap=>{
 // ═══════════════════════════════════════════
 let pc = null, localStream = null, callActive = false;
 
+// ── 벨소리 + 진동 (안드로이드는 진동 지원, iOS는 소리만 재생됨) ──
+let ringSoundTimer = null;
+function playRingBeep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type='sine'; o.frequency.value=880;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.4);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime+0.45);
+  }catch(e){}
+}
+function startRinging(){
+  stopRinging();
+  playRingBeep();
+  ringSoundTimer = setInterval(playRingBeep, 1500);
+  if(navigator.vibrate) navigator.vibrate([250,150,250,150,250]);
+}
+function stopRinging(){
+  if(ringSoundTimer){ clearInterval(ringSoundTimer); ringSoundTimer=null; }
+  if(navigator.vibrate) navigator.vibrate(0);
+}
+
+// ── 점원이 미리 통화 버튼을 안 눌러놨어도, 고객이 걸면 즉시 알림(+ 벨/진동) ──
+let lastSeenOfferSdp = null;
+db.ref(`rtc/${ROOM_ID}/offer`).on('value', snap=>{
+  const offer = snap.val();
+  const btn = document.getElementById('callBtn');
+  if(!btn || callActive) return; // 이미 통화 중이면 관여 안 함
+  if(!offer){
+    if(lastSeenOfferSdp){ // 점원이 받기 전에 고객이 먼저 끊은 경우
+      btn.className='';
+      btn.textContent='📞 통화 대기 중';
+      showMsg('📵 고객이 통화를 취소했어요');
+      stopRinging();
+    }
+    lastSeenOfferSdp = null;
+    return;
+  }
+  if(offer.sdp !== lastSeenOfferSdp){
+    lastSeenOfferSdp = offer.sdp;
+    btn.className='ringing';
+    btn.textContent='🔔 고객이 통화 중! 탭해서 받기';
+    showMsg('📞 고객이 통화를 요청했어요!');
+    startRinging();
+  }
+});
+
 async function toggleCall(){
   const btn = document.getElementById('callBtn');
   const micSt = document.getElementById('micStatus');
+  stopRinging(); // 탭하는 순간 벨/진동 즉시 정지
 
   if(callActive){
     endCall();
@@ -683,6 +734,7 @@ async function startAnswer(){
   pc.onconnectionstatechange = ()=>{
     if(pc.connectionState==='connected'){
       callActive=true;
+      stopRinging();
       btn.className='active'; btn.textContent='📵 통화 종료';
       document.getElementById('vviz').classList.add('on');
       showMsg('📞 고객과 연결됐어요!');
