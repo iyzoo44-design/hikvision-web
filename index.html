@@ -460,7 +460,9 @@ function applyActiveState(nowActive){
   }
 }
 
+let hasFinishedShopping = false; // '쇼핑 종료'를 누른 손님은 방을 안 나가도 자동으로 다시 순서를 잡지 않음
 function tryClaimActive(){
+  if(hasFinishedShopping) return; // '연결' 버튼을 다시 눌러야만 재도전
   db.ref('activeSession').transaction(cur=>{
     const now=Date.now();
     if(!cur || !cur.ts || (now-cur.ts)>15000) return {clientId:myClientId, ts:now};
@@ -526,6 +528,7 @@ function switchToCam(){
 // ── WHEP 카메라 연결 ──
 async function connCam(){
   if(connected)return;
+  if(hasFinishedShopping){ hasFinishedShopping=false; tryClaimActive(); } // '더 살게요' → 다시 줄서기
   const status=document.getElementById('streamStatus');
   status.textContent='🟡 연결 중...';
   try{
@@ -623,9 +626,38 @@ function discCam(){
   const s=document.getElementById('streamStatus');
   s.textContent='⚫ 대기';s.style.background='rgba(0,0,0,.5)';s.style.color='rgba(255,255,255,.5)';
   connected=false;setStep(1);zoomReset();
+  hasFinishedShopping = true; // 방을 안 나가도 더 이상 자동으로 순서를 다시 잡지 않음
   releaseActiveIfMine();
 }
-function snap(){toast('📸 화면 캡처됐어요!');}
+function snap(){
+  const video = document.getElementById('camVideo');
+  if(!video || !video.videoWidth){
+    toast('⚠️ 아직 영상이 준비되지 않았어요');
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.toBlob(function(blob){
+    if(!blob){ toast('⚠️ 캡처에 실패했어요'); return; }
+    const url = URL.createObjectURL(blob);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const ts = new Date();
+    const fname = `행복한빵집_${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,'0')}${String(ts.getDate()).padStart(2,'0')}_${String(ts.getHours()).padStart(2,'0')}${String(ts.getMinutes()).padStart(2,'0')}${String(ts.getSeconds()).padStart(2,'0')}.jpg`;
+    if(isIOS){
+      window.open(url, '_blank');
+      toast('📸 새 창에 열렸어요 — 이미지를 길게 눌러 "저장"해 주세요');
+    } else {
+      const a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast('📸 화면을 저장했어요!');
+    }
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  }, 'image/jpeg', 0.92);
+}
 
 function toggleFull(){
   const scr=document.getElementById('camScr');
@@ -783,7 +815,12 @@ async function toggleCall(){
   document.getElementById('voiceViz').classList.add('on');setStep(2);toast('📞 점원 AR 안경과 연결됐어요!');
 }
 async function startWebRTC(){
-  const cfg={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+  const cfg={iceServers:[
+    {urls:'stun:stun.l.google.com:19302'},
+    {urls:'stun:stun1.l.google.com:19302'},
+    {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+    {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}
+  ]};
   pc=new RTCPeerConnection(cfg);
   localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   pc.ontrack=e=>{document.getElementById('remoteAudio').srcObject=e.streams[0];};
