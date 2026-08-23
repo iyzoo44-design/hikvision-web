@@ -151,6 +151,11 @@ html,body{
 #orderHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 #orderHead .oh-title{font-size:.78rem;font-weight:700;color:#FFD9A0;}
 #orderCloseBtn{border:none;background:rgba(255,255,255,.1);color:#fff;border-radius:8px;width:28px;height:28px;font-size:.9rem;cursor:pointer;}
+#paidInfo{
+  display:none;background:rgba(27,94,32,.22);border:1px solid rgba(76,175,80,.5);
+  border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:.68rem;color:#C8F0CC;line-height:1.7;
+}
+#paidInfo b{color:#8FE39A;}
 #orderTotal{
   display:flex;align-items:center;justify-content:space-between;
   margin-bottom:8px;padding:6px 10px;
@@ -401,6 +406,7 @@ html,body{
     <span class="oh-title">🧾 주문 담기</span>
     <button id="orderCloseBtn" onclick="toggleOrderPanel(false)">✕</button>
   </div>
+  <div id="paidInfo"></div>
   <div id="orderTotal">
     <span style="font-size:.65rem;color:rgba(255,190,80,.5);">현재 합계</span>
     <span id="orderTotalAmt">₩0</span>
@@ -947,6 +953,26 @@ function updateOrderDisplay(){
   }
 }
 
+// ── 고객이 결제를 완료하면: 벨/알림 + 배송 정보 표시 ──
+let lastPaidAt = 0;
+db.ref('liveOrder').on('value', snap=>{
+  const d = snap.val();
+  if(!d || !d.paid || !d.paidAt || d.paidAt===lastPaidAt) return;
+  lastPaidAt = d.paidAt;
+  showMsg(`✅ 결제 완료! 주문번호 ${d.orderNumber}`);
+  playRingBeep();
+  const box = document.getElementById('paidInfo');
+  if(box){
+    box.style.display='block';
+    box.innerHTML =
+      `✅ <b>결제 완료</b> · 주문번호 ${d.orderNumber}<br>`+
+      `결제수단: ${d.payMethod}<br>`+
+      `상품 ₩${(d.itemTotal||0).toLocaleString()} + 배달비 ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'} = <b>₩${(d.grandTotal||0).toLocaleString()}</b><br>`+
+      `📍 배송지: ${d.address||''}`;
+  }
+  toggleOrderPanel(true);
+});
+
 function sendOrderToFirebase(){
   const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
   const count = orderItems.reduce((s,i)=>s+i.qty, 0);
@@ -959,6 +985,8 @@ function clearOrder(){
   renderOrderGrid();
   renderPickedList();
   updateOrderDisplay();
+  const paidBox=document.getElementById('paidInfo');
+  if(paidBox){ paidBox.style.display='none'; paidBox.innerHTML=''; }
   db.ref('liveOrder').set({items:[], total:0, count:0, t:Date.now()});
   showMsg('🗑 주문이 초기화됐어요');
 }
