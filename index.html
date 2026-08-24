@@ -931,14 +931,28 @@ let storeCoords = null;
 let selDeliveryFee = null; // null=미확인, -1=배달불가, 0=무료, 3000=유료
 let calculatedDistanceKm = null;
 
+async function geocodeOnce(addr){
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&accept-language=ko&q=' + encodeURIComponent(addr);
+  const res = await fetch(url);
+  if(!res.ok){ console.error('[지오코딩] HTTP 오류', res.status, addr); return null; }
+  const data = await res.json();
+  if(!data || !data.length){ console.warn('[지오코딩] 결과 없음:', addr); return null; }
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+}
 async function geocodeAddress(addr){
   try{
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&accept-language=ko&q=' + encodeURIComponent(addr);
-    const res = await fetch(url);
-    const data = await res.json();
-    if(!data || !data.length) return null;
-    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-  }catch(e){ return null; }
+    // 1차: 입력된 주소 그대로 시도
+    let r = await geocodeOnce(addr);
+    if(r) return r;
+    // 2차: 상세 번지(숫자/호수 등) 없이 도로명까지만 잘라서 재시도
+    const simplified = addr.replace(/\d+(-\d+)?\s*호?\s*$/,'').trim();
+    if(simplified && simplified!==addr){ r = await geocodeOnce(simplified); if(r) return r; }
+    // 3차: 시/읍면동 단위까지만 잘라서 재시도 (건물 단위보다 훨씬 넓은 범위)
+    const parts = addr.split(/\s+/).filter(Boolean);
+    if(parts.length>2){ r = await geocodeOnce(parts.slice(0,2).join(' ')); if(r) return r; }
+    console.error('[지오코딩] 모든 단계 실패:', addr);
+    return null;
+  }catch(e){ console.error('[지오코딩] 예외 발생', e); return null; }
 }
 function haversineKm(a,b){
   const R=6371, toRad=d=>d*Math.PI/180;
