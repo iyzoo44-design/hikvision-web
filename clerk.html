@@ -992,6 +992,15 @@ function clearOrder(){
   showMsg('🗑 주문이 초기화됐어요');
 }
 
+// ── 고객이 결제완료 팝업을 닫으면(종료·더구경 둘 다) 자동으로 주문판 정리 ──
+let lastClearReq = 0;
+db.ref('liveOrder/requestClear').on('value', snap=>{
+  const t = snap.val();
+  if(!t || t===lastClearReq) return;
+  lastClearReq = t;
+  clearOrder();
+});
+
 function confirmOrder(){
   const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
   if(total === 0){ showMsg('⚠️ 상품을 먼저 추가해주세요'); return; }
@@ -999,18 +1008,6 @@ function confirmOrder(){
 }
 
 renderOrderGrid();
-
-// ── 고객이 메뉴에서 상품 위치로 이동(구경): 자동으로 담기지 않음, 알림만 ──
-// ── 고객이 메뉴에서 상품을 보면(구경): 화면은 안 가리고 알림만. 실제 "담기"는 아래에서 —
-// 고객이 화면을 포인터로 짚어서 정확한 실물을 가리키고, 점원이 그걸 집어서
-// 주문 패널에서 직접 탭했을 때(=픽업 확인)만 진짜로 담깁니다.
-let lastPickT = 0;
-db.ref('customerPick').on('value', snap=>{
-  const d = snap.val();
-  if(!d || !d.t || d.t===lastPickT) return;
-  lastPickT = d.t;
-  showMsg(`👀 고객이 ${d.e||'🥐'} ${d.name} 위치로 이동했어요 — 포인터로 짚으면 정확한 위치가 보여요`);
-});
 
 // ── 시계 ──
 setInterval(()=>{
