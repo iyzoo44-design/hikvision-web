@@ -996,7 +996,6 @@ function confirmOrder(){
   const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
   if(total === 0){ showMsg('⚠️ 상품을 먼저 추가해주세요'); return; }
   db.ref('liveOrder').update({confirmed:true, t:Date.now()});
-  showMsg('✅ 결제 요청을 고객에게 전송했어요!');
 }
 
 renderOrderGrid();
