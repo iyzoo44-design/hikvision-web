@@ -238,6 +238,8 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .inp-row .addr-inp{margin-bottom:0;flex:1;}
 .mic-btn{flex:0 0 auto;width:38px;border:1.5px solid var(--warm);border-radius:9px;background:var(--cream);font-size:1rem;cursor:pointer;}
 .mic-btn.listening{background:var(--red);border-color:var(--red);animation:blink .8s infinite;}
+.dz-check-btn{width:100%;padding:10px;margin-bottom:10px;border:1.5px dashed var(--gold);border-radius:9px;background:var(--cream);color:var(--brown);font-family:'Noto Sans KR',sans-serif;font-size:.74rem;font-weight:700;cursor:pointer;}
+.dz-check-btn:active{background:var(--warm);}
 .dz-result{font-size:.7rem;color:var(--soft);background:var(--cream);border-radius:9px;padding:9px 11px;margin-bottom:12px;line-height:1.5;}
 .dz-result.dz-ok{background:#EAF7EC;color:var(--green);}
 .dz-result.dz-error{background:#FBEAEA;color:var(--red);}
@@ -379,8 +381,9 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
     </div>
     <div class="inp-row"><input class="addr-inp" id="nameInp" placeholder="받는 분 성함"/><button class="mic-btn" onclick="startVoiceInput('nameInp')" title="음성으로 입력">🎤</button></div>
     <div class="inp-row"><input class="addr-inp" id="phoneInp" type="tel" placeholder="연락처 (예: 010-1234-5678)"/><button class="mic-btn" onclick="startVoiceInput('phoneInp')" title="음성으로 입력">🎤</button></div>
-    <div class="inp-row"><input class="addr-inp" id="addrInp" placeholder="배달 주소 (도로명 주소 권장)" onblur="checkDeliveryDistance()"/><button class="mic-btn" onclick="startVoiceInput('addrInp')" title="음성으로 입력">🎤</button></div>
-    <div id="dzResult" class="dz-result">주소를 입력하시면 매장까지 거리를 자동으로 계산해요</div>
+    <div class="inp-row"><input class="addr-inp" id="addrInp" placeholder="배달 주소 (도로명 주소 권장)"/><button class="mic-btn" onclick="startVoiceInput('addrInp')" title="음성으로 입력">🎤</button></div>
+    <button class="dz-check-btn" onclick="checkDeliveryDistance()">📍 주소 확인하고 배달비 계산하기</button>
+    <div id="dzResult" class="dz-result">주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요</div>
     <div class="pay-breakdown">
       <div class="pb-row"><span>상품 합계</span><span id="payItemTotal">₩0</span></div>
       <div class="pb-row"><span>배달비</span><span id="payDeliveryFee">주소를 먼저 확인해 주세요</span></div>
@@ -965,14 +968,16 @@ function renderCamMenuOverlay(){
   `).join('');
 }
 function toggleMenuOverlay(force){
-  markActivity();
   const el=document.getElementById('camMenuOverlay');
   if(!el) return;
   const open = typeof force==='boolean' ? force : !el.classList.contains('open');
+  if(open && !amActive){ toast('⏳ 지금은 이용 순서가 아니에요'); return; }
+  markActivity();
   if(open){ switchToCam(); document.querySelector('.btab[onclick*="toggleMenuOverlay"]')?.classList.remove('ready-pulse'); document.getElementById('camMenuShortcut')?.classList.remove('show'); hideWelcomeBanner(); }
   el.classList.toggle('open', open);
 }
 function pickMenuItem(id){
+  if(!amActive){ toast('⏳ 지금은 이용 순서가 아니에요'); toggleMenuOverlay(false); return; }
   markActivity();
   const m=MENU.find(x=>x.id===id);
   if(!m) return;
@@ -1080,7 +1085,7 @@ function startVoiceInput(targetId){
   rec.onend = function(){ if(btn) btn.classList.remove('listening'); };
   rec.start();
 }
-function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}selDeliveryFee=null;calculatedDistanceKm=null;document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';updatePayTotal();document.getElementById('payModal').classList.add('open');}
+function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}selDeliveryFee=null;calculatedDistanceKm=null;document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';updatePayTotal();document.getElementById('payModal').classList.add('open');}
 function closePayModal(){document.getElementById('payModal').classList.remove('open');}
 function selPay(el,name){document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');selPayMethod=name;}
 async function confirmPay(){
@@ -1108,10 +1113,11 @@ async function confirmPay(){
     recvName:name, recvPhone:phone, address:addr, paidAt:Date.now()
   });
 }
-function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';db.ref('liveOrder/requestClear').set(Date.now());}
+function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';db.ref('liveOrder/requestClear').set(Date.now());}
 function finishAndExit(){
   closeDone();
   discCam();
+  switchToCam(); // 장바구니 등 다른 탭을 보고 있었어도 감사 문구가 실제로 보이도록 카메라 탭으로 전환
   const o=document.getElementById('camOverlay');
   o.querySelector('p').innerHTML='🚪 쇼핑을 종료하셨습니다<br><span style="font-size:.66rem;opacity:.75;">이용해 주셔서 감사합니다! 😊<br>다시 쇼핑하시려면 아래 [연결]을 눌러주세요</span>';
 }
