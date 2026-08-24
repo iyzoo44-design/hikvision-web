@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>고객 관리 — 행복한 빵집</title>
+<style>
+:root{--bg:#FFFBF4;--cream:#FFF3E0;--warm:#F5DEB3;--brown:#5C3317;--dbrown:#2E1503;--gold:#B8860B;--accent:#D2691E;--soft:#8B6347;--white:#fff;--green:#1B5E20;--red:#B71C1C;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--dbrown);padding-bottom:40px;}
+header{background:var(--dbrown);padding:16px 20px;position:sticky;top:0;z-index:50;box-shadow:0 3px 12px rgba(0,0,0,.3);}
+header h1{color:#FFD9A0;font-size:1.15rem;}
+header p{color:rgba(255,210,160,.55);font-size:.72rem;margin-top:2px;}
+.wrap{max-width:900px;margin:0 auto;padding:16px;}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+.sum-card{background:var(--white);border-radius:12px;padding:14px 10px;text-align:center;box-shadow:0 2px 8px rgba(44,21,3,.1);}
+.sum-card .sc-label{font-size:.68rem;color:var(--soft);margin-bottom:4px;}
+.sum-card .sc-val{font-size:1.15rem;font-weight:800;color:var(--brown);}
+.search-row{display:flex;gap:8px;margin-bottom:14px;}
+.search-row input{flex:1;padding:11px 14px;border:1.5px solid var(--warm);border-radius:10px;font-family:inherit;font-size:.85rem;}
+.search-row button{padding:11px 16px;border:none;border-radius:10px;background:var(--gold);color:#fff;font-weight:700;font-size:.8rem;cursor:pointer;}
+.sort-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.sort-btn{padding:6px 12px;border:1px solid var(--warm);border-radius:16px;background:var(--white);color:var(--soft);font-size:.7rem;cursor:pointer;font-family:inherit;}
+.sort-btn.on{background:var(--brown);color:#fff;border-color:var(--brown);}
+#custList{display:flex;flex-direction:column;gap:10px;}
+.cust-card{background:var(--white);border-radius:12px;box-shadow:0 2px 8px rgba(44,21,3,.1);overflow:hidden;}
+.cust-head{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.cust-name{font-weight:800;font-size:.95rem;color:var(--brown);}
+.cust-sub{font-size:.7rem;color:var(--soft);margin-top:3px;}
+.cust-total{text-align:right;}
+.cust-total .ct-amt{font-weight:800;color:var(--accent);font-size:1rem;}
+.cust-total .ct-cnt{font-size:.65rem;color:var(--soft);}
+.cust-orders{display:none;border-top:1px solid var(--warm);background:var(--cream);}
+.cust-orders.open{display:block;}
+.order-row{padding:10px 16px;border-bottom:1px solid var(--warm);font-size:.72rem;color:var(--soft);}
+.order-row:last-child{border-bottom:none;}
+.order-row .or-no{font-weight:700;color:var(--brown);}
+.order-row .or-amt{float:right;font-weight:700;color:var(--accent);}
+.empty-msg{text-align:center;padding:40px 16px;color:var(--soft);font-size:.85rem;}
+#lockScreen{position:fixed;inset:0;background:var(--dbrown);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:14px;}
+#lockScreen input{padding:12px 16px;border-radius:10px;border:none;font-size:1rem;text-align:center;width:180px;}
+#lockScreen button{padding:12px 24px;border-radius:10px;border:none;background:var(--gold);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;}
+#lockScreen p{color:#FFD9A0;font-size:.9rem;}
+</style>
+</head>
+<body>
+
+<div id="lockScreen">
+  <p>🔒 관리자 비밀번호를 입력하세요</p>
+  <input type="password" id="pwInp" placeholder="비밀번호">
+  <button onclick="checkPw()">확인</button>
+</div>
+
+<div id="mainApp" style="display:none;">
+<header>
+  <h1>🥐 고객 관리 — 행복한 빵집</h1>
+  <p>이름 · 연락처 · 주소 · 주문내역 · 매출 합계</p>
+</header>
+<div class="wrap">
+  <div class="summary">
+    <div class="sum-card"><div class="sc-label">전체 고객수</div><div class="sc-val" id="sumCustomers">0명</div></div>
+    <div class="sum-card"><div class="sc-label">전체 주문건수</div><div class="sc-val" id="sumOrders">0건</div></div>
+    <div class="sum-card"><div class="sc-label">전체 매출</div><div class="sc-val" id="sumRevenue">₩0</div></div>
+  </div>
+
+  <div class="search-row">
+    <input type="text" id="searchInp" placeholder="이름으로 검색..." oninput="renderList()">
+  </div>
+  <div class="sort-row">
+    <button class="sort-btn on" data-sort="recent" onclick="setSort('recent',this)">최근 주문순</button>
+    <button class="sort-btn" data-sort="amount" onclick="setSort('amount',this)">구매액 많은순</button>
+    <button class="sort-btn" data-sort="count" onclick="setSort('count',this)">주문 많은순</button>
+    <button class="sort-btn" data-sort="name" onclick="setSort('name',this)">이름순</button>
+  </div>
+
+  <div id="custList"></div>
+  <div id="emptyMsg" class="empty-msg" style="display:none;">고객 데이터가 아직 없습니다</div>
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+// ── 비밀번호 (필요하시면 이 문자열만 바꾸세요) ──
+const ADMIN_PW = '0000';
+function checkPw(){
+  const v = document.getElementById('pwInp').value;
+  if(v === ADMIN_PW){
+    document.getElementById('lockScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    initApp();
+  } else {
+    alert('비밀번호가 틀렸습니다');
+  }
+}
+document.getElementById('pwInp').addEventListener('keydown', e=>{ if(e.key==='Enter') checkPw(); });
+
+const firebaseConfig={apiKey:"AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",authDomain:"dongne-bakery.firebaseapp.com",databaseURL:"https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"dongne-bakery",storageBucket:"dongne-bakery.firebasestorage.app",messagingSenderId:"835419452184",appId:"1:835419452184:web:e710137926fc24ffd8646d"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+let customersData = {};
+let currentSort = 'recent';
+
+function initApp(){
+  db.ref('customers').on('value', snap=>{
+    customersData = snap.val() || {};
+    renderList();
+  });
+}
+
+function setSort(key, btn){
+  currentSort = key;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderList();
+}
+
+function getCustomerStats(key, d){
+  const orders = d.orders || {};
+  const orderList = Object.keys(orders).map(k=>({orderNumber:k, ...orders[k]}));
+  const totalAmt = orderList.reduce((s,o)=>s+(o.grandTotal||0),0);
+  const count = orderList.length;
+  const lastAt = d.lastOrderAt || 0;
+  return { key, name:d.name||key, phone:d.phone||'', address:d.address||'', orderList, totalAmt, count, lastAt };
+}
+
+function renderList(){
+  const search = document.getElementById('searchInp').value.trim();
+  let list = Object.keys(customersData).map(k=>getCustomerStats(k, customersData[k]));
+
+  if(search){ list = list.filter(c=>c.name.includes(search)); }
+
+  if(currentSort==='recent') list.sort((a,b)=>b.lastAt-a.lastAt);
+  else if(currentSort==='amount') list.sort((a,b)=>b.totalAmt-a.totalAmt);
+  else if(currentSort==='count') list.sort((a,b)=>b.count-a.count);
+  else if(currentSort==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+
+  // 전체 요약
+  const allList = Object.keys(customersData).map(k=>getCustomerStats(k, customersData[k]));
+  const totalRevenue = allList.reduce((s,c)=>s+c.totalAmt,0);
+  const totalOrders = allList.reduce((s,c)=>s+c.count,0);
+  document.getElementById('sumCustomers').textContent = allList.length+'명';
+  document.getElementById('sumOrders').textContent = totalOrders+'건';
+  document.getElementById('sumRevenue').textContent = '₩'+totalRevenue.toLocaleString();
+
+  const listEl = document.getElementById('custList');
+  const emptyEl = document.getElementById('emptyMsg');
+  if(!list.length){ listEl.innerHTML=''; emptyEl.style.display='block'; return; }
+  emptyEl.style.display='none';
+
+  listEl.innerHTML = list.map(c=>{
+    const lastDate = c.lastAt ? new Date(c.lastAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+    const ordersHtml = c.orderList
+      .sort((a,b)=>(b.t||0)-(a.t||0))
+      .map(o=>{
+        const d = o.t ? new Date(o.t).toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+        return `<div class="order-row">
+          <span class="or-no">${o.orderNumber}</span> · ${d} · ${o.payMethod||''}
+          <span class="or-amt">₩${(o.grandTotal||0).toLocaleString()}</span>
+        </div>`;
+      }).join('') || '<div class="order-row">주문 내역 없음</div>';
+    return `
+      <div class="cust-card">
+        <div class="cust-head" onclick="toggleOrders('${c.key}')">
+          <div>
+            <div class="cust-name">${c.name}</div>
+            <div class="cust-sub">📞 ${c.phone || '-'} · 📍 ${c.address || '-'}</div>
+            <div class="cust-sub">최근 주문: ${lastDate}</div>
+          </div>
+          <div class="cust-total">
+            <div class="ct-amt">₩${c.totalAmt.toLocaleString()}</div>
+            <div class="ct-cnt">${c.count}건 구매</div>
+          </div>
+        </div>
+        <div class="cust-orders" id="orders-${c.key}">${ordersHtml}</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleOrders(key){
+  const el = document.getElementById('orders-'+key);
+  if(el) el.classList.toggle('open');
+}
+</script>
+</body>
+</html>
