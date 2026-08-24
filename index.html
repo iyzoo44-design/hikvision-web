@@ -471,7 +471,7 @@ function applyActiveState(nowActive){
     gotoPreset(1); // 매장 전체보기 프리셋으로 이동해서 첫인상을 라이브 매장 전경으로
     db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{})); // 현재 주문 상태 즉시 반영
     toast('✅ 지금부터 이용하실 수 있어요');
-    setTimeout(()=>{ toast('👋 아래 "메뉴"를 눌러 빵을 골라보세요'); }, 1800);
+    setTimeout(()=>{ toast('👋 아래 "메뉴"를 눌러 빵을 골라보세요'); }, 3200);
     const menuBtn = document.querySelector('.btab[onclick*="toggleMenuOverlay"]');
     if(menuBtn){
       menuBtn.classList.add('ready-pulse');
@@ -918,7 +918,6 @@ function pickMenuItem(id){
   const m=MENU.find(x=>x.id===id);
   if(!m) return;
   gotoPreset(m.preset || id);
-  db.ref('customerPick').set({id:m.id, name:m.name, e:m.e, price:m.price, t:Date.now()});
   toast('📷 '+m.e+' '+m.name+' 위치로 이동 중 — 화면을 짚어서 정확히 알려주세요');
   switchToCam();
   toggleMenuOverlay(false);
@@ -1050,7 +1049,7 @@ async function confirmPay(){
     recvName:name, recvPhone:phone, address:addr, paidAt:Date.now()
   });
 }
-function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';}
+function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';db.ref('liveOrder/requestClear').set(Date.now());}
 function finishAndExit(){ closeDone(); discCam(); }
 function copyUrl(){const url='https://iyzoo44-design.github.io/hikvision-web/';if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('📋 주소 복사됐어요!'));else toast('주소: '+url);}
 function toast(msg){const el=document.getElementById('toastEl');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);}
