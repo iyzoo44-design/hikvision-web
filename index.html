@@ -367,6 +367,9 @@ function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.
 let myClientId = sessionStorage.getItem('dongneClientId');
 if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
 let amActive = false;
+let curZoom=1,panXRatio=0,panYRatio=0;
+let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
+let zoomFBTimer=null;
 let hbTimer = null;
 
 function setControlsEnabled(enabled){
@@ -692,9 +695,6 @@ function toggleFull(){
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isFullscreen)toggleFull();});
 
-let curZoom=1,panXRatio=0,panYRatio=0;
-let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
-let zoomFBTimer=null;
 
 // pan은 "컨테이너 폭/높이에 대한 비율(-0.5~0.5 근처)"로 관리 → 고객·점원 화면 크기가 달라도 동일한 지점을 가리킴
 function clampPanRatio(zoom, px, py){
