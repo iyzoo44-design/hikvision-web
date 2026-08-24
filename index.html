@@ -56,6 +56,40 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 #fullBtn{position:absolute;top:6px;right:6px;z-index:30;width:30px;height:30px;border:none;border-radius:6px;background:rgba(0,0,0,.55);color:rgba(255,190,80,.9);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 #fullBtn:active{background:rgba(184,134,11,.7);}
 .cam-screen.fullscreen{position:fixed;inset:0;z-index:500;aspect-ratio:unset;width:100vw;height:100vh;border-radius:0;}
+#paymentBanner{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:37;background:rgba(139,53,0,.92);color:#fff;
+  padding:16px 20px;border-radius:14px;text-align:center;
+  font-size:.78rem;line-height:1.8;max-width:82%;
+  display:none;box-shadow:0 6px 24px rgba(0,0,0,.55);
+  border:1px solid rgba(255,210,160,.4);
+}
+#paymentBanner.show{display:block;}
+#paymentBanner b{font-size:.9rem;}
+#paymentBanner button{
+  margin-top:10px;padding:8px 18px;border:none;border-radius:18px;
+  background:#fff;color:var(--accent);font-family:'Noto Sans KR',sans-serif;
+  font-size:.74rem;font-weight:700;cursor:pointer;
+}
+#camMenuShortcut{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  z-index:36;padding:10px 20px;border:none;border-radius:22px;
+  background:var(--accent);color:#fff;font-family:'Noto Sans KR',sans-serif;
+  font-size:.78rem;font-weight:700;cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
+  display:none;animation:blink 1.2s infinite;
+}
+#camMenuShortcut.show{display:block;}
+#welcomeBanner{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:36;background:rgba(10,5,0,.82);color:#FFD9A0;
+  padding:16px 20px;border-radius:14px;text-align:center;
+  font-size:.78rem;line-height:1.9;max-width:82%;
+  display:none;box-shadow:0 6px 24px rgba(0,0,0,.5);
+  border:1px solid rgba(255,210,160,.3);
+}
+#welcomeBanner.show{display:block;}
+#welcomeBanner b{color:#fff;font-size:.86rem;}
 #camMenuOverlay{
   position:absolute;inset:0;z-index:33;
   display:none;flex-direction:column;align-items:center;justify-content:center;
@@ -180,7 +214,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid var(--warm);display:flex;z-index:200;box-shadow:0 -3px 16px var(--shadow);}
 .btab{flex:1;padding:10px 2px 8px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:'Noto Sans KR',sans-serif;font-size:.6rem;font-weight:500;color:var(--soft);transition:all .2s;position:relative;}
 .btab .ico{font-size:1.25rem;}.btab.on{color:var(--gold);}
-.btab.ready-pulse{color:var(--accent);animation:blink 1s infinite;}
+.btab.ready-pulse{color:#fff;background:var(--accent);border-radius:14px 14px 0 0;animation:blink 1s infinite;}
 .ccnt{position:absolute;top:5px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:.52rem;font-weight:700;width:14px;height:14px;border-radius:50%;display:none;align-items:center;justify-content:center;}
 .ccnt.show{display:flex;}
 .toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dbrown);color:#fff;padding:9px 18px;border-radius:20px;font-size:.76rem;font-weight:500;opacity:0;transition:all .35s;z-index:999;white-space:nowrap;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3);border-left:3px solid var(--gold);}
@@ -262,6 +296,12 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
         <polygon points="3,3 3,30 12,22 16,35 21,33 17,20 28,20" fill="#ff2020" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
       </svg>
       <div id="camOrderBadge" style="position:absolute;top:8px;left:8px;z-index:30;color:#FFD9A0;font-size:.68rem;font-weight:700;padding:2px 4px;display:none;max-width:66%;line-height:1.55;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,1);"></div>
+      <div id="welcomeBanner"></div>
+      <button id="camMenuShortcut" onclick="toggleMenuOverlay()">🍞 메뉴 보기</button>
+      <div id="paymentBanner">
+        <div>🔔 <b>점원이 상품을 확정했어요!</b><br>장바구니에서 결제해 주세요</div>
+        <button onclick="goBottom('cart', document.getElementById('cartTabBtn'))">🛒 장바구니로 이동</button>
+      </div>
       <div id="camMenuOverlay">
         <button id="camMenuClose" onclick="toggleMenuOverlay(false)">✕</button>
         <div class="cmo-grid" id="camMenuGrid"></div>
@@ -367,10 +407,22 @@ function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.
 let myClientId = sessionStorage.getItem('dongneClientId');
 if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
 let amActive = false;
+const camScr=document.getElementById('camScr');
 let curZoom=1,panXRatio=0,panYRatio=0;
 let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
 let zoomFBTimer=null;
 let hbTimer = null;
+// ── 아래 변수들은 Firebase 콜백이 예상보다 일찍 실행될 수 있어(브라우저별 타이밍 차이),
+// 화면 초기화(활성화 판정)보다 반드시 먼저 선언되어야 함 — 한 곳에 모아서 관리 ──
+const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200,preset:2},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500,preset:2},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500,preset:3},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500,preset:3},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800,preset:4},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500,preset:4},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200,preset:5},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800,preset:5}];
+let cart={},selPayMethod='',connected=false,isFullscreen=false;
+let orderConfirmedFlag=false; // 점원이 "결제 요청 전송"을 눌러야만 true — 그 전엔 결제 버튼 비활성
+let whepPc=null,whepRetryTimer=null;
+const pointerLayer=document.getElementById('pointerLayer');
+const arrow=document.getElementById('arrowPointer');
+let pRx=0.5,pRy=0.5,isDragging=false;
+const ROOM_ID='bakery-room-001';
+let pc=null,localStream=null;
 
 function setControlsEnabled(enabled){
   const callBtn=document.getElementById('callBtn');
@@ -462,6 +514,20 @@ function armReleaseGrace(){
   }, 4000);
 }
 
+let welcomeBannerTimer=null;
+function showWelcomeBanner(){
+  const el=document.getElementById('welcomeBanner');
+  if(!el) return;
+  el.innerHTML = '<b>✅ 지금부터 이용하실 수 있어요</b><br>👋 아래 "메뉴"를 눌러 빵을 골라보세요';
+  el.classList.add('show');
+  if(welcomeBannerTimer) clearTimeout(welcomeBannerTimer);
+  welcomeBannerTimer = setTimeout(hideWelcomeBanner, 7000);
+}
+function hideWelcomeBanner(){
+  const el=document.getElementById('welcomeBanner');
+  if(el) el.classList.remove('show');
+  if(welcomeBannerTimer){ clearTimeout(welcomeBannerTimer); welcomeBannerTimer=null; }
+}
 function applyActiveState(nowActive){
   if(nowActive===amActive) return;
   const wasActive = amActive;
@@ -473,12 +539,16 @@ function applyActiveState(nowActive){
     zoomReset(); // 새로 활성 고객이 되면 이전 고객이 남긴 줌/화면이동을 리셋 → 포인터 어긋남 방지
     gotoPreset(1); // 매장 전체보기 프리셋으로 이동해서 첫인상을 라이브 매장 전경으로
     db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{})); // 현재 주문 상태 즉시 반영
-    toast('✅ 지금부터 이용하실 수 있어요');
-    setTimeout(()=>{ toast('👋 아래 "메뉴"를 눌러 빵을 골라보세요'); }, 3200);
+    showWelcomeBanner();
     const menuBtn = document.querySelector('.btab[onclick*="toggleMenuOverlay"]');
     if(menuBtn){
       menuBtn.classList.add('ready-pulse');
       setTimeout(()=>menuBtn.classList.remove('ready-pulse'), 12000);
+    }
+    const camShortcut = document.getElementById('camMenuShortcut');
+    if(camShortcut){
+      camShortcut.classList.add('show');
+      setTimeout(()=>camShortcut.classList.remove('show'), 12000);
     }
   } else {
     stopHeartbeat();
@@ -536,13 +606,8 @@ db.ref('customerZoom').on('value', snap=>{
   if(d && typeof d.zoom==='number' && !amActive) applyIncomingZoom(d.zoom, d.panX, d.panY);
 });
 
-const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200,preset:2},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500,preset:2},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500,preset:3},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500,preset:3},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800,preset:4},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500,preset:4},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200,preset:5},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800,preset:5}];
-let cart={},selPayMethod='',connected=false,isFullscreen=false;
-let orderConfirmedFlag=false; // 점원이 "결제 요청 전송"을 눌러야만 true — 그 전엔 결제 버튼 비활성
-let whepPc=null,whepRetryTimer=null;
-
 function goTab(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');syncBottom(id);}
-function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');if(id==='cart') document.getElementById('cartTabBtn')?.classList.remove('ready-pulse');}
+function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');if(id==='cart'){ document.getElementById('cartTabBtn')?.classList.remove('ready-pulse'); document.getElementById('paymentBanner')?.classList.remove('show'); }}
 function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
 function switchToCam(){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
@@ -725,7 +790,6 @@ function onZoomSlide(v){ markActivity(); setZoom(parseFloat(v)); }
 function zoomNudge(d){ markActivity(); setZoom(curZoom+d); }
 function zoomStep(d){markActivity();setZoom(curZoom+d*0.5);}
 function zoomReset(){markActivity();setZoomPan(1,0,0);}
-const camScr=document.getElementById('camScr');
 camScr.addEventListener('touchstart',function(e){
   if(!amActive) return; // 대기 중인 고객은 핀치줌/화면이동 불가 (활성 고객 화면을 그대로 보기만 함)
   if(e.touches.length===2){
@@ -808,9 +872,6 @@ function toggleJoystick(){
   window.addEventListener('blur',()=>{ if(dragging) endDrag(); });
 })();
 
-const pointerLayer=document.getElementById('pointerLayer');
-const arrow=document.getElementById('arrowPointer');
-let pRx=0.5,pRy=0.5,isDragging=false;
 function initPointer(){const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';sendPointerFB(pRx,pRy);}
 function moveArrow(rx,ry){pRx=Math.min(0.97,Math.max(0,rx));pRy=Math.min(0.97,Math.max(0,ry));const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';}
 function sendPointerFB(rx,ry){const camScrEl=document.getElementById('camScr');db.ref('pointer').set({rx,ry,zoom:curZoom,viewW:camScrEl.offsetWidth,viewH:camScrEl.offsetHeight,t:Date.now()});}
@@ -825,8 +886,6 @@ function doMove(e){markActivity();const r=camScr.getBoundingClientRect();moveArr
 function doMoveT(t){markActivity();const r=camScr.getBoundingClientRect();moveArrow((t.clientX-r.left)/r.width,(t.clientY-r.top)/r.height);}
 db.ref('pointer').on('value',function(snap){const d=snap.val();if(d&&!isDragging)moveArrow(d.rx,d.ry);});
 
-const ROOM_ID='bakery-room-001';
-let pc=null,localStream=null;
 async function toggleCall(){
   if(!amActive){ toast('⏳ 대기 중에는 통화를 걸 수 없어요'); return; }
   const btn=document.getElementById('callBtn'),dot=document.getElementById('cdot'),txt=document.getElementById('ctxt');
@@ -872,10 +931,10 @@ function updateLiveOrder(d){
   const wasConfirmed = orderConfirmedFlag;
   orderConfirmedFlag = confirmed;
   if(confirmed && !wasConfirmed && !paid){
-    toast('🔔 점원이 상품을 확정했어요! 장바구니에서 결제해 주세요');
+    document.getElementById('paymentBanner')?.classList.add('show');
     document.getElementById('cartTabBtn')?.classList.add('ready-pulse');
   }
-  if(!confirmed || paid){ document.getElementById('cartTabBtn')?.classList.remove('ready-pulse'); }
+  if(!confirmed || paid){ document.getElementById('cartTabBtn')?.classList.remove('ready-pulse'); document.getElementById('paymentBanner')?.classList.remove('show'); }
   const badge=document.getElementById('camOrderBadge');
   if(badge){
     if(paid){
@@ -910,7 +969,7 @@ function toggleMenuOverlay(force){
   const el=document.getElementById('camMenuOverlay');
   if(!el) return;
   const open = typeof force==='boolean' ? force : !el.classList.contains('open');
-  if(open){ switchToCam(); document.querySelector('.btab[onclick*="toggleMenuOverlay"]')?.classList.remove('ready-pulse'); }
+  if(open){ switchToCam(); document.querySelector('.btab[onclick*="toggleMenuOverlay"]')?.classList.remove('ready-pulse'); document.getElementById('camMenuShortcut')?.classList.remove('show'); hideWelcomeBanner(); }
   el.classList.toggle('open', open);
 }
 function pickMenuItem(id){
