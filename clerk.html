@@ -968,7 +968,8 @@ db.ref('liveOrder').on('value', snap=>{
       `✅ <b>결제 완료</b> · 주문번호 ${d.orderNumber}<br>`+
       `결제수단: ${d.payMethod}<br>`+
       `상품 ₩${(d.itemTotal||0).toLocaleString()} + 배달비 ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'} = <b>₩${(d.grandTotal||0).toLocaleString()}</b><br>`+
-      `📍 배송지: ${d.address||''}`;
+      `👤 받는 분: ${d.recvName||''} (${d.recvPhone||''})<br>`+
+      `📍 배송지: ${d.address||''}${d.distanceKm?(' (약 '+d.distanceKm+'km)'):''}`;
   }
   toggleOrderPanel(true);
 });
