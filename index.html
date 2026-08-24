@@ -862,15 +862,18 @@ function updateLiveOrder(d){
     syncCartFromOrder([]);
     return;
   }
-  const total=d.total||0,count=d.count||0,confirmed=d.confirmed||false,items=d.items||[];
+  const total=d.total||0,count=d.count||0,confirmed=d.confirmed||false,items=d.items||[],paid=d.paid||false;
   syncCartFromOrder(items);
   orderConfirmedFlag = confirmed;
   const badge=document.getElementById('camOrderBadge');
   if(badge){
-    if(total===0){ badge.style.display='none'; }
+    if(paid){
+      badge.innerHTML = `✅ 결제 완료 · 주문번호 ${d.orderNumber||''}<br>배달 준비 중이에요`;
+      badge.style.display='block';
+    } else if(total===0){ badge.style.display='none'; }
     else{
       const itemLines = items.map(i=>`${i.e} ${i.name} × ${i.qty}`).join('<br>');
-      badge.innerHTML = `${itemLines}<br>합계 ${count}개 · ₩${total.toLocaleString()}`;
+      badge.innerHTML = `${itemLines}<br>합계 ${count}개 · ₩${total.toLocaleString()} <span style="opacity:.7;">(배달비 별도)</span>`;
       badge.style.display='block';
     }
   }
