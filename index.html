@@ -191,7 +191,8 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 @keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
 .modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.3rem;color:var(--brown);margin-bottom:8px;}
 .modal p{font-size:.8rem;color:var(--soft);margin-bottom:18px;line-height:1.6;}
-.modal-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;}
+.modal-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.modal-btn-secondary{width:100%;padding:11px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
 .pay-modal{background:var(--white);border-radius:20px 20px 0 0;padding:22px 18px 34px;width:100%;max-width:480px;animation:slideUp .3s ease;}
 .pay-modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;text-align:center;}
 .pay-method{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
@@ -325,7 +326,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <button class="btab" onclick="goBottom('guide',this)"><span class="ico">📋</span>안내</button>
 </div>
 <div class="modal-bg" id="doneModal">
-  <div class="modal"><div style="font-size:3rem;margin-bottom:8px;">🎉</div><h3>주문 완료!</h3><p>주문번호: <strong id="onum"></strong><br>약 30~50분 후 배달됩니다 🚚</p><button class="modal-btn" onclick="closeDone()">확인</button></div>
+  <div class="modal"><div style="font-size:3rem;margin-bottom:8px;">🎉</div><h3>주문 완료!</h3><p>주문번호: <strong id="onum"></strong><br>약 30~50분 후 배달됩니다 🚚</p><button class="modal-btn" onclick="finishAndExit()">🚪 쇼핑 종료</button><button class="modal-btn-secondary" onclick="closeDone()">🛍️ 더 구경할게요</button></div>
 </div>
 <div class="modal-bg" id="payModal">
   <div class="pay-modal">
@@ -1044,6 +1045,7 @@ async function confirmPay(){
   });
 }
 function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';}
+function finishAndExit(){ closeDone(); discCam(); }
 function copyUrl(){const url='https://iyzoo44-design.github.io/hikvision-web/';if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('📋 주소 복사됐어요!'));else toast('주소: '+url);}
 function toast(msg){const el=document.getElementById('toastEl');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);}
 
