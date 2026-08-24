@@ -198,13 +198,13 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .pm.sel{border-color:var(--gold);background:var(--cream);}
 .pm .pi{font-size:1.5rem;display:block;margin-bottom:4px;}
 .addr-inp{width:100%;padding:10px 12px;border:1.5px solid var(--warm);border-radius:9px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;color:var(--dbrown);margin-bottom:10px;}
-.dz-lbl{font-size:.68rem;color:var(--soft);margin-bottom:6px;}
-.dz-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;}
-.dz-opt{padding:9px 4px;border:1.5px solid var(--warm);border-radius:9px;text-align:center;cursor:pointer;font-size:.66rem;font-weight:600;color:var(--brown);line-height:1.6;}
-.dz-opt span{display:block;font-size:.58rem;color:var(--soft);font-weight:500;}
-.dz-opt.sel{border-color:var(--gold);background:var(--cream);}
-.dz-opt.dz-far.sel{border-color:var(--red);background:#FBEAEA;}
-.dz-opt.dz-far.sel span{color:var(--red);}
+.inp-row{display:flex;gap:6px;margin-bottom:10px;}
+.inp-row .addr-inp{margin-bottom:0;flex:1;}
+.mic-btn{flex:0 0 auto;width:38px;border:1.5px solid var(--warm);border-radius:9px;background:var(--cream);font-size:1rem;cursor:pointer;}
+.mic-btn.listening{background:var(--red);border-color:var(--red);animation:blink .8s infinite;}
+.dz-result{font-size:.7rem;color:var(--soft);background:var(--cream);border-radius:9px;padding:9px 11px;margin-bottom:12px;line-height:1.5;}
+.dz-result.dz-ok{background:#EAF7EC;color:var(--green);}
+.dz-result.dz-error{background:#FBEAEA;color:var(--red);}
 .pay-breakdown{padding:8px 0;border-top:1px solid var(--warm);}
 .pb-row{display:flex;justify-content:space-between;font-size:.74rem;color:var(--soft);padding:3px 0;}
 .pay-total{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--warm);margin-bottom:14px;}
@@ -335,16 +335,13 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
       <div class="pm" onclick="selPay(this,'신용카드')"><span class="pi">💳</span>신용카드</div>
       <div class="pm" onclick="selPay(this,'계좌이체')"><span class="pi">🏦</span>계좌이체</div>
     </div>
-    <input class="addr-inp" id="addrInp" placeholder="배달 주소를 입력해 주세요" oninput="updatePayTotal()"/>
-    <div class="dz-lbl">🚚 배달 거리 (매장 기준)</div>
-    <div class="dz-row">
-      <div class="dz-opt" onclick="selZone(this,0)">2km 이내<span>무료배달</span></div>
-      <div class="dz-opt" onclick="selZone(this,3000)">2~3km<span>+3,000원</span></div>
-      <div class="dz-opt dz-far" onclick="selZone(this,-1)">3km 초과<span>배달불가</span></div>
-    </div>
+    <div class="inp-row"><input class="addr-inp" id="nameInp" placeholder="받는 분 성함"/><button class="mic-btn" onclick="startVoiceInput('nameInp')" title="음성으로 입력">🎤</button></div>
+    <div class="inp-row"><input class="addr-inp" id="phoneInp" type="tel" placeholder="연락처 (예: 010-1234-5678)"/><button class="mic-btn" onclick="startVoiceInput('phoneInp')" title="음성으로 입력">🎤</button></div>
+    <div class="inp-row"><input class="addr-inp" id="addrInp" placeholder="배달 주소 (도로명 주소 권장)" onblur="checkDeliveryDistance()"/><button class="mic-btn" onclick="startVoiceInput('addrInp')" title="음성으로 입력">🎤</button></div>
+    <div id="dzResult" class="dz-result">주소를 입력하시면 매장까지 거리를 자동으로 계산해요</div>
     <div class="pay-breakdown">
       <div class="pb-row"><span>상품 합계</span><span id="payItemTotal">₩0</span></div>
-      <div class="pb-row"><span>배달비</span><span id="payDeliveryFee">거리를 선택하세요</span></div>
+      <div class="pb-row"><span>배달비</span><span id="payDeliveryFee">주소를 먼저 확인해 주세요</span></div>
     </div>
     <div class="pay-total"><span style="font-size:.8rem;color:var(--soft);">최종 결제 금액</span><span id="payTotalVal">₩0</span></div>
     <button class="confirm-btn" onclick="confirmPay()">결제 완료</button>
@@ -921,32 +918,94 @@ function updateCart(){const items=Object.values(cart);const total=items.reduce((
   }
 }
 function setStep(n){/* 진행바를 고정 안내문으로 교체하면서 더 이상 사용하지 않음 (호출부 안전하게 유지) */}
-let selDeliveryFee = null; // null=미선택, -1=배달불가, 0=무료, 3000=유료
-function selZone(el, fee){
-  document.querySelectorAll('.dz-opt').forEach(o=>o.classList.remove('sel'));
-  el.classList.add('sel');
-  selDeliveryFee = fee;
+// ── 매장 주소 기준 실거리 자동 계산 (Nominatim 무료 지오코딩, 손님이 임의로 고를 수 없게) ──
+const STORE_ADDRESS = '경기도 포천시 소흘읍 태봉로138';
+let storeCoords = null;
+let selDeliveryFee = null; // null=미확인, -1=배달불가, 0=무료, 3000=유료
+let calculatedDistanceKm = null;
+
+async function geocodeAddress(addr){
+  try{
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&accept-language=ko&q=' + encodeURIComponent(addr);
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data || !data.length) return null;
+    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+  }catch(e){ return null; }
+}
+function haversineKm(a,b){
+  const R=6371, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
+  const la1=toRad(a.lat), la2=toRad(b.lat);
+  const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+async function checkDeliveryDistance(){
+  const addr = document.getElementById('addrInp').value.trim();
+  const resultEl = document.getElementById('dzResult');
+  if(!addr) return;
+  markActivity();
+  resultEl.textContent = '📍 매장까지 거리를 계산하는 중...';
+  resultEl.className = 'dz-result';
+  selDeliveryFee = null; calculatedDistanceKm = null;
+  updatePayTotal();
+  if(!storeCoords){ storeCoords = await geocodeAddress(STORE_ADDRESS); }
+  if(!storeCoords){ resultEl.textContent='⚠️ 매장 위치 확인에 실패했어요, 잠시 후 다시 시도해주세요'; resultEl.className='dz-result dz-error'; return; }
+  const custCoords = await geocodeAddress(addr);
+  if(!custCoords){ resultEl.textContent='⚠️ 주소를 찾을 수 없어요. 정확한 도로명 주소로 입력해 주세요'; resultEl.className='dz-result dz-error'; return; }
+  const km = haversineKm(storeCoords, custCoords);
+  calculatedDistanceKm = km;
+  if(km>3){ selDeliveryFee=-1; resultEl.innerHTML=`📍 매장에서 약 <b>${km.toFixed(1)}km</b> — 죄송해요, 배달 가능 지역(3km) 밖이에요`; resultEl.className='dz-result dz-error'; }
+  else if(km>2){ selDeliveryFee=3000; resultEl.innerHTML=`📍 매장에서 약 <b>${km.toFixed(1)}km</b> — 배달비 ₩3,000`; resultEl.className='dz-result dz-ok'; }
+  else{ selDeliveryFee=0; resultEl.innerHTML=`📍 매장에서 약 <b>${km.toFixed(1)}km</b> — 배달비 무료`; resultEl.className='dz-result dz-ok'; }
   updatePayTotal();
 }
 function updatePayTotal(){
   const itemTotal = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);
   document.getElementById('payItemTotal').textContent = '₩'+itemTotal.toLocaleString();
   const feeEl = document.getElementById('payDeliveryFee');
-  if(selDeliveryFee===null){ feeEl.textContent='거리를 선택하세요'; }
+  if(selDeliveryFee===null){ feeEl.textContent='주소를 먼저 확인해 주세요'; }
   else if(selDeliveryFee<0){ feeEl.textContent='배달 불가 지역'; }
   else if(selDeliveryFee===0){ feeEl.textContent='무료'; }
   else { feeEl.textContent='₩'+selDeliveryFee.toLocaleString(); }
   const grand = itemTotal + (selDeliveryFee && selDeliveryFee>0 ? selDeliveryFee : 0);
   document.getElementById('payTotalVal').textContent = '₩'+grand.toLocaleString();
 }
-function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}selDeliveryFee=null;document.querySelectorAll('.dz-opt').forEach(o=>o.classList.remove('sel'));updatePayTotal();document.getElementById('payModal').classList.add('open');}
+
+// ── 음성 입력 (이름/연락처/주소 공통) ──
+function startVoiceInput(targetId){
+  markActivity();
+  const Recog = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!Recog){ toast('⚠️ 이 브라우저는 음성입력을 지원하지 않아요. 직접 입력해주세요'); return; }
+  const rec = new Recog();
+  rec.lang = 'ko-KR';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  const btn = event && event.currentTarget;
+  if(btn) btn.classList.add('listening');
+  toast('🎤 말씀해 주세요...');
+  rec.onresult = function(e){
+    const text = e.results[0][0].transcript;
+    const el = document.getElementById(targetId);
+    if(el){ el.value = text; if(targetId==='addrInp') checkDeliveryDistance(); }
+    toast('✅ 인식됨: '+text);
+  };
+  rec.onerror = function(){ toast('⚠️ 음성 인식에 실패했어요, 다시 시도하거나 직접 입력해주세요'); };
+  rec.onend = function(){ if(btn) btn.classList.remove('listening'); };
+  rec.start();
+}
+function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}selDeliveryFee=null;calculatedDistanceKm=null;document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';updatePayTotal();document.getElementById('payModal').classList.add('open');}
 function closePayModal(){document.getElementById('payModal').classList.remove('open');}
 function selPay(el,name){document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');selPayMethod=name;}
 function confirmPay(){
+  const name=document.getElementById('nameInp').value.trim();
+  const phone=document.getElementById('phoneInp').value.trim();
   const addr=document.getElementById('addrInp').value.trim();
   if(!selPayMethod){toast('결제 수단을 선택해 주세요');return;}
+  if(!name){toast('받는 분 성함을 입력해 주세요');return;}
+  if(!phone){toast('연락처를 입력해 주세요');return;}
   if(!addr){toast('배달 주소를 입력해 주세요');return;}
-  if(selDeliveryFee===null){toast('배달 거리를 선택해 주세요');return;}
+  if(selDeliveryFee===null){toast('주소를 확인해 배달 거리를 계산해 주세요');return;}
   if(selDeliveryFee<0){toast('⚠️ 죄송해요, 3km 초과 지역은 배달이 어려워요');return;}
   const itemTotal = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);
   const fee = selDeliveryFee>0 ? selDeliveryFee : 0;
@@ -955,10 +1014,11 @@ function confirmPay(){
   db.ref('liveOrder').update({
     paid:true, orderNumber:orderNo, payMethod:selPayMethod,
     itemTotal:itemTotal, deliveryFee:fee, grandTotal:itemTotal+fee,
-    address:addr, paidAt:Date.now()
+    distanceKm: calculatedDistanceKm ? Math.round(calculatedDistanceKm*10)/10 : null,
+    recvName:name, recvPhone:phone, address:addr, paidAt:Date.now()
   });
 }
-function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.querySelectorAll('.dz-opt').forEach(o=>o.classList.remove('sel'));document.getElementById('addrInp').value='';}
+function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';}
 function copyUrl(){const url='https://iyzoo44-design.github.io/hikvision-web/';if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('📋 주소 복사됐어요!'));else toast('주소: '+url);}
 function toast(msg){const el=document.getElementById('toastEl');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);}
 
