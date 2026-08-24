@@ -471,6 +471,12 @@ function applyActiveState(nowActive){
     gotoPreset(1); // 매장 전체보기 프리셋으로 이동해서 첫인상을 라이브 매장 전경으로
     db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{})); // 현재 주문 상태 즉시 반영
     toast('✅ 지금부터 이용하실 수 있어요');
+    setTimeout(()=>{ toast('👋 아래 "메뉴"를 눌러 빵을 골라보세요'); }, 1800);
+    const menuBtn = document.querySelector('.btab[onclick*="toggleMenuOverlay"]');
+    if(menuBtn){
+      menuBtn.classList.add('ready-pulse');
+      setTimeout(()=>menuBtn.classList.remove('ready-pulse'), 12000);
+    }
   } else {
     stopHeartbeat();
     stopIdleWatcher();
@@ -904,7 +910,7 @@ function toggleMenuOverlay(force){
   const el=document.getElementById('camMenuOverlay');
   if(!el) return;
   const open = typeof force==='boolean' ? force : !el.classList.contains('open');
-  if(open) switchToCam(); // 장바구니·안내 탭 등 다른 화면에 있어도 카메라 화면으로 먼저 전환해서 메뉴가 보이게
+  if(open){ switchToCam(); document.querySelector('.btab[onclick*="toggleMenuOverlay"]')?.classList.remove('ready-pulse'); }
   el.classList.toggle('open', open);
 }
 function pickMenuItem(id){
