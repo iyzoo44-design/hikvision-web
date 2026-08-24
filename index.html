@@ -180,6 +180,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid var(--warm);display:flex;z-index:200;box-shadow:0 -3px 16px var(--shadow);}
 .btab{flex:1;padding:10px 2px 8px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:'Noto Sans KR',sans-serif;font-size:.6rem;font-weight:500;color:var(--soft);transition:all .2s;position:relative;}
 .btab .ico{font-size:1.25rem;}.btab.on{color:var(--gold);}
+.btab.ready-pulse{color:var(--accent);animation:blink 1s infinite;}
 .ccnt{position:absolute;top:5px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:.52rem;font-weight:700;width:14px;height:14px;border-radius:50%;display:none;align-items:center;justify-content:center;}
 .ccnt.show{display:flex;}
 .toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dbrown);color:#fff;padding:9px 18px;border-radius:20px;font-size:.76rem;font-weight:500;opacity:0;transition:all .35s;z-index:999;white-space:nowrap;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3);border-left:3px solid var(--gold);}
@@ -320,7 +321,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 <div class="bottom-bar">
   <button class="btab on" onclick="goBottom('cam',this)"><span class="ico">📷</span>카메라</button>
   <button class="btab" onclick="toggleMenuOverlay()"><span class="ico">🍞</span>메뉴</button>
-  <button class="btab" onclick="goBottom('cart',this)"><span class="ico">🛒</span>장바구니<div class="ccnt" id="ccnt">0</div></button>
+  <button class="btab" id="cartTabBtn" onclick="goBottom('cart',this)"><span class="ico">🛒</span>장바구니<div class="ccnt" id="ccnt">0</div></button>
   <button class="btab" onclick="goBottom('guide',this)"><span class="ico">📋</span>안내</button>
 </div>
 <div class="modal-bg" id="doneModal">
@@ -531,7 +532,7 @@ let orderConfirmedFlag=false; // 점원이 "결제 요청 전송"을 눌러야�
 let whepPc=null,whepRetryTimer=null;
 
 function goTab(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');syncBottom(id);}
-function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');}
+function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');if(id==='cart') document.getElementById('cartTabBtn')?.classList.remove('ready-pulse');}
 function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
 function switchToCam(){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
@@ -861,7 +862,13 @@ function updateLiveOrder(d){
   }
   const total=d.total||0,count=d.count||0,confirmed=d.confirmed||false,items=d.items||[],paid=d.paid||false;
   syncCartFromOrder(items);
+  const wasConfirmed = orderConfirmedFlag;
   orderConfirmedFlag = confirmed;
+  if(confirmed && !wasConfirmed && !paid){
+    toast('🔔 점원이 상품을 확정했어요! 장바구니에서 결제해 주세요');
+    document.getElementById('cartTabBtn')?.classList.add('ready-pulse');
+  }
+  if(!confirmed || paid){ document.getElementById('cartTabBtn')?.classList.remove('ready-pulse'); }
   const badge=document.getElementById('camOrderBadge');
   if(badge){
     if(paid){
@@ -997,7 +1004,7 @@ function startVoiceInput(targetId){
 function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}selDeliveryFee=null;calculatedDistanceKm=null;document.getElementById('dzResult').textContent='주소를 입력하시면 매장까지 거리를 자동으로 계산해요';document.getElementById('dzResult').className='dz-result';updatePayTotal();document.getElementById('payModal').classList.add('open');}
 function closePayModal(){document.getElementById('payModal').classList.remove('open');}
 function selPay(el,name){document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');selPayMethod=name;}
-function confirmPay(){
+async function confirmPay(){
   const name=document.getElementById('nameInp').value.trim();
   const phone=document.getElementById('phoneInp').value.trim();
   const addr=document.getElementById('addrInp').value.trim();
@@ -1005,7 +1012,11 @@ function confirmPay(){
   if(!name){toast('받는 분 성함을 입력해 주세요');return;}
   if(!phone){toast('연락처를 입력해 주세요');return;}
   if(!addr){toast('배달 주소를 입력해 주세요');return;}
-  if(selDeliveryFee===null){toast('주소를 확인해 배달 거리를 계산해 주세요');return;}
+  if(selDeliveryFee===null){
+    toast('📍 거리를 확인하는 중이에요, 잠시만요...');
+    await checkDeliveryDistance();
+  }
+  if(selDeliveryFee===null){toast('⚠️ 주소 확인에 실패했어요, 다시 입력해 주세요');return;}
   if(selDeliveryFee<0){toast('⚠️ 죄송해요, 3km 초과 지역은 배달이 어려워요');return;}
   const itemTotal = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);
   const fee = selDeliveryFee>0 ? selDeliveryFee : 0;
