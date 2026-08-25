@@ -458,7 +458,14 @@ async function connCam(){
   const btn=document.getElementById('camConnBtn');
   btn.style.display='none';
   document.getElementById('camPlaceholder').style.display='none';
-  await startCamWHEP();
+  try{
+    await startCamWHEP();
+  }catch(e){
+    console.error('[점원 카메라] 연결 실패, 3초 후 재시도:', e);
+    camConnected=false;
+    if(camRetryTimer) clearTimeout(camRetryTimer);
+    camRetryTimer=setTimeout(connCam,3000);
+  }
 }
   async function startCamWHEP(){
   if(camPc){camPc.close();camPc=null;}
@@ -501,7 +508,7 @@ async function connCam(){
   pc2.oniceconnectionstatechange=function(){
     if(pc2.iceConnectionState==='failed'||pc2.iceConnectionState==='disconnected'){
       camConnected=false;
-      camRetryTimer=setTimeout(startCamWHEP,3000);
+      camRetryTimer=setTimeout(connCam,3000);
     }
   };
 
