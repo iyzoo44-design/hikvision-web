@@ -626,8 +626,8 @@ db.ref('activeSession').on('value', snap=>{
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
 const myPresenceRef=db.ref('onlineCustomers/'+myClientId);
 let capacityChecked=false;
-db.ref('.info/connected').on('value', async snap=>{
-  if(!snap.val()) return;
+// ── 인원수 확인 후 등록 (최초 접속 + 재입장 둘 다 이 함수를 거쳐야 함) ──
+async function registerPresenceWithCapacityCheck(){
   try{
     const onlineSnap = await db.ref('onlineCustomers').once('value');
     const online = onlineSnap.val() || {};
@@ -635,11 +635,17 @@ db.ref('.info/connected').on('value', async snap=>{
     const count = Object.keys(online).length;
     if(!alreadyIn && count >= MAX_CONCURRENT_VIEWERS){
       showCapacityBlock();
-      return;
+      return false;
     }
   }catch(e){ console.error('[인원확인 실패]', e); }
   myPresenceRef.set(Date.now());
   myPresenceRef.onDisconnect().remove();
+  return true;
+}
+db.ref('.info/connected').on('value', async snap=>{
+  if(!snap.val()) return;
+  const ok = await registerPresenceWithCapacityCheck();
+  if(!ok) return;
   if(!capacityChecked){ capacityChecked=true; connCam(); tryClaimActive(); } // 인원 확인을 통과한 손님만 카메라 연결 + 조작권 도전 가능
 });
 db.ref('onlineCustomers').on('value', snap=>{
@@ -685,7 +691,12 @@ function switchToCam(){
 // ── WHEP 카메라 연결 ──
 async function connCam(){
   if(connected)return;
-  if(hasFinishedShopping){ hasFinishedShopping=false; tryClaimActive(); myPresenceRef.set(Date.now()); myPresenceRef.onDisconnect().remove(); } // '더 살게요' → 다시 줄서기 + 인원수에도 재등록
+  if(hasFinishedShopping){
+    const ok = await registerPresenceWithCapacityCheck(); // '더 살게요' → 인원수부터 다시 확인
+    if(!ok) return; // 인원 초과면 여기서 막고 혼잡 화면(이미 표시됨)으로 대체
+    hasFinishedShopping=false;
+    tryClaimActive();
+  }
   const status=document.getElementById('streamStatus');
   status.textContent='🟡 연결 중...';
   try{
