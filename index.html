@@ -685,7 +685,7 @@ function switchToCam(){
 // ── WHEP 카메라 연결 ──
 async function connCam(){
   if(connected)return;
-  if(hasFinishedShopping){ hasFinishedShopping=false; tryClaimActive(); } // '더 살게요' → 다시 줄서기
+  if(hasFinishedShopping){ hasFinishedShopping=false; tryClaimActive(); myPresenceRef.set(Date.now()); myPresenceRef.onDisconnect().remove(); } // '더 살게요' → 다시 줄서기 + 인원수에도 재등록
   const status=document.getElementById('streamStatus');
   status.textContent='🟡 연결 중...';
   try{
@@ -1209,6 +1209,7 @@ function finishAndExit(){
   closeDone();
   discCam();
   switchToCam(); // 장바구니 등 다른 탭을 보고 있었어도 감사 문구가 실제로 보이도록 카메라 탭으로 전환
+  myPresenceRef.remove(); // 인원수 카운트에서도 확실히 빼서, 대기 중인 다음 손님에게 자리를 넘김
   const o=document.getElementById('camOverlay');
   o.querySelector('p').innerHTML='🚪 쇼핑을 종료하셨습니다<br><span style="font-size:.66rem;opacity:.75;">이용해 주셔서 감사합니다! 😊<br>다시 쇼핑하시려면 아래 [연결]을 눌러주세요</span>';
 }
