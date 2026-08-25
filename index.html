@@ -779,12 +779,16 @@ function discCam(){
   video.srcObject=null;
   const o=document.getElementById('camOverlay');
   o.style.display='flex';
-  o.querySelector('p').innerHTML='카메라 연결 대기 중<br><span style="font-size:.62rem;opacity:.6;">아래 [연결] 버튼을 눌러주세요</span>';
+  o.querySelector('p').innerHTML='🚪 쇼핑을 종료하셨습니다<br><span style="font-size:.62rem;opacity:.6;">다시 쇼핑하시려면 아래 [연결]을 눌러주세요</span>';
   const s=document.getElementById('streamStatus');
   s.textContent='⚫ 대기';s.style.background='rgba(0,0,0,.5)';s.style.color='rgba(255,255,255,.5)';
   connected=false;setStep(1);zoomReset();
   hasFinishedShopping = true; // 방을 안 나가도 더 이상 자동으로 순서를 다시 잡지 않음
   releaseActiveIfMine();
+  console.log('[쇼핑종료-상단버튼] myClientId:', myClientId, '/ 인원수 반납 시도 중...');
+  myPresenceRef.remove()
+    .then(()=>console.log('[쇼핑종료-상단버튼] 인원수 반납 성공'))
+    .catch(e=>console.error('[쇼핑종료-상단버튼] 인원수 반납 실패:', e));
 }
 function snap(){
   const video = document.getElementById('camVideo');
@@ -1207,12 +1211,8 @@ async function confirmPay(){
 function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';document.getElementById('lookupResult').style.display='none';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';db.ref('liveOrder/requestClear').set(Date.now());}
 function finishAndExit(){
   closeDone();
-  discCam();
+  discCam(); // 인원수 반납은 discCam 안에서 이제 항상 처리됨
   switchToCam(); // 장바구니 등 다른 탭을 보고 있었어도 감사 문구가 실제로 보이도록 카메라 탭으로 전환
-  console.log('[쇼핑종료] myClientId:', myClientId, '/ 인원수 반납 시도 중...');
-  myPresenceRef.remove()
-    .then(()=>console.log('[쇼핑종료] 인원수 반납 성공'))
-    .catch(e=>console.error('[쇼핑종료] 인원수 반납 실패:', e));
   const o=document.getElementById('camOverlay');
   o.querySelector('p').innerHTML='🚪 쇼핑을 종료하셨습니다<br><span style="font-size:.66rem;opacity:.75;">이용해 주셔서 감사합니다! 😊<br>다시 쇼핑하시려면 아래 [연결]을 눌러주세요</span>';
 }
