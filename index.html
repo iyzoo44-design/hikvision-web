@@ -1005,7 +1005,7 @@ async function startWebRTC(){
   pc.ontrack=e=>{document.getElementById('remoteAudio').srcObject=e.streams[0];};
   pc.onicecandidate=e=>{if(e.candidate)db.ref(`rtc/${ROOM_ID}/customerCandidates`).push(e.candidate.toJSON());};
   const offer=await pc.createOffer();await pc.setLocalDescription(offer);
-  await db.ref(`rtc/${ROOM_ID}/offer`).set({sdp:offer.sdp,type:offer.type});
+  await db.ref(`rtc/${ROOM_ID}/offer`).set({sdp:offer.sdp,type:offer.type,t:Date.now()});
   db.ref(`rtc/${ROOM_ID}/answer`).on('value',async snap=>{const a=snap.val();if(a&&pc&&!pc.currentRemoteDescription)await pc.setRemoteDescription(new RTCSessionDescription(a));});
   db.ref(`rtc/${ROOM_ID}/clerkCandidates`).on('child_added',async snap=>{const c=snap.val();if(c&&pc)await pc.addIceCandidate(new RTCIceCandidate(c));});
 }
