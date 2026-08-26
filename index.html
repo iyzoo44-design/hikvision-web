@@ -994,6 +994,9 @@ async function toggleCall(){
   document.getElementById('voiceViz').classList.add('on');setStep(2);toast('📞 점원 AR 안경과 연결됐어요!');
 }
 async function startWebRTC(){
+  // 예전 통화 시도에서 남아있을 수 있는 감지기부터 확실히 정리 (쌓이면 서로 충돌해서 통화가 불안정해짐)
+  db.ref(`rtc/${ROOM_ID}/answer`).off('value');
+  db.ref(`rtc/${ROOM_ID}/clerkCandidates`).off('child_added');
   const cfg={iceServers:[
     {urls:'stun:stun.l.google.com:19302'},
     {urls:'stun:stun1.l.google.com:19302'},
@@ -1001,15 +1004,25 @@ async function startWebRTC(){
     {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}
   ]};
   pc=new RTCPeerConnection(cfg);
+  const myPc=pc; // 이 통화 시도 전용 참조 — 나중에 새 통화가 시작돼도 예전 감지기가 새 pc를 건드리지 않도록 고정
+  pc.oniceconnectionstatechange=()=>console.log('[통화-고객] ICE 상태:', pc.iceConnectionState);
+  pc.onconnectionstatechange=()=>console.log('[통화-고객] 연결 상태:', pc.connectionState);
   localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   pc.ontrack=e=>{document.getElementById('remoteAudio').srcObject=e.streams[0];};
   pc.onicecandidate=e=>{if(e.candidate)db.ref(`rtc/${ROOM_ID}/customerCandidates`).push(e.candidate.toJSON());};
-  const offer=await pc.createOffer();await pc.setLocalDescription(offer);
+  const offer=await myPc.createOffer();await myPc.setLocalDescription(offer);
   await db.ref(`rtc/${ROOM_ID}/offer`).set({sdp:offer.sdp,type:offer.type,t:Date.now()});
-  db.ref(`rtc/${ROOM_ID}/answer`).on('value',async snap=>{const a=snap.val();if(a&&pc&&!pc.currentRemoteDescription)await pc.setRemoteDescription(new RTCSessionDescription(a));});
-  db.ref(`rtc/${ROOM_ID}/clerkCandidates`).on('child_added',async snap=>{const c=snap.val();if(c&&pc)await pc.addIceCandidate(new RTCIceCandidate(c));});
+  db.ref(`rtc/${ROOM_ID}/answer`).on('value',async snap=>{const a=snap.val();if(a&&myPc===pc&&!myPc.currentRemoteDescription)await myPc.setRemoteDescription(new RTCSessionDescription(a));});
+  db.ref(`rtc/${ROOM_ID}/clerkCandidates`).on('child_added',async snap=>{const c=snap.val();if(c&&myPc===pc)await myPc.addIceCandidate(new RTCIceCandidate(c));});
 }
-function endCall(){if(pc){pc.close();pc=null;}if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}db.ref(`rtc/${ROOM_ID}`).remove();document.getElementById('remoteAudio').srcObject=null;}
+function endCall(){
+  db.ref(`rtc/${ROOM_ID}/answer`).off('value');
+  db.ref(`rtc/${ROOM_ID}/clerkCandidates`).off('child_added');
+  if(pc){pc.close();pc=null;}
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  db.ref(`rtc/${ROOM_ID}`).remove();
+  document.getElementById('remoteAudio').srcObject=null;
+}
 
 db.ref('liveOrder').on('value',function(snap){const d=snap.val();if(!d)return;updateLiveOrder(d);});
 function syncCartFromOrder(items){if(!items||items.length===0){cart={};updateCart();return;}cart={};items.forEach(i=>{cart[i.id]={...i};});updateCart();}
