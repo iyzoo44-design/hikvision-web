@@ -616,16 +616,6 @@ function applyActiveState(nowActive){
 let hasFinishedShopping = false; // '쇼핑 종료'를 누른 손님은 방을 안 나가도 자동으로 다시 순서를 잡지 않음
 async function tryClaimActive(){
   if(hasFinishedShopping) return; // '연결' 버튼을 다시 눌러야만 재도전
-  // ── 진짜 도착순서: 나보다 먼저 접속한 대기자가 있으면 양보하고 시도조차 안 함 (경쟁 방지) ──
-  try{
-    const onlineSnap = await db.ref('onlineCustomers').once('value');
-    const online = onlineSnap.val() || {};
-    const myTs = online[myClientId];
-    if(myTs){
-      const someoneEarlier = Object.entries(online).some(([cid, ts]) => cid!==myClientId && isEarlierClient(ts,cid,myTs,myClientId));
-      if(someoneEarlier) return; // 내 순서가 아직 아님 → 먼저 온 손님이 잡게 양보
-    }
-  }catch(e){ console.error('[대기순서 확인 실패]', e); }
   db.ref('activeSession').transaction(cur=>{
     const now=Date.now();
     if(!cur || !cur.ts || (now-cur.ts)>15000) return {clientId:myClientId, ts:now};
