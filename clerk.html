@@ -643,6 +643,7 @@ db.ref('messages').limitToLast(1).on('child_added', snap=>{
 // WebRTC 통화 (점원 측 = Answer)
 // ═══════════════════════════════════════════
 let pc = null, localStream = null, callActive = false;
+let offerAnswerCb = null;
 
 // ── 벨소리 + 진동 (안드로이드는 진동 지원, iOS는 소리만 재생됨) ──
 let ringSoundTimer = null;
@@ -738,6 +739,8 @@ async function startAnswer(){
     ]
   };
   pc = new RTCPeerConnection(config);
+  const myPc = pc; // 이 통화 시도 전용 참조 — 예전 감지기가 새 pc를 건드리지 않도록 고정
+  pc.oniceconnectionstatechange=()=>console.log('[통화-점원] ICE 상태:', pc.iceConnectionState);
 
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
@@ -761,27 +764,34 @@ async function startAnswer(){
     }
   };
 
+  // 예전 통화 시도에서 남아있을 수 있는 감지기부터 정리 (쌓이면 서로 충돌)
+  db.ref(`rtc/${ROOM_ID}/offer`).off('value', offerAnswerCb);
+  db.ref(`rtc/${ROOM_ID}/customerCandidates`).off('child_added');
+
   // Offer 수신 대기
-  db.ref(`rtc/${ROOM_ID}/offer`).on('value', async snap=>{
+  offerAnswerCb = async snap=>{
     const offer = snap.val();
-    if(!offer || pc.currentRemoteDescription) return;
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+    if(!offer || myPc!==pc || myPc.currentRemoteDescription) return;
+    await myPc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await myPc.createAnswer();
+    await myPc.setLocalDescription(answer);
     await db.ref(`rtc/${ROOM_ID}/answer`).set({
       sdp: answer.sdp, type: answer.type
     });
     btn.className='ringing'; btn.textContent='🔔 고객 연결 중...';
-  });
+  };
+  db.ref(`rtc/${ROOM_ID}/offer`).on('value', offerAnswerCb);
 
   // 고객 ICE 후보 수신
   db.ref(`rtc/${ROOM_ID}/customerCandidates`).on('child_added', async snap=>{
     const c = snap.val();
-    if(c && pc) await pc.addIceCandidate(new RTCIceCandidate(c));
+    if(c && myPc===pc) await myPc.addIceCandidate(new RTCIceCandidate(c));
   });
 }
 
 function endCall(){
+  db.ref(`rtc/${ROOM_ID}/offer`).off('value', offerAnswerCb);
+  db.ref(`rtc/${ROOM_ID}/customerCandidates`).off('child_added');
   if(pc){pc.close();pc=null;}
   if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
   db.ref(`rtc/${ROOM_ID}`).remove();
