@@ -687,6 +687,11 @@ db.ref(`rtc/${ROOM_ID}/offer`).on('value', snap=>{
   }
   if(offer.sdp !== lastSeenOfferSdp){
     lastSeenOfferSdp = offer.sdp;
+    // 30초 넘게 지난 신호는 예전 세션에서 남은 유령 데이터일 가능성이 높아 무시 (실제 통화가 아닌데 벨만 계속 울리는 것 방지)
+    if(offer.t && (Date.now()-offer.t) > 30000){
+      console.warn('[통화] 오래된 신호(유령 벨) 무시:', new Date(offer.t));
+      return;
+    }
     btn.className='ringing';
     btn.textContent='🔔 고객이 통화 중! 탭해서 받기';
     showMsg('📞 고객이 통화를 요청했어요!');
