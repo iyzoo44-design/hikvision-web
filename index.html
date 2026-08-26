@@ -675,7 +675,7 @@ db.ref('onlineCustomers').on('value', snap=>{
   const n = snap.numChildren();
   const el=document.getElementById('queueCount');
   if(el) el.textContent = n>1 ? ('현재 '+n+'명 접속 중') : '';
-  if(!amActive) updateWaitRank();
+  if(!amActive){ updateWaitRank(); tryClaimActive(); } // 인원수가 바뀔 때마다 다시 도전 → activeSession/onlineCustomers 반납 신호 도착 순서가 어긋나도 결국 정상화됨
 });
 function showCapacityBlock(){
   const el=document.getElementById('capacityBlock');
