@@ -417,6 +417,11 @@ function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.
 let myClientId = sessionStorage.getItem('dongneClientId');
 if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
 let amActive = null; // false가 아니라 null로 시작 — "아직 안 정해짐"과 "진짜 대기중(false)"을 구분해야, 대기중으로 확정되는 순간에도 setControlsEnabled가 반드시 실행됨
+// 접속시각(ts)이 완전히 같으면(동시 접속 등) 판단이 애매해지므로, clientId까지 같이 비교해서 항상 일관된 순서가 나오게 함
+function isEarlierClient(tsA, cidA, tsB, cidB){
+  if(tsA !== tsB) return tsA < tsB;
+  return cidA < cidB;
+}
 const camScr=document.getElementById('camScr');
 let curZoom=1,panXRatio=0,panYRatio=0;
 let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
@@ -477,7 +482,7 @@ async function updateWaitRank(){
     const myTs = online[myClientId];
     if(!myTs){ badge.textContent='🙋 다른 고객 상담 중 · 화면만 함께 보실 수 있어요'; return; }
     // 활성 고객은 순번 계산에서 제외 — '대기자들 중에서' 몇 번째인지만 셈
-    const earlierWaitingCount = Object.entries(online).filter(([cid,ts])=>cid!==myClientId && cid!==activeClientId && ts<myTs).length;
+    const earlierWaitingCount = Object.entries(online).filter(([cid,ts])=>cid!==myClientId && cid!==activeClientId && isEarlierClient(ts,cid,myTs,myClientId)).length;
     const rank = earlierWaitingCount + 1;
     badge.textContent = `🙋 대기 순번 ${rank}번째 · 화면만 함께 보실 수 있어요`;
   }catch(e){ badge.textContent='🙋 다른 고객 상담 중 · 화면만 함께 보실 수 있어요'; }
@@ -614,7 +619,7 @@ async function tryClaimActive(){
     const online = onlineSnap.val() || {};
     const myTs = online[myClientId];
     if(myTs){
-      const someoneEarlier = Object.entries(online).some(([cid, ts]) => cid!==myClientId && ts < myTs);
+      const someoneEarlier = Object.entries(online).some(([cid, ts]) => cid!==myClientId && isEarlierClient(ts,cid,myTs,myClientId));
       if(someoneEarlier) return; // 내 순서가 아직 아님 → 먼저 온 손님이 잡게 양보
     }
   }catch(e){ console.error('[대기순서 확인 실패]', e); }
