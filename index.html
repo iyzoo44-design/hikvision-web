@@ -964,8 +964,8 @@ function toggleJoystick(){
   }
   function endDrag(){ dragging=false; resetKnob(); if(activeDir){ ptz('stop'); activeDir=null; } }
 
-  base.addEventListener('pointerdown',e=>{ dragging=true; base.setPointerCapture(e.pointerId); handleMove(e.clientX,e.clientY); });
-  base.addEventListener('pointermove',e=>{ if(!dragging) return; handleMove(e.clientX,e.clientY); });
+  base.addEventListener('pointerdown',e=>{ if(!amActive) return; dragging=true; base.setPointerCapture(e.pointerId); handleMove(e.clientX,e.clientY); });
+  base.addEventListener('pointermove',e=>{ if(!dragging||!amActive) return; handleMove(e.clientX,e.clientY); });
   base.addEventListener('pointerup',endDrag);
   base.addEventListener('pointercancel',endDrag);
   window.addEventListener('blur',()=>{ if(dragging) endDrag(); });
@@ -974,12 +974,12 @@ function toggleJoystick(){
 function initPointer(){const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';sendPointerFB(pRx,pRy);}
 function moveArrow(rx,ry){pRx=Math.min(0.97,Math.max(0,rx));pRy=Math.min(0.97,Math.max(0,ry));const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';}
 function sendPointerFB(rx,ry){const camScrEl=document.getElementById('camScr');db.ref('pointer').set({rx,ry,zoom:curZoom,viewW:camScrEl.offsetWidth,viewH:camScrEl.offsetHeight,t:Date.now()});}
-pointerLayer.addEventListener('mousedown',function(e){if(!connected)return;isDragging=true;doMove(e);});
-pointerLayer.addEventListener('mousemove',function(e){if(!isDragging||!connected)return;doMove(e);});
+pointerLayer.addEventListener('mousedown',function(e){if(!connected||!amActive)return;isDragging=true;doMove(e);});
+pointerLayer.addEventListener('mousemove',function(e){if(!isDragging||!connected||!amActive)return;doMove(e);});
 pointerLayer.addEventListener('mouseup',function(){if(!isDragging)return;isDragging=false;sendPointerFB(pRx,pRy);});
 pointerLayer.addEventListener('mouseleave',function(){if(isDragging){isDragging=false;sendPointerFB(pRx,pRy);}});
-pointerLayer.addEventListener('touchstart',function(e){if(!connected||e.touches.length!==1)return;isDragging=true;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
-pointerLayer.addEventListener('touchmove',function(e){if(!isDragging||!connected||e.touches.length!==1)return;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
+pointerLayer.addEventListener('touchstart',function(e){if(!connected||!amActive||e.touches.length!==1)return;isDragging=true;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
+pointerLayer.addEventListener('touchmove',function(e){if(!isDragging||!connected||!amActive||e.touches.length!==1)return;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
 pointerLayer.addEventListener('touchend',function(e){if(!isDragging)return;isDragging=false;sendPointerFB(pRx,pRy);e.preventDefault();},{passive:false});
 function doMove(e){markActivity();const r=camScr.getBoundingClientRect();moveArrow((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);}
 function doMoveT(t){markActivity();const r=camScr.getBoundingClientRect();moveArrow((t.clientX-r.left)/r.width,(t.clientY-r.top)/r.height);}
