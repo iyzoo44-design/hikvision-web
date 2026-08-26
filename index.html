@@ -416,7 +416,7 @@ const WHEP_URL='https://whep.priceline.co.kr';
 function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 let myClientId = sessionStorage.getItem('dongneClientId');
 if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
-let amActive = false;
+let amActive = null; // false가 아니라 null로 시작 — "아직 안 정해짐"과 "진짜 대기중(false)"을 구분해야, 대기중으로 확정되는 순간에도 setControlsEnabled가 반드시 실행됨
 const camScr=document.getElementById('camScr');
 let curZoom=1,panXRatio=0,panYRatio=0;
 let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
