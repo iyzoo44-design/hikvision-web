@@ -456,8 +456,9 @@ let camPc=null, camRetryTimer=null, camConnected=false;
 
 async function connCam(){
   const btn=document.getElementById('camConnBtn');
-  btn.style.display='none';
-  document.getElementById('camPlaceholder').style.display='none';
+  if(btn) btn.style.display='none';
+  const ph=document.getElementById('camPlaceholder');
+  if(ph) ph.style.display='none';
   try{
     await startCamWHEP();
   }catch(e){
