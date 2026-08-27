@@ -1006,7 +1006,20 @@ async function startWebRTC(){
   pc=new RTCPeerConnection(cfg);
   const myPc=pc; // 이 통화 시도 전용 참조 — 나중에 새 통화가 시작돼도 예전 감지기가 새 pc를 건드리지 않도록 고정
   pc.oniceconnectionstatechange=()=>console.log('[통화-고객] ICE 상태:', pc.iceConnectionState);
-  pc.onconnectionstatechange=()=>console.log('[통화-고객] 연결 상태:', pc.connectionState);
+  pc.onconnectionstatechange=()=>{
+    console.log('[통화-고객] 연결 상태:', pc.connectionState);
+    if((pc.connectionState==='disconnected'||pc.connectionState==='failed'||pc.connectionState==='closed') && myPc===pc){
+      // 점원이 먼저 끊었거나 연결이 끊어진 경우 — 고객화면도 자동으로 원상복구
+      const btn=document.getElementById('callBtn'),dot=document.getElementById('cdot'),txt=document.getElementById('ctxt');
+      if(btn){btn.className='cbtn v-on';btn.textContent='📞 통화 연결';}
+      if(dot) dot.className='cdot';
+      if(txt) txt.textContent='🎧 점원 연결 대기 중';
+      document.getElementById('voiceViz')?.classList.remove('on');
+      if(pc){pc.close();}
+      pc=null;
+      toast('📵 점원과의 통화가 종료됐어요');
+    }
+  };
   localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   pc.ontrack=e=>{document.getElementById('remoteAudio').srcObject=e.streams[0];};
   pc.onicecandidate=e=>{if(e.candidate)db.ref(`rtc/${ROOM_ID}/customerCandidates`).push(e.candidate.toJSON());};
