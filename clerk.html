@@ -764,6 +764,15 @@ async function startAnswer(){
       btn.className='active'; btn.textContent='📵 통화 종료';
       document.getElementById('vviz').classList.add('on');
       showMsg('📞 고객과 연결됐어요!');
+    } else if(pc.connectionState==='disconnected' || pc.connectionState==='failed' || pc.connectionState==='closed'){
+      // 상대방이 끊었거나 연결이 끊어진 경우 — 화면을 자동으로 대기 상태로 되돌려서, 다음 통화도 정상적으로 받을 수 있게 함
+      if(myPc!==pc) return; // 이미 새 통화 시도로 교체된 경우엔 관여 안 함
+      callActive=false;
+      lastSeenOfferSdp = null; // 다음 통화를 새 신호로 확실히 인식하도록 초기화
+      btn.className=''; btn.textContent='📞 통화 대기 중';
+      document.getElementById('vviz').classList.remove('on');
+      stopRinging();
+      showMsg('📵 통화가 종료됐어요');
     }
   };
 
@@ -800,6 +809,7 @@ function endCall(){
   db.ref(`rtc/${ROOM_ID}`).remove();
   document.getElementById('remoteAudio').srcObject=null;
   callActive=false;
+  lastSeenOfferSdp = null; // 다음 통화를 새 신호로 확실히 인식하도록 초기화
 }
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 
