@@ -931,6 +931,7 @@ function toggleOrderPanel(force){
 function addItem(id){
   const m = MENU.find(x=>x.id===id);
   if(!m) return;
+  clearReceiptIfShown(); // 새 주문을 담기 시작하면 이전 영수증은 이제 필요없으니 정리
   const exist = orderItems.find(x=>x.id===id);
   if(exist){ exist.qty++; }
   else { orderItems.push({...m, qty:1}); }
@@ -1010,8 +1011,9 @@ db.ref('liveOrder').on('value', snap=>{
       `<div style="margin-top:8px;display:flex;gap:6px;">`+
       `<button onclick="printReceipt()" style="flex:1;padding:8px;border:none;border-radius:8px;background:#4CAF50;color:#fff;font-weight:700;cursor:pointer;">🖨️ 영수증 인쇄</button>`+
       `<button onclick="copyReceiptText()" style="flex:1;padding:8px;border:none;border-radius:8px;background:#FEE500;color:#3A1D1D;font-weight:700;cursor:pointer;">💬 문자용 복사</button>`+
+      `<button onclick="closeReceiptBox()" style="flex:0 0 auto;padding:8px 10px;border:none;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;">✕</button>`+
       `</div>`;
-    lastPaidData = d; // 인쇄/복사 버튼에서 쓸 수 있도록 저장
+    lastPaidData = {...d, itemsSnapshot: JSON.parse(JSON.stringify(orderItems))}; // 인쇄/복사 버튼에서 쓸 수 있도록, 상품목록까지 그 순간을 통째로 저장
   }
   toggleOrderPanel(true);
 });
@@ -1020,7 +1022,7 @@ let lastPaidData = null;
 function buildReceiptText(){
   const d = lastPaidData;
   if(!d) return '';
-  const itemsStr = orderItems.map(i=>`${i.e||''} ${i.name} ×${i.qty} (₩${(i.price*i.qty).toLocaleString()})`).join('\n');
+  const itemsStr = (d.itemsSnapshot||[]).map(i=>`${i.e||''} ${i.name} ×${i.qty} (₩${(i.price*i.qty).toLocaleString()})`).join('\n');
   const now = new Date().toLocaleString('ko-KR');
   return `🥐 행복한 빵집 — 주문서\n`+
     `주문번호: ${d.orderNumber}\n일시: ${now}\n\n`+
@@ -1064,10 +1066,20 @@ function clearOrder(){
   renderOrderGrid();
   renderPickedList();
   updateOrderDisplay();
-  const paidBox=document.getElementById('paidInfo');
-  if(paidBox){ paidBox.style.display='none'; paidBox.innerHTML=''; }
   db.ref('liveOrder').set({items:[], total:0, count:0, t:Date.now()});
   showMsg('🗑 주문이 초기화됐어요');
+}
+function clearReceiptIfShown(){
+  const paidBox=document.getElementById('paidInfo');
+  if(paidBox && paidBox.style.display==='block'){
+    paidBox.style.display='none'; paidBox.innerHTML=''; lastPaidData=null;
+  }
+}
+function closeReceiptBox(){
+  // X 버튼 전용 — 조건 없이 무조건 닫음
+  const paidBox=document.getElementById('paidInfo');
+  if(paidBox){ paidBox.style.display='none'; paidBox.innerHTML=''; }
+  lastPaidData=null;
 }
 
 // ── 고객이 결제완료 팝업을 닫으면(종료·더구경 둘 다) 자동으로 주문판 정리 ──
