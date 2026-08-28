@@ -675,11 +675,9 @@ function stopRinging(){
 
 // ── 점원이 미리 통화 버튼을 안 눌러놨어도, 고객이 걸면 즉시 알림(+ 벨/진동) ──
 let lastSeenOfferSdp = null;
-db.ref(`rtc/${ROOM_ID}/offer`).on('value', snap=>{
-  const offer = snap.val();
+function checkForIncomingCall(offer){
   const btn = document.getElementById('callBtn');
-  console.log('[링감지] 신호 도착. offer 있음?', !!offer, '/ callActive:', callActive, '/ lastSeenOfferSdp 있음?', !!lastSeenOfferSdp);
-  if(!btn || callActive){ console.log('[링감지] 무시함 — btn 없거나 이미 통화중'); return; }
+  if(!btn || callActive) return;
   if(!offer){
     if(lastSeenOfferSdp){ // 점원이 받기 전에 고객이 먼저 끊은 경우
       btn.className='';
@@ -690,7 +688,6 @@ db.ref(`rtc/${ROOM_ID}/offer`).on('value', snap=>{
     lastSeenOfferSdp = null;
     return;
   }
-  console.log('[링감지] sdp 비교 — 새로운 신호인가?', offer.sdp !== lastSeenOfferSdp);
   if(offer.sdp !== lastSeenOfferSdp){
     lastSeenOfferSdp = offer.sdp;
     btn.className='ringing';
@@ -699,7 +696,13 @@ db.ref(`rtc/${ROOM_ID}/offer`).on('value', snap=>{
     startRinging();
     console.log('[링감지] 벨 시작함');
   }
-});
+}
+// 실시간 감지 (평소엔 이걸로 즉시 반응)
+db.ref(`rtc/${ROOM_ID}/offer`).on('value', snap=>{ checkForIncomingCall(snap.val()); });
+// 3초마다 직접 확인 (혹시 휴대폰이 백그라운드 등으로 실시간 연결을 놓쳤을 때를 대비한 안전장치)
+setInterval(()=>{
+  db.ref(`rtc/${ROOM_ID}/offer`).once('value').then(snap=>checkForIncomingCall(snap.val())).catch(()=>{});
+}, 3000);
 
 async function toggleCall(){
   const btn = document.getElementById('callBtn');
