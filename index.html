@@ -2,1290 +2,190 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-<title>행복한 빵집 — 원격 쇼핑</title>
-<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-<link rel="preconnect" href="https://whep.priceline.co.kr">
-<link rel="preconnect" href="https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app">
-<link rel="preconnect" href="https://www.gstatic.com">
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>고객 관리 — 행복한 빵집</title>
 <style>
-:root{--bg:#FFFBF4;--cream:#FFF3E0;--warm:#F5DEB3;--brown:#5C3317;--dbrown:#2E1503;--gold:#B8860B;--accent:#D2691E;--soft:#8B6347;--white:#fff;--green:#1B5E20;--red:#B71C1C;--shadow:rgba(44,21,3,0.12);}
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--dbrown);}
-.app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);padding-bottom:72px;}
-header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-index:100;box-shadow:0 3px 16px rgba(0,0,0,0.35);}
-.hdr{display:flex;align-items:center;justify-content:space-between;}
-.logo{font-family:'Nanum Myeongjo',serif;font-size:1.35rem;font-weight:800;color:#FFD9A0;letter-spacing:.5px;}
-.logo-sub{font-size:.6rem;color:rgba(255,210,160,.5);letter-spacing:3px;margin-top:1px;}
-.live-pill{background:var(--red);color:#fff;font-size:.62rem;font-weight:700;padding:3px 9px;border-radius:20px;display:flex;align-items:center;gap:4px;animation:blink 1.5s infinite;}
-.live-dot{width:5px;height:5px;background:#fff;border-radius:50%;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
-.tabs{display:flex;background:var(--cream);border-bottom:2px solid var(--warm);}
-.tab{flex:1;padding:10px 2px 8px;border:none;background:transparent;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;font-weight:500;color:var(--soft);border-bottom:3px solid transparent;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:2px;}
-.tab span{font-size:1.1rem;}
-.tab.on{color:var(--brown);border-bottom-color:var(--gold);font-weight:700;}
-.sec{display:none;padding:14px;}
-.sec.on{display:block;}
-.sec-title{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;}
-.rs-tagline{
-  text-align:center;margin-bottom:12px;font-family:'Nanum Myeongjo',serif;
-  font-size:.98rem;font-weight:800;color:var(--brown);line-height:1.5;
-}
-.rs-tagline span{display:block;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:500;color:var(--gold);margin-top:3px;letter-spacing:.3px;}
-.quick-guide{
-  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
-  gap:4px 3px;margin-bottom:14px;padding:10px 12px;
-  background:var(--white);border-radius:12px;box-shadow:0 2px 8px var(--shadow);
-}
-.quick-guide .qg-step{font-size:.64rem;color:var(--brown);font-weight:600;white-space:nowrap;}
-.quick-guide .qg-arrow{font-size:.62rem;color:var(--warm);}
-.cam-box{background:var(--dbrown);border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);margin-bottom:12px;}
-.cam-screen{position:relative;aspect-ratio:4/3;overflow:hidden;background:#0a0500;touch-action:none;}
-#zoomWrap{position:absolute;inset:0;width:100%;height:100%;transform-origin:center center;transition:transform .1s ease-out;}
-#camVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;}
-#pointerLayer{position:absolute;inset:0;z-index:20;cursor:crosshair;}
-#camOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#180B00,#2d1800,#180900);z-index:25;}
-.cam-ph{text-align:center;color:rgba(255,190,80,.7);}
-.cam-ph .ico{font-size:2.8rem;display:block;margin-bottom:8px;}
-.cam-ph p{font-size:.78rem;line-height:1.6;}
-#streamStatus{position:absolute;top:8px;right:44px;z-index:30;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(0,0,0,.6);color:rgba(255,255,255,.5);pointer-events:none;}
-.cam-grid{position:absolute;inset:0;background:linear-gradient(rgba(184,134,11,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(184,134,11,.03) 1px,transparent 1px);background-size:36px 36px;pointer-events:none;}
-#arrowPointer{position:absolute;width:44px;height:44px;z-index:22;pointer-events:none;display:block;transform:translate(-50%,-50%);filter:drop-shadow(0 0 5px rgba(255,0,0,0.9)) drop-shadow(0 0 2px #fff);}
-#fullBtn{position:absolute;top:6px;right:6px;z-index:30;width:30px;height:30px;border:none;border-radius:6px;background:rgba(0,0,0,.55);color:rgba(255,190,80,.9);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-#fullBtn:active{background:rgba(184,134,11,.7);}
-.cam-screen.fullscreen{position:fixed;inset:0;z-index:500;aspect-ratio:unset;width:100vw;height:100vh;border-radius:0;}
-#paymentBanner{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  z-index:37;background:rgba(139,53,0,.92);color:#fff;
-  padding:16px 20px;border-radius:14px;text-align:center;
-  font-size:.78rem;line-height:1.8;max-width:82%;
-  display:none;box-shadow:0 6px 24px rgba(0,0,0,.55);
-  border:1px solid rgba(255,210,160,.4);
-}
-#paymentBanner.show{display:block;}
-#paymentBanner b{font-size:.9rem;}
-#paymentBanner button{
-  margin-top:10px;padding:8px 18px;border:none;border-radius:18px;
-  background:#fff;color:var(--accent);font-family:'Noto Sans KR',sans-serif;
-  font-size:.74rem;font-weight:700;cursor:pointer;
-}
-#camMenuShortcut{
-  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
-  z-index:36;padding:10px 20px;border:none;border-radius:22px;
-  background:var(--accent);color:#fff;font-family:'Noto Sans KR',sans-serif;
-  font-size:.78rem;font-weight:700;cursor:pointer;
-  box-shadow:0 4px 16px rgba(0,0,0,.5);
-  display:none;animation:blink 1.2s infinite;
-}
-#camMenuShortcut.show{display:block;}
-#welcomeBanner{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  z-index:36;background:rgba(10,5,0,.82);color:#FFD9A0;
-  padding:16px 20px;border-radius:14px;text-align:center;
-  font-size:.78rem;line-height:1.9;max-width:82%;
-  display:none;box-shadow:0 6px 24px rgba(0,0,0,.5);
-  border:1px solid rgba(255,210,160,.3);
-}
-#welcomeBanner.show{display:block;}
-#welcomeBanner b{color:#fff;font-size:.86rem;}
-#camMenuOverlay{
-  position:absolute;inset:0;z-index:33;
-  display:none;flex-direction:column;align-items:center;justify-content:center;
-  padding:20px 16px;
-}
-#camMenuOverlay.open{display:flex;}
-#camMenuOverlay .cmo-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:16px 12px;width:100%;
-}
-.cmo-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;-webkit-user-select:none;user-select:none;background:var(--cream);border-radius:12px;padding:8px 4px 6px;box-shadow:0 3px 10px rgba(0,0,0,.4);}
-.cmo-item:active{transform:scale(.94);}
-.cmo-thumb{width:46px;height:46px;border-radius:10px;background:var(--white);display:flex;align-items:center;justify-content:center;font-size:1.7rem;overflow:hidden;}
-.cmo-thumb img{width:100%;height:100%;object-fit:cover;}
-.cmo-name{font-size:.62rem;font-weight:700;color:var(--dbrown);text-align:center;}
-.cmo-price{font-size:.56rem;color:var(--accent);font-weight:700;}
-#camMenuClose{
-  position:absolute;top:8px;right:8px;z-index:34;width:30px;height:30px;border-radius:8px;
-  border:none;background:rgba(0,0,0,.45);color:#fff;font-size:1rem;cursor:pointer;
-}
-#zoomSliderWrap{
-  position:absolute;top:50%;right:8px;transform:translateY(-50%);
-  z-index:30;display:flex;flex-direction:column;align-items:center;gap:4px;
-  background:rgba(0,0,0,.5);padding:8px 6px;border-radius:14px;
-}
-#zoomSliderWrap .zs-btn{
-  width:30px;height:30px;border:none;border-radius:8px;
-  background:rgba(255,255,255,.14);color:rgba(255,190,80,.95);
-  font-size:.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  -webkit-user-select:none;user-select:none;
-}
-#zoomSliderWrap .zs-btn:active{background:rgba(184,134,11,.75);}
-#zoomSliderWrap .zs-btn.zs-reset{font-size:.6rem;font-weight:700;}
-.zs-track-wrap{width:28px;height:110px;display:flex;align-items:center;justify-content:center;}
-#zoomSlider{
-  width:100px;height:26px;
-  transform:rotate(-90deg);
-  -webkit-appearance:none;appearance:none;
-  background:rgba(255,255,255,.15);border-radius:10px;outline:none;
-}
-#zoomSlider::-webkit-slider-thumb{
-  -webkit-appearance:none;width:20px;height:20px;border-radius:50%;
-  background:#D2691E;border:2px solid #fff;cursor:pointer;
-}
-#zoomSlider::-moz-range-thumb{
-  width:20px;height:20px;border-radius:50%;
-  background:#D2691E;border:2px solid #fff;cursor:pointer;
-}
-#zoomLbl{font-size:.6rem;color:rgba(255,190,80,.85);font-weight:700;}
-#voiceViz{display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:30;gap:2px;align-items:flex-end;height:18px;}
-#voiceViz.on{display:flex;}
-.vbar{width:3px;background:rgba(255,190,80,.7);border-radius:2px;animation:vwave .6s ease-in-out infinite alternate;}
-.vbar:nth-child(1){animation-delay:0s;}.vbar:nth-child(2){animation-delay:.1s;}.vbar:nth-child(3){animation-delay:.2s;}.vbar:nth-child(4){animation-delay:.15s;}.vbar:nth-child(5){animation-delay:.05s;}
-@keyframes vwave{from{height:4px}to{height:16px}}
-.call-bar{background:rgba(0,0,0,.5);padding:7px 12px;display:flex;align-items:center;gap:8px;}
-.cdot{width:7px;height:7px;border-radius:50%;background:#555;flex-shrink:0;transition:all .3s;}
-.cdot.on{background:#4CAF50;box-shadow:0 0 6px #4CAF50;animation:blink 1.5s infinite;}
-.cdot.ring{background:#FFD600;animation:blink .6s infinite;}
-.ctxt{font-size:.65rem;color:rgba(255,190,80,.65);flex:1;}
-.cbtn{padding:5px 12px;border:none;border-radius:16px;font-size:.65rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
-.v-on{background:var(--green);color:#fff;}.v-off{background:var(--red);color:#fff;}.v-ring{background:#F57F17;color:#fff;animation:blink .8s infinite;}
-.cam-btns{display:flex;gap:6px;padding:10px 12px;}
-.cbtn2{flex:1;padding:8px 4px;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;transition:all .2s;}
-.cbtn2:active{transform:scale(.96);}
-.c-p{background:var(--gold);color:#fff;}.c-s{background:rgba(255,255,255,.08);color:rgba(255,210,160,.8);}.c-d{background:#7B1C1C;color:#fff;}
-.joystick-wrap{padding:8px 12px;border-top:1px solid rgba(255,255,255,.06);}
-.ptz-toggle{
-  width:100%;padding:8px;border:none;border-radius:8px;
-  background:rgba(255,255,255,.06);color:rgba(255,190,80,.6);
-  font-family:'Noto Sans KR',sans-serif;font-size:.66rem;font-weight:700;cursor:pointer;
-}
-.ptz-toggle:active{background:rgba(184,134,11,.3);}
-.joystick-collapsible{
-  max-height:0;overflow:hidden;transition:max-height .25s ease;
-  display:flex;flex-direction:column;align-items:center;
-}
-.joystick-collapsible.open{max-height:200px;padding-top:10px;}
-.ptz-lbl{font-size:.6rem;color:rgba(255,190,80,.4);margin-bottom:8px;text-align:center;}
-.joystick-base{
-  position:relative;width:120px;height:120px;border-radius:50%;
-  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
-  touch-action:none;
-}
-.joystick-knob{
-  position:absolute;top:50%;left:50%;width:46px;height:46px;border-radius:50%;
-  background:rgba(184,134,11,.85);border:2px solid rgba(255,210,160,.6);
-  transform:translate(-50%,-50%);
-}
-.pick-box{padding:0 12px 12px;border-top:1px solid rgba(255,255,255,.06);}
-.pick-lbl{font-size:.6rem;color:rgba(255,190,80,.5);margin-bottom:5px;padding-top:8px;}
-.pick-row{display:flex;gap:5px;}
-.pick-inp{flex:1;padding:7px 9px;background:rgba(255,255,255,.08);border:1px solid rgba(184,134,11,.25);border-radius:7px;color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.72rem;}
-.pick-inp::placeholder{color:rgba(255,190,80,.28);}
-.pick-send{padding:7px 12px;background:var(--gold);border:none;border-radius:7px;color:#fff;font-weight:700;font-size:.7rem;cursor:pointer;}
-.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.mc{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px var(--shadow);cursor:pointer;transition:all .2s;border:2px solid transparent;}
-.mc:active{transform:scale(.97);border-color:var(--gold);}
-.mth{height:88px;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:2.8rem;}
-.mi{padding:9px 10px;}
-.mn{font-weight:700;font-size:.82rem;color:var(--dbrown);margin-bottom:2px;}
-.md{font-size:.64rem;color:var(--soft);margin-bottom:5px;line-height:1.4;}
-.mp{color:var(--accent);font-weight:700;font-size:.82rem;}
-.mbtn{width:100%;padding:7px;background:var(--brown);color:#fff;border:none;border-radius:7px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;margin-top:6px;}
-.cart-empty{text-align:center;padding:36px 16px;color:var(--soft);}
-.cart-empty .emo{font-size:2.5rem;display:block;margin-bottom:10px;opacity:.4;}
-.ci{background:var(--white);border-radius:10px;padding:11px 12px;margin-bottom:8px;box-shadow:0 2px 8px var(--shadow);display:flex;align-items:center;gap:9px;}
-.ci-em{font-size:1.5rem;flex-shrink:0;}.ci-info{flex:1;}
-.ci-nm{font-weight:700;font-size:.8rem;color:var(--dbrown);}
-.ci-pr{font-size:.68rem;color:var(--soft);}
-.ci-qty{display:flex;align-items:center;gap:5px;}
-.qb{width:22px;height:22px;border:1px solid var(--warm);border-radius:6px;background:var(--cream);cursor:pointer;font-size:.82rem;display:flex;align-items:center;justify-content:center;color:var(--brown);}
-.cart-total{background:var(--cream);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;margin:12px 0 10px;border:1px solid var(--warm);}
-.ct-lbl{font-size:.8rem;color:var(--soft);}.ct-val{font-size:1.2rem;font-weight:700;color:var(--accent);}
-.pay-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.92rem;font-weight:700;cursor:pointer;}
-.guide-card{background:var(--white);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);border-left:4px solid var(--gold);}
-.guide-card h3{font-size:.88rem;font-weight:700;color:var(--brown);margin-bottom:8px;}
-.guide-card p,.guide-card li{font-size:.76rem;color:var(--soft);line-height:1.7;}
-.guide-card ul{padding-left:16px;}
-.url-box{background:var(--cream);border-radius:10px;padding:12px 14px;margin-bottom:10px;border:1.5px dashed var(--gold);}
-.url-txt{font-size:1rem;font-weight:700;color:var(--gold);word-break:break-all;margin-bottom:5px;}
-.url-box p{font-size:.7rem;color:var(--soft);}
-.copy-btn{width:100%;padding:9px;background:var(--brown);color:#fff;border:none;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.76rem;font-weight:700;cursor:pointer;margin-top:9px;}
-.bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid var(--warm);display:flex;z-index:200;box-shadow:0 -3px 16px var(--shadow);}
-.btab{flex:1;padding:10px 2px 8px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:'Noto Sans KR',sans-serif;font-size:.6rem;font-weight:500;color:var(--soft);transition:all .2s;position:relative;}
-.btab .ico{font-size:1.25rem;}.btab.on{color:var(--gold);}
-.btab.ready-pulse{color:#fff;background:var(--accent);border-radius:14px 14px 0 0;animation:blink 1s infinite;}
-.ccnt{position:absolute;top:5px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:.52rem;font-weight:700;width:14px;height:14px;border-radius:50%;display:none;align-items:center;justify-content:center;}
-.ccnt.show{display:flex;}
-.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dbrown);color:#fff;padding:9px 18px;border-radius:20px;font-size:.76rem;font-weight:500;opacity:0;transition:all .35s;z-index:999;white-space:nowrap;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3);border-left:3px solid var(--gold);}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:flex-end;justify-content:center;}
-.modal-bg.open{display:flex;}
-.modal{background:var(--white);border-radius:20px 20px 0 0;padding:26px 22px 34px;width:100%;max-width:480px;text-align:center;animation:slideUp .3s ease;}
-@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
-.modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.3rem;color:var(--brown);margin-bottom:8px;}
-.modal p{font-size:.8rem;color:var(--soft);margin-bottom:18px;line-height:1.6;}
-.modal-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
-.modal-btn-secondary{width:100%;padding:11px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
-.pay-modal{background:var(--white);border-radius:20px 20px 0 0;padding:22px 18px 34px;width:100%;max-width:480px;animation:slideUp .3s ease;}
-.pay-modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;text-align:center;}
-.pay-method{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
-.pm{padding:12px 8px;border:2px solid var(--warm);border-radius:10px;text-align:center;cursor:pointer;font-size:.78rem;font-weight:500;color:var(--brown);}
-.pm.sel{border-color:var(--gold);background:var(--cream);}
-.pm .pi{font-size:1.5rem;display:block;margin-bottom:4px;}
-.addr-inp{width:100%;padding:10px 12px;border:1.5px solid var(--warm);border-radius:9px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;color:var(--dbrown);margin-bottom:10px;}
-.inp-row{display:flex;gap:6px;margin-bottom:10px;}
-.inp-row .addr-inp{margin-bottom:0;flex:1;}
-.mic-btn{flex:0 0 auto;width:38px;border:1.5px solid var(--warm);border-radius:9px;background:var(--cream);font-size:1rem;cursor:pointer;}
-.mic-btn.listening{background:var(--red);border-color:var(--red);animation:blink .8s infinite;}
-.dz-check-btn{width:100%;padding:10px;margin-bottom:10px;border:1.5px dashed var(--gold);border-radius:9px;background:var(--cream);color:var(--brown);font-family:'Noto Sans KR',sans-serif;font-size:.74rem;font-weight:700;cursor:pointer;}
-.dz-check-btn:active{background:var(--warm);}
-.dz-result{font-size:.7rem;color:var(--soft);background:var(--cream);border-radius:9px;padding:9px 11px;margin-bottom:12px;line-height:1.5;}
-.dz-result.dz-ok{background:#EAF7EC;color:var(--green);}
-.dz-result.dz-error{background:#FBEAEA;color:var(--red);}
-.pay-breakdown{padding:8px 0;border-top:1px solid var(--warm);}
-.pb-row{display:flex;justify-content:space-between;font-size:.74rem;color:var(--soft);padding:3px 0;}
-.pay-total{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--warm);margin-bottom:14px;}
-.pay-total span:last-child{font-weight:700;color:var(--accent);font-size:1.1rem;}
-.confirm-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
-.cancel-btn{width:100%;padding:10px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
+:root{--bg:#FFFBF4;--cream:#FFF3E0;--warm:#F5DEB3;--brown:#5C3317;--dbrown:#2E1503;--gold:#B8860B;--accent:#D2691E;--soft:#8B6347;--white:#fff;--green:#1B5E20;--red:#B71C1C;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--dbrown);padding-bottom:40px;}
+header{background:var(--dbrown);padding:16px 20px;position:sticky;top:0;z-index:50;box-shadow:0 3px 12px rgba(0,0,0,.3);}
+header h1{color:#FFD9A0;font-size:1.15rem;}
+header p{color:rgba(255,210,160,.55);font-size:.72rem;margin-top:2px;}
+.wrap{max-width:900px;margin:0 auto;padding:16px;}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+.sum-card{background:var(--white);border-radius:12px;padding:14px 10px;text-align:center;box-shadow:0 2px 8px rgba(44,21,3,.1);}
+.sum-card .sc-label{font-size:.68rem;color:var(--soft);margin-bottom:4px;}
+.sum-card .sc-val{font-size:1.15rem;font-weight:800;color:var(--brown);}
+.search-row{display:flex;gap:8px;margin-bottom:14px;}
+.search-row input{flex:1;padding:11px 14px;border:1.5px solid var(--warm);border-radius:10px;font-family:inherit;font-size:.85rem;}
+.search-row button{padding:11px 16px;border:none;border-radius:10px;background:var(--gold);color:#fff;font-weight:700;font-size:.8rem;cursor:pointer;}
+.sort-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.sort-btn{padding:6px 12px;border:1px solid var(--warm);border-radius:16px;background:var(--white);color:var(--soft);font-size:.7rem;cursor:pointer;font-family:inherit;}
+.sort-btn.on{background:var(--brown);color:#fff;border-color:var(--brown);}
+#custList{display:flex;flex-direction:column;gap:10px;}
+.cust-card{background:var(--white);border-radius:12px;box-shadow:0 2px 8px rgba(44,21,3,.1);overflow:hidden;}
+.cust-head{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.cust-name{font-weight:800;font-size:.95rem;color:var(--brown);}
+.cust-sub{font-size:.7rem;color:var(--soft);margin-top:3px;}
+.cust-total{text-align:right;}
+.cust-total .ct-amt{font-weight:800;color:var(--accent);font-size:1rem;}
+.cust-total .ct-cnt{font-size:.65rem;color:var(--soft);}
+.cust-orders{display:none;border-top:1px solid var(--warm);background:var(--cream);}
+.cust-orders.open{display:block;}
+.order-row{padding:10px 16px;border-bottom:1px solid var(--warm);font-size:.72rem;color:var(--soft);}
+.order-row:last-child{border-bottom:none;}
+.order-row .or-no{font-weight:700;color:var(--brown);}
+.order-row .or-amt{float:right;font-weight:700;color:var(--accent);}
+.empty-msg{text-align:center;padding:40px 16px;color:var(--soft);font-size:.85rem;}
+#lockScreen{position:fixed;inset:0;background:var(--dbrown);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:14px;}
+#lockScreen input{padding:12px 16px;border-radius:10px;border:none;font-size:1rem;text-align:center;width:180px;}
+#lockScreen button{padding:12px 24px;border-radius:10px;border:none;background:var(--gold);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;}
+#lockScreen p{color:#FFD9A0;font-size:.9rem;}
 </style>
-<script>
-(function(){
-  const pw = prompt('🔐 접속 비밀번호를 입력하세요');
-  if(pw !== '3333'){
-    document.write('<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a0a00;color:#FFD9A0;font-size:1.2rem;font-family:sans-serif;">비밀번호가 틀렸습니다</div>');
-    document.close();
-    throw new Error('접근 거부');
-  }
-})();
-</script>
 </head>
 <body>
-<div id="capacityBlock" style="position:fixed;inset:0;z-index:9999;background:var(--dbrown);color:#FFD9A0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
-  <div style="font-size:3rem;margin-bottom:16px;">🙏</div>
-  <h2 style="font-family:'Nanum Myeongjo',serif;margin-bottom:10px;">지금은 매장이 혼잡합니다</h2>
-  <p style="font-size:.85rem;opacity:.8;margin-bottom:22px;line-height:1.6;">동시 이용 인원(최대 3명)이 가득 찼어요.<br>자리가 나면 이 화면에서 자동으로 넘어갑니다.<br>그냥 잠시 기다려 주세요 🙂</p>
-  <button onclick="location.reload()" style="padding:12px 24px;border:none;border-radius:10px;background:var(--gold);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;">🔄 지금 다시 확인</button>
+
+<div id="lockScreen">
+  <p>🔒 관리자 비밀번호를 입력하세요</p>
+  <input type="password" id="pwInp" placeholder="비밀번호">
+  <button onclick="checkPw()">확인</button>
 </div>
-<div class="app">
+
+<div id="mainApp" style="display:none;">
 <header>
-  <div class="hdr">
-    <div><div class="logo">🥐 행복한 빵집</div><div class="logo-sub">ONLINE LIVE SHOPPING</div></div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
-      <span id="queueCount" style="font-size:.54rem;color:rgba(255,210,160,.55);"></span>
-    </div>
-  </div>
+  <h1>🥐 고객 관리 — 행복한 빵집</h1>
+  <p>이름 · 연락처 · 주소 · 주문내역 · 매출 합계</p>
 </header>
-<div class="sec on" id="cam">
-  <p class="rs-tagline">실물을 보며 고르는 진짜 쇼핑<br><span>새로운 유통의 시작, 지금 이 화면에서</span></p>
-  <div class="quick-guide">
-    <span class="qg-step">📷 실시간 영상 보기</span><span class="qg-arrow">→</span>
-    <span class="qg-step">🍞 메뉴에서 선택</span><span class="qg-arrow">→</span>
-    <span class="qg-step">👆 화면 콕 짚기</span><span class="qg-arrow">→</span>
-    <span class="qg-step">🧑‍🍳 점원이 확인·픽업</span><span class="qg-arrow">→</span>
-    <span class="qg-step">💳 결제</span>
+<div class="wrap">
+  <div class="summary">
+    <div class="sum-card"><div class="sc-label">전체 고객수</div><div class="sc-val" id="sumCustomers">0명</div></div>
+    <div class="sum-card"><div class="sc-label">전체 주문건수</div><div class="sc-val" id="sumOrders">0건</div></div>
+    <div class="sum-card"><div class="sc-label">전체 매출</div><div class="sc-val" id="sumRevenue">₩0</div></div>
   </div>
-  <div class="cam-box">
-    <div class="cam-screen" id="camScr">
-      <div id="voiceViz"><div class="vbar"></div><div class="vbar"></div><div class="vbar"></div><div class="vbar"></div><div class="vbar"></div></div>
-      <div id="zoomWrap">
-        <video id="camVideo" autoplay playsinline muted></video>
-        <div class="cam-grid"></div>
-      </div>
-      <div id="pointerLayer"></div>
-      <div id="camOverlay">
-        <div class="cam-ph"><span class="ico">📷</span><p>카메라 연결 중...<br><span style="font-size:.62rem;opacity:.6;">잠시만 기다려 주세요</span></p></div>
-      </div>
-      <div id="streamStatus">🟡 연결 중...</div>
-      <button id="fullBtn" onclick="toggleFull()" title="풀화면">⛶</button>
-      <svg id="arrowPointer" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-        <path d="M40 20l-9-6c-1-.7-2.3.1-2.3 1.3v3H15c-1 0-1.8.8-1.8 1.8v3.8c0 1 .8 1.8 1.8 1.8h13.7v3c0 1.2 1.3 2 2.3 1.3l9-6c.9-.6.9-2 0-2.6z" fill="#ff2020" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" transform="scale(-1,1) translate(-44,0)"/>
-      </svg>
-      <div id="camOrderBadge" style="position:absolute;top:8px;left:8px;z-index:30;color:#FFD9A0;font-size:.68rem;font-weight:700;padding:2px 4px;display:none;max-width:66%;line-height:1.55;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,1);"></div>
-      <div id="welcomeBanner"></div>
-      <button id="camMenuShortcut" onclick="toggleMenuOverlay()">🍞 메뉴 보기</button>
-      <div id="paymentBanner">
-        <div>🔔 <b>점원이 상품을 확정했어요!</b><br>장바구니에서 결제해 주세요</div>
-        <button onclick="goBottom('cart', document.getElementById('cartTabBtn'))">🛒 장바구니로 이동</button>
-      </div>
-      <div id="camMenuOverlay">
-        <button id="camMenuClose" onclick="toggleMenuOverlay(false)">✕</button>
-        <div class="cmo-grid" id="camMenuGrid"></div>
-      </div>
-      <div id="zoomSliderWrap">
-        <button class="zs-btn zs-reset" onclick="zoomReset()">1x</button>
-      </div>
-    </div>
-    <div class="call-bar">
-      <div class="cdot" id="cdot"></div>
-      <span class="ctxt" id="ctxt">🎧 점원 연결 대기 중</span>
-      <button class="cbtn v-on" id="callBtn" onclick="toggleCall()">📞 통화 연결</button>
-    </div>
-    <div style="padding:0 12px 12px;">
-      <a href="http://pf.kakao.com/_rFrnX/chat" target="_blank" style="display:block;width:100%;padding:11px;background:#FEE500;border-radius:10px;text-align:center;font-family:'Noto Sans KR',sans-serif;font-size:.82rem;font-weight:700;color:#3A1D1D;text-decoration:none;">💬 카카오톡으로 점원과 대화하기</a>
-    </div>
-    <div class="cam-btns">
-      <button class="cbtn2 c-p" onclick="connCam()">📷 연결</button>
-      <button class="cbtn2 c-s" onclick="snap()">📸 캡처</button>
-      <button class="cbtn2 c-d" onclick="discCam()">🚪 쇼핑 종료</button>
-    </div>
-    <div class="joystick-wrap">
-      <button class="ptz-toggle" id="joyToggleBtn" onclick="toggleJoystick()">🎮 카메라 방향 조절 펼치기</button>
-      <div class="joystick-collapsible" id="joyCollapsible">
-        <div class="ptz-lbl">드래그해서 카메라 방향 조절</div>
-        <div class="joystick-base" id="joyBase">
-          <div class="joystick-knob" id="joyKnob"></div>
-        </div>
-      </div>
-    </div>
-    <div class="pick-box">
-      <div class="pick-lbl">💬 점원에게 직접 요청</div>
-      <div class="pick-row">
-        <input class="pick-inp" id="pickMsg" placeholder="예: 왼쪽 큰 크루아상 2개요!"/>
-        <button class="pick-send" onclick="sendPick()">전송</button>
-      </div>
-    </div>
+
+  <div class="search-row">
+    <input type="text" id="searchInp" placeholder="이름으로 검색..." oninput="renderList()">
   </div>
-</div>
-<div class="sec" id="menu"><p class="sec-title">🍞 오늘의 빵</p><div class="menu-grid" id="menuGrid"></div></div>
-<div class="sec" id="cart">
-  <p class="sec-title">🛒 장바구니</p>
-  <div id="cartList"><div class="cart-empty"><span class="emo">🛒</span>아직 담은 빵이 없어요</div></div>
-  <div id="cartBottom" style="display:none;">
-    <div class="cart-total"><span class="ct-lbl">합계</span><span class="ct-val" id="totalPr">₩0</span></div>
-    <button class="pay-btn" id="payBtn" onclick="openPayModal()">💳 결제하기</button>
-    <div id="payWaitMsg" style="display:none;text-align:center;font-size:.72rem;color:var(--soft);padding:10px 4px;">⏳ 점원이 상품을 다 담고 확정하면 결제하실 수 있어요</div>
+  <div class="sort-row">
+    <button class="sort-btn on" data-sort="recent" onclick="setSort('recent',this)">최근 주문순</button>
+    <button class="sort-btn" data-sort="amount" onclick="setSort('amount',this)">구매액 많은순</button>
+    <button class="sort-btn" data-sort="count" onclick="setSort('count',this)">주문 많은순</button>
+    <button class="sort-btn" data-sort="name" onclick="setSort('name',this)">이름순</button>
   </div>
-</div>
-<div class="sec" id="guide">
-  <p class="sec-title">📋 이용 안내</p>
-  <div class="url-box"><div class="url-txt">🔗 iyzoo44-design.github.io/hikvision-web/</div><p>이 주소가 빵집 전용 쇼핑 주소예요.</p><button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button></div>
-  <div class="guide-card"><h3>📱 이용 방법</h3><ul><li>① 앱 열면 카메라 자동 연결</li><li>② 빨간 화살표를 드래그해서 상품 지정</li><li>③ PTZ 버튼으로 카메라 방향 조절</li><li>④ [통화 연결] 눌러서 점원과 직접 대화</li><li>⑤ 결제 → 배달 받기 🚚</li></ul></div>
-  <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
-  <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
+
+  <div id="custList"></div>
+  <div id="emptyMsg" class="empty-msg" style="display:none;">고객 데이터가 아직 없습니다</div>
 </div>
 </div>
-<div class="bottom-bar">
-  <button class="btab on" onclick="goBottom('cam',this)"><span class="ico">📷</span>카메라</button>
-  <button class="btab" onclick="toggleMenuOverlay()"><span class="ico">🍞</span>메뉴</button>
-  <button class="btab" id="cartTabBtn" onclick="goBottom('cart',this)"><span class="ico">🛒</span>장바구니<div class="ccnt" id="ccnt">0</div></button>
-  <button class="btab" onclick="goBottom('guide',this)"><span class="ico">📋</span>안내</button>
-</div>
-<div class="modal-bg" id="doneModal">
-  <div class="modal"><div style="font-size:3rem;margin-bottom:8px;">🎉</div><h3>주문 완료!</h3><p>주문번호: <strong id="onum"></strong><br>약 30~50분 후 배달됩니다 🚚</p><button class="modal-btn" onclick="finishAndExit()">🚪 쇼핑 종료</button><button class="modal-btn-secondary" onclick="closeDone()">🛍️ 더 구경할게요</button></div>
-</div>
-<div class="modal-bg" id="payModal">
-  <div class="pay-modal">
-    <h3>💳 결제하기</h3>
-    <div class="pay-method">
-      <div class="pm" onclick="selPay(this,'카카오페이')"><span class="pi">💛</span>카카오페이</div>
-      <div class="pm" onclick="selPay(this,'토스페이')"><span class="pi">🔵</span>토스페이</div>
-      <div class="pm" onclick="selPay(this,'신용카드')"><span class="pi">💳</span>신용카드</div>
-      <div class="pm" onclick="selPay(this,'계좌이체')"><span class="pi">🏦</span>계좌이체</div>
-    </div>
-    <div class="inp-row"><input class="addr-inp" id="nameInp" placeholder="받는 분 성함" onblur="lookupCustomer()"/><button class="mic-btn" onclick="startVoiceInput('nameInp')" title="음성으로 입력">🎤</button></div>
-    <div id="lookupResult" class="dz-result" style="display:none;"></div>
-    <div class="inp-row"><input class="addr-inp" id="phoneInp" type="tel" placeholder="연락처 (예: 010-1234-5678)"/><button class="mic-btn" onclick="startVoiceInput('phoneInp')" title="음성으로 입력">🎤</button></div>
-    <div class="inp-row"><input class="addr-inp" id="addrInp" placeholder="배달 주소 (도로명 주소 권장)"/><button class="mic-btn" onclick="startVoiceInput('addrInp')" title="음성으로 입력">🎤</button></div>
-    <button class="dz-check-btn" onclick="checkDeliveryDistance()">📍 주소 확인하고 배달비 계산하기</button>
-    <div id="dzResult" class="dz-result">주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요</div>
-    <div class="pay-breakdown">
-      <div class="pb-row"><span>상품 합계</span><span id="payItemTotal">₩0</span></div>
-      <div class="pb-row"><span>배달비</span><span id="payDeliveryFee">주소를 먼저 확인해 주세요</span></div>
-    </div>
-    <div class="pay-total"><span style="font-size:.8rem;color:var(--soft);">최종 결제 금액</span><span id="payTotalVal">₩0</span></div>
-    <button class="confirm-btn" onclick="confirmPay()">결제 완료</button>
-    <button class="cancel-btn" onclick="closePayModal()">취소</button>
-  </div>
-</div>
-<div class="toast" id="toastEl"></div>
-<audio id="remoteAudio" autoplay playsinline></audio>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
+// ── 비밀번호 (필요하시면 이 문자열만 바꾸세요) ──
+const ADMIN_PW = '0000';
+function checkPw(){
+  const v = document.getElementById('pwInp').value;
+  if(v === ADMIN_PW){
+    document.getElementById('lockScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    initApp();
+  } else {
+    alert('비밀번호가 틀렸습니다');
+  }
+}
+document.getElementById('pwInp').addEventListener('keydown', e=>{ if(e.key==='Enter') checkPw(); });
+
 const firebaseConfig={apiKey:"AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",authDomain:"dongne-bakery.firebaseapp.com",databaseURL:"https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"dongne-bakery",storageBucket:"dongne-bakery.firebasestorage.app",messagingSenderId:"835419452184",appId:"1:835419452184:web:e710137926fc24ffd8646d"};
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-// ── WHEP URL ──
-const WHEP_URL='https://whep.priceline.co.kr';
+let customersData = {};
+let currentSort = 'recent';
 
-// ═══════════════════════════════════════════
-// 다중 고객 동시 접속 관리 (활성 고객 1명 + 대기 고객)
-// ═══════════════════════════════════════════
-function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
-let myClientId = sessionStorage.getItem('dongneClientId');
-if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
-let amActive = null; // false가 아니라 null로 시작 — "아직 안 정해짐"과 "진짜 대기중(false)"을 구분해야, 대기중으로 확정되는 순간에도 setControlsEnabled가 반드시 실행됨
-// 접속시각(ts)이 완전히 같으면(동시 접속 등) 판단이 애매해지므로, clientId까지 같이 비교해서 항상 일관된 순서가 나오게 함
-function isEarlierClient(tsA, cidA, tsB, cidB){
-  if(tsA !== tsB) return tsA < tsB;
-  return cidA < cidB;
-}
-const camScr=document.getElementById('camScr');
-const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const myPresenceRef=db.ref('onlineCustomers/'+myClientId);
-let capacityChecked=false;
-let curZoom=1,panXRatio=0,panYRatio=0;
-let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
-let zoomFBTimer=null;
-let hbTimer = null;
-// ── 아래 변수들은 Firebase 콜백이 예상보다 일찍 실행될 수 있어(브라우저별 타이밍 차이),
-// 화면 초기화(활성화 판정)보다 반드시 먼저 선언되어야 함 — 한 곳에 모아서 관리 ──
-const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200,preset:2},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500,preset:3},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500,preset:4},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500,preset:5},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800,preset:6},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500,preset:7},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200,preset:8},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800,preset:9}];
-let cart={},selPayMethod='',connected=false,isFullscreen=false;
-let orderConfirmedFlag=false; // 점원이 "결제 요청 전송"을 눌러야만 true — 그 전엔 결제 버튼 비활성
-let whepPc=null,whepRetryTimer=null;
-const pointerLayer=document.getElementById('pointerLayer');
-const arrow=document.getElementById('arrowPointer');
-let pRx=0.5,pRy=0.5,isDragging=false;
-const ROOM_ID='bakery-room-001';
-let pc=null,localStream=null;
-
-function setControlsEnabled(enabled){
-  const callBtn=document.getElementById('callBtn');
-  const joyBase=document.getElementById('joyBase');
-  const zoomSlider=document.getElementById('zoomSlider');
-  const pointerLayer=document.getElementById('pointerLayer');
-  const pickMsg=document.getElementById('pickMsg');
-  const pickSend=document.querySelector('.pick-send');
-  const arrowPointer=document.getElementById('arrowPointer');
-  if(callBtn) callBtn.disabled=!enabled;
-  if(joyBase){ joyBase.style.pointerEvents=enabled?'auto':'none'; joyBase.style.opacity=enabled?'1':'.35'; }
-  if(zoomSlider) zoomSlider.disabled=!enabled;
-  document.querySelectorAll('.zs-btn').forEach(b=>b.disabled=!enabled);
-  if(pointerLayer) pointerLayer.style.pointerEvents=enabled?'auto':'none';
-  if(pickMsg) pickMsg.disabled=!enabled;
-  if(pickSend) pickSend.disabled=!enabled;
-  // 대기 중인 고객은 활성 고객의 포인터 신호가 타이밍상 살짝 어긋나 보일 수 있어, 아예 숨김 처리
-  if(arrowPointer) arrowPointer.style.display = enabled ? 'block' : 'none';
-
-  let badge=document.getElementById('waitBadge');
-  if(!enabled){
-    if(!badge){
-      badge=document.createElement('div');
-      badge.id='waitBadge';
-      badge.style.cssText='position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:35;background:rgba(0,0,0,.72);color:#FFD9A0;font-size:.66rem;font-weight:700;padding:5px 12px;border-radius:14px;text-align:center;max-width:88%;';
-      const scr=document.getElementById('camScr');
-      if(scr) scr.appendChild(badge);
-    }
-    updateWaitRank();
-  } else if(badge){ badge.remove(); }
-}
-async function updateWaitRank(){
-  const badge=document.getElementById('waitBadge');
-  if(!badge) return;
-  try{
-    const [onlineSnap, activeSnap] = await Promise.all([
-      db.ref('onlineCustomers').once('value'),
-      db.ref('activeSession').once('value')
-    ]);
-    const online = onlineSnap.val() || {};
-    const activeClientId = (activeSnap.val()||{}).clientId;
-    const myTs = online[myClientId];
-    if(!myTs){ badge.textContent='🙋 다른 고객 상담 중 · 화면만 함께 보실 수 있어요'; return; }
-    // 활성 고객은 순번 계산에서 제외 — '대기자들 중에서' 몇 번째인지만 셈
-    const earlierWaitingCount = Object.entries(online).filter(([cid,ts])=>cid!==myClientId && cid!==activeClientId && isEarlierClient(ts,cid,myTs,myClientId)).length;
-    const rank = earlierWaitingCount + 1;
-    badge.textContent = `🙋 대기 순번 ${rank}번째 · 화면만 함께 보실 수 있어요`;
-  }catch(e){ badge.textContent='🙋 다른 고객 상담 중 · 화면만 함께 보실 수 있어요'; }
-}
-
-function startHeartbeat(){
-  if(hbTimer) clearInterval(hbTimer);
-  hbTimer=setInterval(()=>{ db.ref('activeSession').set({clientId:myClientId, ts:Date.now()}); }, 5000);
-  db.ref('activeSession').onDisconnect().remove();
-}
-function stopHeartbeat(){
-  if(hbTimer){ clearInterval(hbTimer); hbTimer=null; }
-}
-
-// ── 유휴시간 자동 반납 설정 (숫자만 바꾸면 시간 조정됨) ──
-const IDLE_TIMEOUT_MS = 60000;   // 1분 동안 조작 없으면 자동으로 다음 고객에게 넘김
-const IDLE_WARN_BEFORE_MS = 15000; // 넘어가기 15초 전에 경고 문구 표시 (0으로 하면 경고 없이 바로 넘어감)
-const MAX_SESSION_MS = 15*60000; // 계속 조작하고 있어도, 활성화된 지 이 시간이 지나면 무조건 다음 손님에게 (여기 숫자만 바꾸면 시간 조정됨)
-const MAX_SESSION_WARN_BEFORE_MS = 60000; // 끝나기 1분 전에 경고
-
-let lastActivityTime = Date.now();
-let idleWarned = false;
-let idleCheckTimer = null;
-let activeSessionStartTime = 0;
-let maxSessionWarned = false;
-
-function markActivity(){
-  lastActivityTime = Date.now();
-  idleWarned = false;
-}
-
-function startIdleWatcher(){
-  lastActivityTime = Date.now();
-  idleWarned = false;
-  activeSessionStartTime = Date.now();
-  maxSessionWarned = false;
-  if(idleCheckTimer) clearInterval(idleCheckTimer);
-  idleCheckTimer = setInterval(()=>{
-    if(!amActive) return;
-
-    // ── 최대 이용시간(15분) — 통화 중이어도 예외 없이 적용, 대기자에게 공정한 기회를 주기 위함 ──
-    const sessionElapsed = Date.now() - activeSessionStartTime;
-    if(MAX_SESSION_WARN_BEFORE_MS>0 && !maxSessionWarned && sessionElapsed >= (MAX_SESSION_MS - MAX_SESSION_WARN_BEFORE_MS)){
-      maxSessionWarned = true;
-      const minLeft = Math.ceil((MAX_SESSION_MS - sessionElapsed)/60000);
-      toast('⏰ 최대 이용시간이 곧 끝나요 (약 '+minLeft+'분 후 자동 종료)');
-    }
-    if(sessionElapsed >= MAX_SESSION_MS){
-      toast('⏰ 최대 이용시간(15분)이 지나 다음 고객에게 넘겼어요');
-      releaseActiveIfMine();
-      return;
-    }
-
-    if(typeof pc!=='undefined' && pc){ lastActivityTime=Date.now(); idleWarned=false; return; } // 통화 중엔 유휴시간(1분)만 예외, 최대시간(15분)은 위에서 이미 체크함
-    const idleFor = Date.now() - lastActivityTime;
-    if(IDLE_WARN_BEFORE_MS>0 && !idleWarned && idleFor >= (IDLE_TIMEOUT_MS - IDLE_WARN_BEFORE_MS)){
-      idleWarned = true;
-      const secLeft = Math.round((IDLE_TIMEOUT_MS - idleFor)/1000);
-      toast('⏳ '+secLeft+'초 후 다음 고객에게 넘어갑니다 (화면을 조작하면 취소돼요)');
-    }
-    if(idleFor >= IDLE_TIMEOUT_MS){
-      toast('⏳ 장시간 조작이 없어 다음 고객에게 넘겼어요');
-      releaseActiveIfMine();
-    }
-  }, 3000);
-}
-function stopIdleWatcher(){
-  if(idleCheckTimer){ clearInterval(idleCheckTimer); idleCheckTimer=null; }
-}
-
-// 권한을 잃었을 때(스스로 반납했든, 점원이 강제로 다음 고객에게 넘겼든) 4초간은
-// 본인이 셀프로 다시 잡지 않도록 유예 → 대기 중이던 다른 고객에게 우선권을 줌
-let justReleased = false;
-let justReleasedTimer = null;
-function armReleaseGrace(){
-  justReleased = true;
-  if(justReleasedTimer) clearTimeout(justReleasedTimer);
-  justReleasedTimer = setTimeout(()=>{
-    justReleased = false;
-    // 유예 시간이 지나도 아무도 안 잡았으면(혼자 테스트 중 등) 그때는 다시 이용 가능하게
-    db.ref('activeSession').once('value', s=>{ if(!s.val()) tryClaimActive(); });
-  }, 4000);
-}
-
-let welcomeBannerTimer=null;
-function showWelcomeBanner(){
-  const el=document.getElementById('welcomeBanner');
-  if(!el) return;
-  el.innerHTML = '<b>✅ 지금부터 이용하실 수 있어요</b><br>👋 아래 "메뉴"를 눌러 빵을 골라보세요';
-  el.classList.add('show');
-  if(welcomeBannerTimer) clearTimeout(welcomeBannerTimer);
-  welcomeBannerTimer = setTimeout(hideWelcomeBanner, 7000);
-}
-function hideWelcomeBanner(){
-  const el=document.getElementById('welcomeBanner');
-  if(el) el.classList.remove('show');
-  if(welcomeBannerTimer){ clearTimeout(welcomeBannerTimer); welcomeBannerTimer=null; }
-}
-function applyActiveState(nowActive){
-  if(nowActive===amActive) return;
-  const wasActive = amActive;
-  amActive = nowActive;
-  setControlsEnabled(amActive);
-  if(amActive){
-    startHeartbeat();
-    startIdleWatcher();
-    zoomReset(); // 새로 활성 고객이 되면 이전 고객이 남긴 줌/화면이동을 리셋 → 포인터 어긋남 방지
-    gotoPreset(1); // 매장 전체보기 프리셋으로 이동해서 첫인상을 라이브 매장 전경으로
-    db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{})); // 현재 주문 상태 즉시 반영
-    showWelcomeBanner();
-    const menuBtn = document.querySelector('.btab[onclick*="toggleMenuOverlay"]');
-    if(menuBtn){
-      menuBtn.classList.add('ready-pulse');
-      setTimeout(()=>menuBtn.classList.remove('ready-pulse'), 12000);
-    }
-    const camShortcut = document.getElementById('camMenuShortcut');
-    if(camShortcut){
-      camShortcut.classList.add('show');
-      setTimeout(()=>camShortcut.classList.remove('show'), 12000);
-    }
-  } else {
-    stopHeartbeat();
-    stopIdleWatcher();
-    if(wasActive){ toast('⏳ 이용 권한이 다른 고객에게 넘어갔어요'); armReleaseGrace(); }
-  }
-}
-
-let hasFinishedShopping = false; // '쇼핑 종료'를 누른 손님은 방을 안 나가도 자동으로 다시 순서를 잡지 않음
-async function tryClaimActive(){
-  if(hasFinishedShopping) return; // '연결' 버튼을 다시 눌러야만 재도전
-  db.ref('activeSession').transaction(cur=>{
-    const now=Date.now();
-    if(!cur || !cur.ts || (now-cur.ts)>15000) return {clientId:myClientId, ts:now};
-    if(cur.clientId===myClientId) return {clientId:myClientId, ts:now};
-    return; // 이미 다른 고객이 활성 상태 → 그대로 둠
-  }, (err,committed,snap)=>{
-    const d = snap ? snap.val() : null;
-    applyActiveState(!!(d && d.clientId===myClientId));
+function initApp(){
+  db.ref('customers').on('value', snap=>{
+    customersData = snap.val() || {};
+    renderList();
   });
 }
 
-db.ref('activeSession').on('value', snap=>{
-  const d=snap.val();
-  if(!d){
-    if(amActive) applyActiveState(false); // 내가 활성 상태였는데 사라졌다면(점원이 강제로 넘긴 경우 등) 먼저 잃은 것으로 처리 + 유예 시작
-    if(justReleased) return; // 방금 권한을 잃은 직후엔 다른 대기 고객에게 우선권을 줌
-    if(capacityChecked) tryClaimActive(); // 인원 확인을 통과한 손님만 도전 가능 (혼잡 화면인 손님은 절대 끼어들 수 없음)
-    return;
-  }
-  applyActiveState(d.clientId===myClientId);
-});
-
-// ── 접속 인원 표시 + 동시 최대 인원 제한 ──
-// ── 인원수 확인 후 등록 (최초 접속 + 재입장 둘 다 이 함수를 거쳐야 함) ──
-async function registerPresenceWithCapacityCheck(){
-  try{
-    const onlineSnap = await db.ref('onlineCustomers').once('value');
-    const online = onlineSnap.val() || {};
-    const alreadyIn = !!online[myClientId];
-    const count = Object.keys(online).length;
-    if(!alreadyIn && count >= MAX_CONCURRENT_VIEWERS){
-      showCapacityBlock();
-      return false;
-    }
-  }catch(e){ console.error('[인원확인 실패]', e); }
-  myPresenceRef.set(Date.now());
-  myPresenceRef.onDisconnect().remove();
-  return true;
-}
-db.ref('.info/connected').on('value', async snap=>{
-  if(!snap.val()) return;
-  const ok = await registerPresenceWithCapacityCheck();
-  if(!ok) return;
-  if(!capacityChecked){ capacityChecked=true; connCam(); tryClaimActive(); } // 인원 확인을 통과한 손님만 카메라 연결 + 조작권 도전 가능
-});
-db.ref('onlineCustomers').on('value', snap=>{
-  const n = snap.numChildren();
-  const el=document.getElementById('queueCount');
-  if(el) el.textContent = n>1 ? ('현재 '+n+'명 접속 중') : '';
-  if(!amActive && capacityChecked){ updateWaitRank(); tryClaimActive(); } // 인원 확인을 통과한 손님만 재도전 → 인원초과로 막힌 손님은 절대 끼어들 수 없음
-});
-function showCapacityBlock(){
-  const el=document.getElementById('capacityBlock');
-  if(el) el.style.display='flex';
-  // 자리가 나는 순간을 조용히 지켜보다가, 나면 자동으로 다시 접속 시도 (손님이 버튼 안 눌러도 됨)
-  db.ref('onlineCustomers').off('value', capacityWatchCb); // 혹시 이미 등록돼 있으면 중복 방지
-  db.ref('onlineCustomers').on('value', capacityWatchCb);
-}
-function capacityWatchCb(snap){
-  if(snap.numChildren() < MAX_CONCURRENT_VIEWERS){
-    db.ref('onlineCustomers').off('value', capacityWatchCb);
-    location.reload();
-  }
+function setSort(key, btn){
+  currentSort = key;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderList();
 }
 
-// ── 대기 고객용: 활성 고객의 디지털 줌·화면이동을 그대로 반영 ──
-function applyIncomingZoom(z, px, py){
-  curZoom=Math.min(5,Math.max(1,z));
-  panXRatio = typeof px==='number' ? px : 0;
-  panYRatio = typeof py==='number' ? py : 0;
-  renderZoomPan();
-}
-db.ref('customerZoom').on('value', snap=>{
-  const d=snap.val();
-  if(d && typeof d.zoom==='number' && !amActive) applyIncomingZoom(d.zoom, d.panX, d.panY);
-});
-
-function goTab(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');syncBottom(id);}
-function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');if(id==='cart'){ document.getElementById('cartTabBtn')?.classList.remove('ready-pulse'); document.getElementById('paymentBanner')?.classList.remove('show'); }}
-function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
-function switchToCam(){
-  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
-  document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));
-  document.getElementById('cam').classList.add('on');
-  document.querySelector('.tab[onclick*="\'cam\'"]')?.classList.add('on');
-  document.querySelector('.btab[onclick*="\'cam\'"]')?.classList.add('on');
+function getCustomerStats(key, d){
+  const orders = d.orders || {};
+  const orderList = Object.keys(orders).map(k=>({orderNumber:k, ...orders[k]}));
+  const totalAmt = orderList.reduce((s,o)=>s+(o.grandTotal||0),0);
+  const count = orderList.length;
+  const lastAt = d.lastOrderAt || 0;
+  return { key, name:d.name||key, phone:d.phone||'', address:d.address||'', orderList, totalAmt, count, lastAt };
 }
 
-// ── WHEP 카메라 연결 ──
-async function connCam(){
-  if(connected)return;
-  if(hasFinishedShopping){
-    const ok = await registerPresenceWithCapacityCheck(); // '더 살게요' → 인원수부터 다시 확인
-    if(!ok) return; // 인원 초과면 여기서 막고 혼잡 화면(이미 표시됨)으로 대체
-    hasFinishedShopping=false;
-    tryClaimActive();
-  }
-  const status=document.getElementById('streamStatus');
-  status.textContent='🟡 연결 중...';
-  try{
-    await startWHEP();
-  }catch(e){
-    console.error('연결 실패:',e);
-    status.textContent='⚠️ 재시도 중...';
-    whepRetryTimer=setTimeout(connCam,3000);
-  }
+function renderList(){
+  const search = document.getElementById('searchInp').value.trim();
+  let list = Object.keys(customersData).map(k=>getCustomerStats(k, customersData[k]));
+
+  if(search){ list = list.filter(c=>c.name.includes(search)); }
+
+  if(currentSort==='recent') list.sort((a,b)=>b.lastAt-a.lastAt);
+  else if(currentSort==='amount') list.sort((a,b)=>b.totalAmt-a.totalAmt);
+  else if(currentSort==='count') list.sort((a,b)=>b.count-a.count);
+  else if(currentSort==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+
+  // 전체 요약
+  const allList = Object.keys(customersData).map(k=>getCustomerStats(k, customersData[k]));
+  const totalRevenue = allList.reduce((s,c)=>s+c.totalAmt,0);
+  const totalOrders = allList.reduce((s,c)=>s+c.count,0);
+  document.getElementById('sumCustomers').textContent = allList.length+'명';
+  document.getElementById('sumOrders').textContent = totalOrders+'건';
+  document.getElementById('sumRevenue').textContent = '₩'+totalRevenue.toLocaleString();
+
+  const listEl = document.getElementById('custList');
+  const emptyEl = document.getElementById('emptyMsg');
+  if(!list.length){ listEl.innerHTML=''; emptyEl.style.display='block'; return; }
+  emptyEl.style.display='none';
+
+  listEl.innerHTML = list.map(c=>{
+    const lastDate = c.lastAt ? new Date(c.lastAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+    const ordersHtml = c.orderList
+      .sort((a,b)=>(b.t||0)-(a.t||0))
+      .map(o=>{
+        const d = o.t ? new Date(o.t).toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+        const itemsStr = (o.items && o.items.length)
+          ? o.items.map(i=>`${i.e||''} ${i.name} ×${i.qty}`).join(', ')
+          : '(상품 상세 없음)';
+        return `<div class="order-row">
+          <span class="or-no">${o.orderNumber}</span> · ${d} · ${o.payMethod||''}
+          <span class="or-amt">₩${(o.grandTotal||0).toLocaleString()}</span>
+          <div style="margin-top:4px;font-size:.68rem;color:var(--brown);">🛍️ ${itemsStr}</div>
+        </div>`;
+      }).join('') || '<div class="order-row">주문 내역 없음</div>';
+    return `
+      <div class="cust-card">
+        <div class="cust-head" onclick="toggleOrders('${c.key}')">
+          <div>
+            <div class="cust-name">${c.name}</div>
+            <div class="cust-sub">📞 ${c.phone || '-'} · 📍 ${c.address || '-'}</div>
+            <div class="cust-sub">최근 주문: ${lastDate}</div>
+          </div>
+          <div class="cust-total">
+            <div class="ct-amt">₩${c.totalAmt.toLocaleString()}</div>
+            <div class="ct-cnt">${c.count}건 구매</div>
+          </div>
+        </div>
+        <div class="cust-orders" id="orders-${c.key}">${ordersHtml}</div>
+      </div>`;
+  }).join('');
 }
 
-async function startWHEP(){
-  if(whepPc){ whepPc.close(); whepPc=null; }
-  const video=document.getElementById('camVideo');
-  const overlay=document.getElementById('camOverlay');
-  const status=document.getElementById('streamStatus');
-
-  const pc=new RTCPeerConnection({
-    iceServers:[
-      {urls:'stun:stun.l.google.com:19302'},
-      {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
-      {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}
-    ],
-    iceTransportPolicy:'all'
-  });
-  whepPc=pc;
-
-  pc.ontrack=function(e){
-    if(e.track.kind==='video'){
-      video.srcObject=e.streams[0];
-      video.onloadedmetadata=function(){
-        video.play().catch(()=>{});
-        overlay.style.display='none';
-        status.textContent='🔴 LIVE';
-        status.style.background='#B71C1C';
-        status.style.color='#fff';
-        connected=true;
-        setStep(2);
-        initPointer();
-      };
-    }
-  };
-
-  pc.oniceconnectionstatechange=function(){
-    if(pc.iceConnectionState==='failed'||pc.iceConnectionState==='disconnected'){
-      connected=false;
-      status.textContent='⚠️ 재연결 중...';
-      whepRetryTimer=setTimeout(connCam,3000);
-    }
-  };
-
-  pc.addTransceiver('video',{direction:'recvonly'});
-  pc.addTransceiver('audio',{direction:'recvonly'});
-
-  const offer=await pc.createOffer();
-  await pc.setLocalDescription(offer);
-
-  // ICE 수집 완료 대기
-  await new Promise(resolve=>{
-    if(pc.iceGatheringState==='complete'){resolve();return;}
-    pc.onicegatheringstatechange=()=>{if(pc.iceGatheringState==='complete')resolve();};
-    setTimeout(resolve,1200);
-  });
-
-  const resp=await fetch(WHEP_URL+'/bakery/whep',{
-    method:'POST',
-    headers:{'Content-Type':'application/sdp'},
-    body:pc.localDescription.sdp
-  });
-  if(!resp.ok) throw new Error('WHEP 서버 응답 오류: '+resp.status);
-  const answerSdp=await resp.text();
-  await pc.setRemoteDescription({type:'answer',sdp:answerSdp});
+function toggleOrders(key){
+  const el = document.getElementById('orders-'+key);
+  if(el) el.classList.toggle('open');
 }
-
-// ── 내가 활성 고객이면 제어 권한을 내려놓기 (다음 대기 고객에게 즉시 넘김) ──
-function releaseActiveIfMine(){
-  if(!amActive) return; // 애초에 내가 활성 상태가 아니면 할 일 없음
-  db.ref('activeSession').transaction(cur=>{
-    if(cur && cur.clientId===myClientId) return null; // 삭제 → 다음 손님이 즉시 잡을 수 있게
-    return cur;
-  }, (err)=>{
-    if(err) console.error('[권한 반납 실패]', err);
-  });
-  applyActiveState(false); // 서버 응답을 기다리지 않고 내 화면 상태부터 즉시 반영(잠금 + 유예 타이머 시작)
-}
-
-function discCam(){
-  if(whepRetryTimer){clearTimeout(whepRetryTimer);whepRetryTimer=null;}
-  if(whepPc){whepPc.close();whepPc=null;}
-  const video=document.getElementById('camVideo');
-  video.srcObject=null;
-  const o=document.getElementById('camOverlay');
-  o.style.display='flex';
-  o.querySelector('p').innerHTML='🚪 쇼핑을 종료하셨습니다<br><span style="font-size:.62rem;opacity:.6;">다시 쇼핑하시려면 아래 [연결]을 눌러주세요</span>';
-  const s=document.getElementById('streamStatus');
-  s.textContent='⚫ 대기';s.style.background='rgba(0,0,0,.5)';s.style.color='rgba(255,255,255,.5)';
-  connected=false;setStep(1);zoomReset();
-  hasFinishedShopping = true; // 방을 안 나가도 더 이상 자동으로 순서를 다시 잡지 않음
-  releaseActiveIfMine();
-  console.log('[쇼핑종료-상단버튼] myClientId:', myClientId, '/ 인원수 반납 시도 중...');
-  myPresenceRef.remove()
-    .then(()=>console.log('[쇼핑종료-상단버튼] 인원수 반납 성공'))
-    .catch(e=>console.error('[쇼핑종료-상단버튼] 인원수 반납 실패:', e));
-}
-function snap(){
-  const video = document.getElementById('camVideo');
-  if(!video || !video.videoWidth){
-    toast('⚠️ 아직 영상이 준비되지 않았어요');
-    return;
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  canvas.toBlob(function(blob){
-    if(!blob){ toast('⚠️ 캡처에 실패했어요'); return; }
-    const url = URL.createObjectURL(blob);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const ts = new Date();
-    const fname = `행복한빵집_${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,'0')}${String(ts.getDate()).padStart(2,'0')}_${String(ts.getHours()).padStart(2,'0')}${String(ts.getMinutes()).padStart(2,'0')}${String(ts.getSeconds()).padStart(2,'0')}.jpg`;
-    if(isIOS){
-      window.open(url, '_blank');
-      toast('📸 새 창에 열렸어요 — 이미지를 길게 눌러 "저장"해 주세요');
-    } else {
-      const a = document.createElement('a');
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      toast('📸 화면을 저장했어요!');
-    }
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  }, 'image/jpeg', 0.92);
-}
-
-function toggleFull(){
-  const scr=document.getElementById('camScr');
-  const btn=document.getElementById('fullBtn');
-  isFullscreen=!isFullscreen;
-  if(isFullscreen){scr.classList.add('fullscreen');btn.textContent='✕';btn.title='일반화면';}
-  else{scr.classList.remove('fullscreen');btn.textContent='⛶';btn.title='풀화면';}
-}
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isFullscreen)toggleFull();});
-
-
-// pan은 "컨테이너 폭/높이에 대한 비율(-0.5~0.5 근처)"로 관리 → 고객·점원 화면 크기가 달라도 동일한 지점을 가리킴
-function clampPanRatio(zoom, px, py){
-  const maxR = Math.max(0,(zoom-1)/2);
-  return [Math.max(-maxR, Math.min(maxR, px)), Math.max(-maxR, Math.min(maxR, py))];
-}
-function renderZoomPan(){
-  const wrap=document.getElementById('zoomWrap');
-  const w=camScr.offsetWidth, h=camScr.offsetHeight;
-  wrap.style.transform=`translate(${panXRatio*w}px, ${panYRatio*h}px) scale(${curZoom})`;
-  const lbl=document.getElementById('zoomLbl');
-  if(lbl) lbl.textContent=curZoom.toFixed(1)+'x';
-  const slider=document.getElementById('zoomSlider');
-  if(slider) slider.value=curZoom;
-}
-function broadcastZoomPan(){
-  if(zoomFBTimer) clearTimeout(zoomFBTimer);
-  zoomFBTimer=setTimeout(()=>{ db.ref('customerZoom').set({zoom:curZoom,panX:panXRatio,panY:panYRatio,t:Date.now()}); }, 80);
-}
-function setZoomPan(z, px, py){
-  curZoom=Math.min(5,Math.max(1,z));
-  [panXRatio,panYRatio]=clampPanRatio(curZoom, px, py);
-  renderZoomPan();
-  broadcastZoomPan();
-}
-function setZoom(v){ setZoomPan(v, panXRatio, panYRatio); }
-function onZoomSlide(v){ markActivity(); setZoom(parseFloat(v)); }
-function zoomNudge(d){ markActivity(); setZoom(curZoom+d); }
-function zoomStep(d){markActivity();setZoom(curZoom+d*0.5);}
-function zoomReset(){markActivity();setZoomPan(1,0,0);}
-camScr.addEventListener('touchstart',function(e){
-  if(!amActive) return; // 대기 중인 고객은 핀치줌/화면이동 불가 (활성 고객 화면을 그대로 보기만 함)
-  if(e.touches.length===2){
-    markActivity();
-    const wrap=document.getElementById('zoomWrap');
-    if(wrap) wrap.style.transition='none'; // 드래그 중엔 부드럽게 움직이는 효과를 끄고 손가락과 1:1로 즉시 반응
-    const t0=e.touches[0], t1=e.touches[1];
-    pinchStartDist=Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
-    pinchStartZoom=curZoom;
-    pinchStartMidX=(t0.clientX+t1.clientX)/2;
-    pinchStartMidY=(t0.clientY+t1.clientY)/2;
-    pinchStartPanX=panXRatio; pinchStartPanY=panYRatio;
-    e.preventDefault();
-  }
-},{passive:false});
-camScr.addEventListener('touchmove',function(e){
-  if(!amActive) return; // 대기 중인 고객은 핀치줌/화면이동 불가
-  if(e.touches.length===2){
-    markActivity();
-    const t0=e.touches[0], t1=e.touches[1];
-    const dist=Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
-    const midX=(t0.clientX+t1.clientX)/2, midY=(t0.clientY+t1.clientY)/2;
-    const newZoom=pinchStartZoom*(dist/pinchStartDist);
-    const r=camScr.getBoundingClientRect();
-    const dPanX=(midX-pinchStartMidX)/r.width;
-    const dPanY=(midY-pinchStartMidY)/r.height;
-    setZoomPan(newZoom, pinchStartPanX+dPanX, pinchStartPanY+dPanY);
-    e.preventDefault();
-  }
-},{passive:false});
-function restoreZoomTransition(){
-  const wrap=document.getElementById('zoomWrap');
-  if(wrap) wrap.style.transition='transform .1s ease-out'; // 손 뗀 뒤엔 슬라이더 등 다른 조작이 다시 부드럽게 보이도록 복원
-}
-camScr.addEventListener('touchend', restoreZoomTransition);
-camScr.addEventListener('touchcancel', restoreZoomTransition);
-
-function gotoPreset(presetNo){db.ref('ptz').set({cmd:'preset',preset:presetNo,t:Date.now()});toast('📷 카메라 이동 중...');}
-function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
-
-function toggleJoystick(){
-  markActivity();
-  const el=document.getElementById('joyCollapsible');
-  const btn=document.getElementById('joyToggleBtn');
-  const open=!el.classList.contains('open');
-  el.classList.toggle('open', open);
-  btn.textContent = open ? '🎮 카메라 방향 조절 접기' : '🎮 카메라 방향 조절 펼치기';
-}
-// ── 조이스틱 (PTZ 방향, 항상 즉시 stop) ──
-(function(){
-  const base=document.getElementById('joyBase');
-  const knob=document.getElementById('joyKnob');
-  if(!base) return;
-  let dragging=false, activeDir=null;
-  const maxR=38, deadzone=14;
-
-  function centerOf(el){ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2, y:r.top+r.height/2}; }
-  function setKnob(dx,dy){ knob.style.transition='none'; knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; }
-  function resetKnob(){ knob.style.transition='transform .15s ease'; knob.style.transform='translate(-50%,-50%)'; }
-  function dirFrom(dx,dy){
-    if(Math.hypot(dx,dy) < deadzone) return null;
-    return Math.abs(dx) > Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
-  }
-  function handleMove(clientX,clientY){
-    const c=centerOf(base);
-    let dx=clientX-c.x, dy=clientY-c.y;
-    const dist=Math.hypot(dx,dy);
-    if(dist>maxR){ dx=dx/dist*maxR; dy=dy/dist*maxR; }
-    setKnob(dx,dy);
-    const dir=dirFrom(dx,dy);
-    if(dir) markActivity();
-    if(dir!==activeDir){ activeDir=dir; ptz(dir || 'stop'); }
-  }
-  function endDrag(){ dragging=false; resetKnob(); if(activeDir){ ptz('stop'); activeDir=null; } }
-
-  base.addEventListener('pointerdown',e=>{ if(!amActive) return; dragging=true; base.setPointerCapture(e.pointerId); handleMove(e.clientX,e.clientY); });
-  base.addEventListener('pointermove',e=>{ if(!dragging||!amActive) return; handleMove(e.clientX,e.clientY); });
-  base.addEventListener('pointerup',endDrag);
-  base.addEventListener('pointercancel',endDrag);
-  window.addEventListener('blur',()=>{ if(dragging) endDrag(); });
-})();
-
-function initPointer(){const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';sendPointerFB(pRx,pRy);}
-function moveArrow(rx,ry){pRx=Math.min(0.97,Math.max(0,rx));pRy=Math.min(0.97,Math.max(0,ry));const w=camScr.offsetWidth,h=camScr.offsetHeight;arrow.style.left=(pRx*w)+'px';arrow.style.top=(pRy*h)+'px';}
-function sendPointerFB(rx,ry){const camScrEl=document.getElementById('camScr');db.ref('pointer').set({rx,ry,zoom:curZoom,viewW:camScrEl.offsetWidth,viewH:camScrEl.offsetHeight,t:Date.now()});}
-pointerLayer.addEventListener('mousedown',function(e){if(!connected||!amActive)return;isDragging=true;doMove(e);});
-pointerLayer.addEventListener('mousemove',function(e){if(!isDragging||!connected||!amActive)return;doMove(e);});
-pointerLayer.addEventListener('mouseup',function(){if(!isDragging)return;isDragging=false;sendPointerFB(pRx,pRy);});
-pointerLayer.addEventListener('mouseleave',function(){if(isDragging){isDragging=false;sendPointerFB(pRx,pRy);}});
-pointerLayer.addEventListener('touchstart',function(e){if(!connected||!amActive||e.touches.length!==1)return;isDragging=true;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
-pointerLayer.addEventListener('touchmove',function(e){if(!isDragging||!connected||!amActive||e.touches.length!==1)return;doMoveT(e.touches[0]);e.preventDefault();},{passive:false});
-pointerLayer.addEventListener('touchend',function(e){if(!isDragging)return;isDragging=false;sendPointerFB(pRx,pRy);e.preventDefault();},{passive:false});
-function doMove(e){markActivity();const r=camScr.getBoundingClientRect();moveArrow((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);}
-function doMoveT(t){markActivity();const r=camScr.getBoundingClientRect();moveArrow((t.clientX-r.left)/r.width,(t.clientY-r.top)/r.height);}
-db.ref('pointer').on('value',function(snap){const d=snap.val();if(d&&!isDragging)moveArrow(d.rx,d.ry);});
-
-async function toggleCall(){
-  if(!amActive){ toast('⏳ 대기 중에는 통화를 걸 수 없어요'); return; }
-  const btn=document.getElementById('callBtn'),dot=document.getElementById('cdot'),txt=document.getElementById('ctxt');
-  console.log('[통화-고객] 버튼 클릭. 기존 pc 있음?', !!pc);
-  if(pc){endCall();btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';txt.textContent='🎧 점원 연결 대기 중';document.getElementById('voiceViz').classList.remove('on');toast('통화가 종료됐어요');return;}
-  btn.className='cbtn v-ring';btn.textContent='⏳ 연결 중...';dot.className='cdot ring';txt.textContent='🔔 점원 호출 중...';
-  try{localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});console.log('[통화-고객] 마이크 획득 성공');}
-  catch(err){console.error('[통화-고객] 마이크 획득 실패:', err);toast('⚠️ 마이크 권한이 필요해요');btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';return;}
-  try{
-    await startWebRTC();
-    console.log('[통화-고객] startWebRTC 완료, offer 전송됨');
-  }catch(err){
-    console.error('[통화-고객] startWebRTC 실패:', err);
-    toast('⚠️ 통화 연결에 실패했어요');
-    btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';txt.textContent='🎧 점원 연결 대기 중';
-    return;
-  }
-  btn.className='cbtn v-off';btn.textContent='📵 통화 종료';dot.className='cdot on';txt.textContent='🔴 통화 중 — 점원 AR 안경 연결됨';
-  document.getElementById('voiceViz').classList.add('on');setStep(2);toast('📞 점원 AR 안경과 연결됐어요!');
-}
-async function startWebRTC(){
-  // 예전 통화 시도에서 남아있을 수 있는 감지기부터 확실히 정리 (쌓이면 서로 충돌해서 통화가 불안정해짐)
-  db.ref(`rtc/${ROOM_ID}/answer`).off('value');
-  db.ref(`rtc/${ROOM_ID}/clerkCandidates`).off('child_added');
-  const cfg={iceServers:[
-    {urls:'stun:stun.l.google.com:19302'},
-    {urls:'stun:stun1.l.google.com:19302'},
-    {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
-    {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}
-  ]};
-  pc=new RTCPeerConnection(cfg);
-  const myPc=pc; // 이 통화 시도 전용 참조 — 나중에 새 통화가 시작돼도 예전 감지기가 새 pc를 건드리지 않도록 고정
-  pc.oniceconnectionstatechange=()=>console.log('[통화-고객] ICE 상태:', pc.iceConnectionState);
-  pc.onconnectionstatechange=()=>{
-    console.log('[통화-고객] 연결 상태:', pc.connectionState);
-    if((pc.connectionState==='disconnected'||pc.connectionState==='failed'||pc.connectionState==='closed') && myPc===pc){
-      // 점원이 먼저 끊었거나 연결이 끊어진 경우 — 고객화면도 자동으로 원상복구
-      const btn=document.getElementById('callBtn'),dot=document.getElementById('cdot'),txt=document.getElementById('ctxt');
-      if(btn){btn.className='cbtn v-on';btn.textContent='📞 통화 연결';}
-      if(dot) dot.className='cdot';
-      if(txt) txt.textContent='🎧 점원 연결 대기 중';
-      document.getElementById('voiceViz')?.classList.remove('on');
-      db.ref(`rtc/${ROOM_ID}/answer`).off('value');
-      db.ref(`rtc/${ROOM_ID}/clerkCandidates`).off('child_added');
-      if(pc){pc.close();}
-      pc=null;
-      if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;} // 예전 마이크를 확실히 놓아줘야 다음 통화가 정상 시작됨
-      toast('📵 점원과의 통화가 종료됐어요');
-    }
-  };
-  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-  pc.ontrack=e=>{document.getElementById('remoteAudio').srcObject=e.streams[0];};
-  pc.onicecandidate=e=>{if(e.candidate)db.ref(`rtc/${ROOM_ID}/customerCandidates`).push(e.candidate.toJSON());};
-  const offer=await myPc.createOffer();await myPc.setLocalDescription(offer);
-  await db.ref(`rtc/${ROOM_ID}/offer`).set({sdp:offer.sdp,type:offer.type,t:Date.now()});
-  db.ref(`rtc/${ROOM_ID}/answer`).on('value',async snap=>{const a=snap.val();if(a&&myPc===pc&&!myPc.currentRemoteDescription)await myPc.setRemoteDescription(new RTCSessionDescription(a));});
-  db.ref(`rtc/${ROOM_ID}/clerkCandidates`).on('child_added',async snap=>{const c=snap.val();if(c&&myPc===pc)await myPc.addIceCandidate(new RTCIceCandidate(c));});
-}
-function endCall(){
-  db.ref(`rtc/${ROOM_ID}/answer`).off('value');
-  db.ref(`rtc/${ROOM_ID}/clerkCandidates`).off('child_added');
-  if(pc){pc.close();pc=null;}
-  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
-  db.ref(`rtc/${ROOM_ID}`).remove();
-  document.getElementById('remoteAudio').srcObject=null;
-}
-
-db.ref('liveOrder').on('value',function(snap){const d=snap.val();if(!d)return;updateLiveOrder(d);});
-function syncCartFromOrder(items){if(!items||items.length===0){cart={};updateCart();return;}cart={};items.forEach(i=>{cart[i.id]={...i};});updateCart();}
-function updateLiveOrder(d){
-  if(!amActive){
-    // 대기 중인 고객에게는 다른 손님이 담은 상품·합계를 보여주지 않음
-    const badge0=document.getElementById('camOrderBadge');
-    if(badge0) badge0.style.display='none';
-    orderConfirmedFlag = false;
-    syncCartFromOrder([]);
-    return;
-  }
-  const total=d.total||0,count=d.count||0,confirmed=d.confirmed||false,items=d.items||[],paid=d.paid||false;
-  syncCartFromOrder(items);
-  const wasConfirmed = orderConfirmedFlag;
-  orderConfirmedFlag = confirmed;
-  if(confirmed && !wasConfirmed && !paid){
-    document.getElementById('paymentBanner')?.classList.add('show');
-    document.getElementById('cartTabBtn')?.classList.add('ready-pulse');
-  }
-  if(!confirmed || paid){ document.getElementById('cartTabBtn')?.classList.remove('ready-pulse'); document.getElementById('paymentBanner')?.classList.remove('show'); }
-  const badge=document.getElementById('camOrderBadge');
-  if(badge){
-    if(paid){
-      badge.innerHTML = `✅ 결제 완료 · 주문번호 ${d.orderNumber||''}<br>배달 준비 중이에요`;
-      badge.style.display='block';
-    } else if(total===0){ badge.style.display='none'; }
-    else{
-      const itemLines = items.map(i=>`${i.e} ${i.name} × ${i.qty}`).join('<br>');
-      badge.innerHTML = `${itemLines}<br>합계 ${count}개 · ₩${total.toLocaleString()} <span style="opacity:.7;">(배달비 별도)</span>`;
-      badge.style.display='block';
-    }
-  }
-  updateCart(); // 확정 여부가 바뀌면 장바구니의 결제 버튼 표시 상태도 다시 계산
-}
-
-function sendPick(){markActivity();const msg=document.getElementById('pickMsg').value.trim();if(!msg)return;db.ref('messages').push({msg,t:Date.now()});toast('💬 점원에게 전달: "'+msg+'"');document.getElementById('pickMsg').value='';}
-function renderMenu(){document.getElementById('menuGrid').innerHTML=MENU.map(m=>`<div class="mc" onclick="pickMenuItem(${m.id})"><div class="mth">${m.e}</div><div class="mi"><div class="mn">${m.name}</div><div class="md">${m.desc}</div><div class="mp">₩${m.price.toLocaleString()}</div><button class="mbtn" onclick="event.stopPropagation();pickMenuItem(${m.id})">📷 카메라 이동</button></div></div>`).join('');}
-function renderCamMenuOverlay(){
-  const el=document.getElementById('camMenuGrid');
-  if(!el) return;
-  // m.photo에 실제 사진 URL을 넣으면 자동으로 사진으로 바뀌고, 없으면 이모지가 그대로 보임
-  el.innerHTML = MENU.map(m=>`
-    <div class="cmo-item" onclick="pickMenuItem(${m.id})">
-      <div class="cmo-thumb">${m.photo?`<img src="${m.photo}" alt="${m.name}">`:m.e}</div>
-      <div class="cmo-name">${m.name}</div>
-      <div class="cmo-price">₩${m.price.toLocaleString()}</div>
-    </div>
-  `).join('');
-}
-function toggleMenuOverlay(force){
-  const el=document.getElementById('camMenuOverlay');
-  if(!el) return;
-  const open = typeof force==='boolean' ? force : !el.classList.contains('open');
-  if(open && !amActive){ toast('⏳ 지금은 이용 순서가 아니에요'); return; }
-  markActivity();
-  if(open){ switchToCam(); document.querySelector('.btab[onclick*="toggleMenuOverlay"]')?.classList.remove('ready-pulse'); document.getElementById('camMenuShortcut')?.classList.remove('show'); hideWelcomeBanner(); }
-  el.classList.toggle('open', open);
-}
-function pickMenuItem(id){
-  if(!amActive){ toast('⏳ 지금은 이용 순서가 아니에요'); toggleMenuOverlay(false); return; }
-  markActivity();
-  const m=MENU.find(x=>x.id===id);
-  if(!m) return;
-  gotoPreset(m.preset || id);
-  toast('📷 '+m.e+' '+m.name+' 위치로 이동 중 — 화면을 짚어서 정확히 알려주세요');
-  switchToCam();
-  toggleMenuOverlay(false);
-}
-function addCart(id){const m=MENU.find(x=>x.id===id);if(!m)return;cart[id]=cart[id]||{...m,qty:0};cart[id].qty++;updateCart();setStep(3);toast(m.e+' '+m.name+' 담았어요!');}
-function updateCart(){const items=Object.values(cart);const total=items.reduce((s,i)=>s+i.price*i.qty,0);const count=items.reduce((s,i)=>s+i.qty,0);const badge=document.getElementById('ccnt');badge.textContent=count;count>0?badge.classList.add('show'):badge.classList.remove('show');document.getElementById('totalPr').textContent='₩'+total.toLocaleString();document.getElementById('payTotalVal').textContent='₩'+total.toLocaleString();const box=document.getElementById('cartBottom');const list=document.getElementById('cartList');if(!items.length){list.innerHTML='<div class="cart-empty"><span class="emo">🛒</span>장바구니가 비어 있어요</div>';box.style.display='none';return;}box.style.display='block';list.innerHTML=items.map(i=>`<div class="ci"><div class="ci-em">${i.e}</div><div class="ci-info"><div class="ci-nm">${i.name}</div><div class="ci-pr">₩${i.price.toLocaleString()} × ${i.qty} = ₩${(i.price*i.qty).toLocaleString()}</div></div><div class="ci-qty"><span style="font-size:.85rem;font-weight:700;color:var(--dbrown);">${i.qty}개</span></div></div>`).join('')+'<div style="text-align:center;font-size:.62rem;color:var(--soft);padding:6px 4px 2px;">수량 변경이나 취소는 통화로 점원에게 말씀해 주세요</div>';
-  const payBtn=document.getElementById('payBtn'), payWait=document.getElementById('payWaitMsg');
-  if(payBtn && payWait){
-    payBtn.style.display = orderConfirmedFlag ? 'block' : 'none';
-    payWait.style.display = orderConfirmedFlag ? 'none' : 'block';
-  }
-}
-function setStep(n){/* 진행바를 고정 안내문으로 교체하면서 더 이상 사용하지 않음 (호출부 안전하게 유지) */}
-// ── 매장 주소 기준 실거리 자동 계산 (Nominatim 무료 지오코딩, 손님이 임의로 고를 수 없게) ──
-const STORE_ADDRESS = '경기도 포천시 소흘읍 태봉로138';
-let storeCoords = null;
-let selDeliveryFee = null; // null=미확인, -1=배달불가, 0=무료, 3000=유료
-let calculatedDistanceKm = null;
-
-async function geocodeOnce(addr){
-  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&accept-language=ko&q=' + encodeURIComponent(addr);
-  const res = await fetch(url);
-  if(!res.ok){ console.error('[지오코딩] HTTP 오류', res.status, addr); return null; }
-  const data = await res.json();
-  if(!data || !data.length){ console.warn('[지오코딩] 결과 없음:', addr); return null; }
-  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-}
-async function geocodeAddress(addr){
-  try{
-    // 1차: 입력된 주소 그대로 시도
-    let r = await geocodeOnce(addr);
-    if(r) return r;
-    // 2차: 상세 번지(숫자/호수 등) 없이 도로명까지만 잘라서 재시도
-    const simplified = addr.replace(/\d+(-\d+)?\s*호?\s*$/,'').trim();
-    if(simplified && simplified!==addr){ r = await geocodeOnce(simplified); if(r) return r; }
-    // 3차: 시/읍면동 단위까지만 잘라서 재시도 (건물 단위보다 훨씬 넓은 범위)
-    const parts = addr.split(/\s+/).filter(Boolean);
-    if(parts.length>2){ r = await geocodeOnce(parts.slice(0,2).join(' ')); if(r) return r; }
-    console.error('[지오코딩] 모든 단계 실패:', addr);
-    return null;
-  }catch(e){ console.error('[지오코딩] 예외 발생', e); return null; }
-}
-function haversineKm(a,b){
-  const R=6371, toRad=d=>d*Math.PI/180;
-  const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
-  const la1=toRad(a.lat), la2=toRad(b.lat);
-  const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(h));
-}
-// ── 같은 이름으로 다시 오면 이전 연락처·주소 자동 불러오기 ──
-function sanitizeKey(s){ return s.replace(/[.#$\[\]\/\s]+/g, '_'); }
-async function lookupCustomer(){
-  const name = document.getElementById('nameInp').value.trim();
-  const resultEl = document.getElementById('lookupResult');
-  if(!name){ resultEl.style.display='none'; return; }
-  try{
-    const snap = await db.ref('customers/'+sanitizeKey(name)).once('value');
-    const d = snap.val();
-    if(d){
-      if(d.phone) document.getElementById('phoneInp').value = d.phone;
-      if(d.address) document.getElementById('addrInp').value = d.address;
-      resultEl.textContent = '👋 '+name+'님, 이전에 쓰신 연락처·주소를 불러왔어요 (다르면 직접 고쳐주세요)';
-      resultEl.className = 'dz-result dz-ok';
-      resultEl.style.display = 'block';
-      if(d.address) checkDeliveryDistance();
-    } else {
-      resultEl.style.display='none';
-    }
-  }catch(e){ console.error('[고객조회]', e); }
-}
-async function checkDeliveryDistance(){
-  const addr = document.getElementById('addrInp').value.trim();
-  const resultEl = document.getElementById('dzResult');
-  if(!addr) return;
-  markActivity();
-  resultEl.textContent = '📍 매장까지 거리를 계산하는 중...';
-  resultEl.className = 'dz-result';
-  selDeliveryFee = null; calculatedDistanceKm = null;
-  updatePayTotal();
-  if(!storeCoords){ storeCoords = await geocodeAddress(STORE_ADDRESS); }
-  if(!storeCoords){ resultEl.textContent='⚠️ 매장 위치 확인에 실패했어요, 잠시 후 다시 시도해주세요'; resultEl.className='dz-result dz-error'; return; }
-  const custCoords = await geocodeAddress(addr);
-  if(!custCoords){ resultEl.textContent='⚠️ 주소를 찾을 수 없어요. 정확한 도로명 주소로 입력해 주세요'; resultEl.className='dz-result dz-error'; return; }
-  const km = haversineKm(storeCoords, custCoords);
-  calculatedDistanceKm = km;
-  if(km>3){ selDeliveryFee=-1; resultEl.innerHTML=`📍 매장에서 약 <b>${km.toFixed(1)}km</b> — 죄송해요, 배달 가능 지역(3km) 밖이에요`; resultEl.className='dz-result dz-error'; }
-  else if(km>2){ selDeliveryFee=3000; resultEl.innerHTML=`📍 매장에서 약 <b>${km.toFixed(1)}km</b> — 배달비 ₩3,000`; resultEl.className='dz-result dz-ok'; }
-  else{ selDeliveryFee=0; resultEl.innerHTML=`📍 매장에서 약 <b>${km.toFixed(1)}km</b> — 배달비 무료`; resultEl.className='dz-result dz-ok'; }
-  updatePayTotal();
-}
-function updatePayTotal(){
-  const itemTotal = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);
-  document.getElementById('payItemTotal').textContent = '₩'+itemTotal.toLocaleString();
-  const feeEl = document.getElementById('payDeliveryFee');
-  if(selDeliveryFee===null){ feeEl.textContent='주소를 먼저 확인해 주세요'; }
-  else if(selDeliveryFee<0){ feeEl.textContent='배달 불가 지역'; }
-  else if(selDeliveryFee===0){ feeEl.textContent='무료'; }
-  else { feeEl.textContent='₩'+selDeliveryFee.toLocaleString(); }
-  const grand = itemTotal + (selDeliveryFee && selDeliveryFee>0 ? selDeliveryFee : 0);
-  document.getElementById('payTotalVal').textContent = '₩'+grand.toLocaleString();
-}
-
-// ── 음성 입력 (이름/연락처/주소 공통) ──
-function startVoiceInput(targetId){
-  markActivity();
-  const Recog = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!Recog){ toast('⚠️ 이 브라우저는 음성입력을 지원하지 않아요. 직접 입력해주세요'); return; }
-  const rec = new Recog();
-  rec.lang = 'ko-KR';
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  const btn = event && event.currentTarget;
-  if(btn) btn.classList.add('listening');
-  toast('🎤 말씀해 주세요...');
-  rec.onresult = function(e){
-    const text = e.results[0][0].transcript;
-    const el = document.getElementById(targetId);
-    if(el){ el.value = text; if(targetId==='addrInp') checkDeliveryDistance(); }
-    toast('✅ 인식됨: '+text);
-  };
-  rec.onerror = function(){ toast('⚠️ 음성 인식에 실패했어요, 다시 시도하거나 직접 입력해주세요'); };
-  rec.onend = function(){ if(btn) btn.classList.remove('listening'); };
-  rec.start();
-}
-function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}selDeliveryFee=null;calculatedDistanceKm=null;document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';updatePayTotal();document.getElementById('payModal').classList.add('open');}
-function closePayModal(){document.getElementById('payModal').classList.remove('open');}
-function selPay(el,name){document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');selPayMethod=name;}
-async function confirmPay(){
-  const name=document.getElementById('nameInp').value.trim();
-  const phone=document.getElementById('phoneInp').value.trim();
-  const addr=document.getElementById('addrInp').value.trim();
-  if(!selPayMethod){toast('결제 수단을 선택해 주세요');return;}
-  if(!name){toast('받는 분 성함을 입력해 주세요');return;}
-  if(!phone){toast('연락처를 입력해 주세요');return;}
-  if(!addr){toast('배달 주소를 입력해 주세요');return;}
-  if(selDeliveryFee===null){
-    toast('📍 거리를 확인하는 중이에요, 잠시만요...');
-    await checkDeliveryDistance();
-  }
-  if(selDeliveryFee===null){toast('⚠️ 주소 확인에 실패했어요, 다시 입력해 주세요');return;}
-  if(selDeliveryFee<0){toast('⚠️ 죄송해요, 3km 초과 지역은 배달이 어려워요');return;}
-  const itemTotal = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);
-  const fee = selDeliveryFee>0 ? selDeliveryFee : 0;
-  const orderNo = 'BCM-'+Math.floor(Math.random()*90000+10000);
-  closePayModal();document.getElementById('onum').textContent=orderNo;document.getElementById('doneModal').classList.add('open');setStep(4);
-  db.ref('liveOrder').update({
-    paid:true, orderNumber:orderNo, payMethod:selPayMethod,
-    itemTotal:itemTotal, deliveryFee:fee, grandTotal:itemTotal+fee,
-    distanceKm: calculatedDistanceKm ? Math.round(calculatedDistanceKm*10)/10 : null,
-    recvName:name, recvPhone:phone, address:addr, paidAt:Date.now()
-  });
-  // 같은 이름으로 다음에 다시 오면 자동으로 불러올 수 있도록 저장
-  const custKey = sanitizeKey(name);
-  db.ref('customers/'+custKey).update({ name, phone, address:addr, lastOrderAt:Date.now() })
-    .then(()=>console.log('[고객정보] 저장 성공:', custKey))
-    .catch(e=>console.error('[고객정보] 저장 실패 — Firebase 규칙에 customers 경로가 게시됐는지 확인하세요:', e));
-  db.ref('customers/'+custKey+'/orders/'+orderNo).set({
-    orderNumber:orderNo, itemTotal, deliveryFee:fee, grandTotal:itemTotal+fee, payMethod:selPayMethod, address:addr, t:Date.now()
-  }).catch(e=>console.error('[구매내역] 저장 실패:', e));
-}
-function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';document.getElementById('lookupResult').style.display='none';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';db.ref('liveOrder/requestClear').set(Date.now());}
-function finishAndExit(){
-  closeDone();
-  discCam(); // 인원수 반납은 discCam 안에서 이제 항상 처리됨
-  switchToCam(); // 장바구니 등 다른 탭을 보고 있었어도 감사 문구가 실제로 보이도록 카메라 탭으로 전환
-  const o=document.getElementById('camOverlay');
-  o.querySelector('p').innerHTML='🚪 쇼핑을 종료하셨습니다<br><span style="font-size:.66rem;opacity:.75;">이용해 주셔서 감사합니다! 😊<br>다시 쇼핑하시려면 아래 [연결]을 눌러주세요</span>';
-}
-function copyUrl(){const url='https://iyzoo44-design.github.io/hikvision-web/';if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('📋 주소 복사됐어요!'));else toast('주소: '+url);}
-function toast(msg){const el=document.getElementById('toastEl');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);}
-
-renderMenu();
-renderCamMenuOverlay();
 </script>
 </body>
 </html>
