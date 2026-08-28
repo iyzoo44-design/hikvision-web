@@ -432,7 +432,7 @@ let zoomFBTimer=null;
 let hbTimer = null;
 // ── 아래 변수들은 Firebase 콜백이 예상보다 일찍 실행될 수 있어(브라우저별 타이밍 차이),
 // 화면 초기화(활성화 판정)보다 반드시 먼저 선언되어야 함 — 한 곳에 모아서 관리 ──
-const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200,preset:2},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500,preset:2},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500,preset:3},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500,preset:3},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800,preset:4},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500,preset:4},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200,preset:5},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800,preset:5}];
+const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200,preset:2},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500,preset:3},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500,preset:4},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500,preset:5},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800,preset:6},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500,preset:7},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200,preset:8},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800,preset:9}];
 let cart={},selPayMethod='',connected=false,isFullscreen=false;
 let orderConfirmedFlag=false; // 점원이 "결제 요청 전송"을 눌러야만 true — 그 전엔 결제 버튼 비활성
 let whepPc=null,whepRetryTimer=null;
