@@ -1006,10 +1006,51 @@ db.ref('liveOrder').on('value', snap=>{
       `결제수단: ${d.payMethod}<br>`+
       `상품 ₩${(d.itemTotal||0).toLocaleString()} + 배달비 ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'} = <b>₩${(d.grandTotal||0).toLocaleString()}</b><br>`+
       `👤 받는 분: ${d.recvName||''} (${d.recvPhone||''})<br>`+
-      `📍 배송지: ${d.address||''}${d.distanceKm?(' (약 '+d.distanceKm+'km)'):''}`;
+      `📍 배송지: ${d.address||''}${d.distanceKm?(' (약 '+d.distanceKm+'km)'):''}<br>`+
+      `<div style="margin-top:8px;display:flex;gap:6px;">`+
+      `<button onclick="printReceipt()" style="flex:1;padding:8px;border:none;border-radius:8px;background:#4CAF50;color:#fff;font-weight:700;cursor:pointer;">🖨️ 영수증 인쇄</button>`+
+      `<button onclick="copyReceiptText()" style="flex:1;padding:8px;border:none;border-radius:8px;background:#FEE500;color:#3A1D1D;font-weight:700;cursor:pointer;">💬 문자용 복사</button>`+
+      `</div>`;
+    lastPaidData = d; // 인쇄/복사 버튼에서 쓸 수 있도록 저장
   }
   toggleOrderPanel(true);
 });
+
+let lastPaidData = null;
+function buildReceiptText(){
+  const d = lastPaidData;
+  if(!d) return '';
+  const itemsStr = orderItems.map(i=>`${i.e||''} ${i.name} ×${i.qty} (₩${(i.price*i.qty).toLocaleString()})`).join('\n');
+  const now = new Date().toLocaleString('ko-KR');
+  return `🥐 행복한 빵집 — 주문서\n`+
+    `주문번호: ${d.orderNumber}\n일시: ${now}\n\n`+
+    `[주문 내역]\n${itemsStr}\n\n`+
+    `상품 합계: ₩${(d.itemTotal||0).toLocaleString()}\n`+
+    `배달비: ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'}\n`+
+    `최종 결제금액: ₩${(d.grandTotal||0).toLocaleString()} (${d.payMethod})\n\n`+
+    `받는 분: ${d.recvName} (${d.recvPhone})\n`+
+    `배송지: ${d.address}\n\n`+
+    `이용해 주셔서 감사합니다 😊`;
+}
+function printReceipt(){
+  const text = buildReceiptText();
+  if(!text){ showMsg('⚠️ 인쇄할 주문 정보가 없어요'); return; }
+  const w = window.open('', '_blank', 'width=380,height=600');
+  w.document.write(`<html><head><title>영수증</title><style>
+    body{font-family:'Courier New',monospace;font-size:14px;padding:16px;white-space:pre-wrap;line-height:1.6;}
+    @media print{ body{padding:4px;} }
+  </style></head><body>${text.replace(/</g,'&lt;')}</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 300);
+}
+function copyReceiptText(){
+  const text = buildReceiptText();
+  if(!text){ showMsg('⚠️ 복사할 주문 정보가 없어요'); return; }
+  navigator.clipboard.writeText(text)
+    .then(()=>showMsg('📋 복사됐어요! 카카오톡에 붙여넣기 하세요'))
+    .catch(()=>showMsg('⚠️ 복사에 실패했어요'));
+}
 
 function sendOrderToFirebase(){
   const total = orderItems.reduce((s,i)=>s+i.price*i.qty, 0);
