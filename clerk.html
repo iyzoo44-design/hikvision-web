@@ -656,6 +656,7 @@ db.ref('messages').limitToLast(1).on('child_added', snap=>{
 // WebRTC 통화 (점원 측 = Answer)
 // ═══════════════════════════════════════════
 let pc = null, localStream = null, callActive = false;
+let lastPaidData = null;
 let offerAnswerCb = null;
 
 // ── 벨소리 + 진동 (안드로이드는 진동 지원, iOS는 소리만 재생됨) ──
@@ -1032,7 +1033,6 @@ db.ref('liveOrder').on('value', snap=>{
   toggleOrderPanel(true);
 });
 
-let lastPaidData = null;
 function buildReceiptText(){
   const d = lastPaidData;
   if(!d) return '';
