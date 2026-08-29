@@ -450,15 +450,18 @@ db.ref('.info/connected').on('value', snap=>{
   document.getElementById('fbDot').className = 'sdot '+(ok?'green':'red');
   document.getElementById('fbTxt').textContent = ok?'Firebase 연결됨':'연결 끊김';
 });
-// 탭으로 돌아왔는데 15초 안에도 연결이 안 돌아오면, 스스로 살아나길 기다리지 않고 새로고침해서 강제로 재연결
+// 화면을 안 보고 있던 시간이 길면(10초 이상), "연결됐다는 표시" 자체를 못 믿고 무조건 새로고침해서 강제 재연결
+let hiddenSince = null;
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible'){
-    setTimeout(()=>{
-      if(!fbConnected && !callActive){ // 통화 중엔 새로고침하면 통화가 끊기니 제외
-        console.warn('[자동복구] 4초 지나도 연결 안 됨 — 새로고침으로 강제 재연결');
-        location.reload();
-      }
-    }, 4000);
+  if(document.visibilityState==='hidden'){
+    hiddenSince = Date.now();
+  } else if(document.visibilityState==='visible'){
+    const awayMs = hiddenSince ? (Date.now()-hiddenSince) : 0;
+    hiddenSince = null;
+    if(awayMs > 10000 && !callActive){ // 10초 넘게 안 보고 있었다면, 통화 중이 아닌 이상 묻지도 따지지도 않고 새로고침
+      console.warn('[자동복구]', Math.round(awayMs/1000)+'초간 화면을 안 보고 있었음 — 새로고침으로 강제 재연결');
+      location.reload();
+    }
   }
 });
 
