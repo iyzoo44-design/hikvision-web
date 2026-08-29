@@ -694,6 +694,7 @@ function checkForIncomingCall(offer){
     btn.textContent='🔔 고객이 통화 중! 탭해서 받기';
     showMsg('📞 고객이 통화를 요청했어요!');
     startRinging();
+    sendCallNotification(); // 워치로 미러링되도록 시스템 알림도 같이 띄움
     console.log('[링감지] 벨 시작함');
   }
 }
@@ -1097,7 +1098,42 @@ function confirmOrder(){
   db.ref('liveOrder').update({confirmed:true, t:Date.now()});
 }
 
+// ── 시스템 알림 (연결된 스마트워치가 자동으로 진동 미러링) ──
+if('Notification' in window && Notification.permission==='default'){
+  Notification.requestPermission();
+}
+function sendCallNotification(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  try{
+    const n = new Notification('📞 고객이 통화를 원해요!', {
+      body: '탭해서 받아주세요 — 행복한 빵집',
+      vibrate: [300,150,300,150,300],
+      requireInteraction: true,
+      tag: 'dongne-call'
+    });
+    n.onclick = ()=>{ window.focus(); n.close(); };
+  }catch(e){ console.warn('[알림] 실패:', e); }
+}
+
 renderOrderGrid();
+
+// ── 화면이 자동으로 꺼지지 않게 유지 (절전모드로 인한 연결 끊김 방지) ──
+let wakeLock = null;
+async function keepScreenAwake(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('[화면꺼짐방지] 활성화됨');
+      wakeLock.addEventListener('release', ()=>console.log('[화면꺼짐방지] 해제됨'));
+    }
+  }catch(e){ console.warn('[화면꺼짐방지] 지원 안 되거나 실패:', e); }
+}
+keepScreenAwake();
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible'){
+    keepScreenAwake(); // 탭으로 돌아오면 다시 신청 (자동 해제되므로)
+  }
+});
 
 // ── 시계 ──
 setInterval(()=>{
