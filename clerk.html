@@ -574,11 +574,20 @@ db.ref('customerZoom').on('value', snap=>{
 // ── 활성 고객이 바뀌면(새 손님 시작) 이전 줌/이동/주문 내역이 남아있지 않도록 즉시 리셋 ──
 // 실제 손님 교체는 "A 퇴장(빈 상태) → 잠시 후 B 입장" 두 단계를 거치므로,
 // 중간의 빈 상태는 무시하고 "마지막으로 확인한 손님"과 다를 때만 비교한다.
+// 접속시각(ts)이 완전히 같으면(동시 접속 등) 판단이 애매해지므로, clientId까지 같이 비교 (고객화면과 완전히 동일한 규칙)
+function isEarlierClient(tsA, cidA, tsB, cidB){
+  if(tsA !== tsB) return tsA < tsB;
+  return cidA < cidB;
+}
 let lastKnownCustomerId = undefined; // undefined = 아직 아무도 관찰 안 함(점원 첫 접속)
-db.ref('activeSession').on('value', snap=>{
-  const d=snap.val();
-  const cid = d ? d.clientId : null;
-  if(!cid) return; // 잠시 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
+let latestQueue = {};
+db.ref('queue').on('value', snap=>{
+  const q = snap.val() || {};
+  latestQueue = q;
+  const entries = Object.entries(q);
+  if(entries.length===0) return; // 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
+  entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+  const cid = entries[0][0];
   if(lastKnownCustomerId !== undefined && cid !== lastKnownCustomerId){
     applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
     if(typeof clearOrder==='function') clearOrder(); // 이전 손님이 담았던 상품은 자동으로 비움
@@ -832,9 +841,13 @@ function endCall(){
 }
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 
-// ── 점원이 직접 "다음 고객으로 넘기기" (현재 활성 고객을 강제로 내림) ──
+// ── 점원이 직접 "다음 고객으로 넘기기" (현재 활성 고객을 대기줄 맨 뒤로 보냄) ──
 function forceNextCustomer(){
-  db.ref('activeSession').remove();
+  const entries = Object.entries(latestQueue||{});
+  if(entries.length===0){ showMsg('⚠️ 지금 활성화된 손님이 없어요'); return; }
+  entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+  const cid = entries[0][0];
+  db.ref('queue/'+cid).set(firebase.database.ServerValue.TIMESTAMP); // 서버시각으로 다시 찍어서 대기줄 맨 뒤로 → 자동으로 다음 손님이 활성화됨
   showMsg('🙋 다음 고객에게 넘겼어요');
 }
 
