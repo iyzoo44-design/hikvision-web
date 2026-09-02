@@ -597,7 +597,15 @@ function recomputeNow(){
     const entries = Object.entries(q);
     entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
     const winnerId = entries[0][0];
-    applyActiveState(winnerId === myClientId);
+    const nowActive = (winnerId === myClientId);
+    applyActiveState(nowActive);
+    // 활성/대기 '상태' 자체는 안 바뀌어도, 대기 중이면 '몇 번째'는 매번 다시 계산해서 보여줌
+    // (applyActiveState는 상태 전환이 없으면 조기 종료하므로, 순번 텍스트는 여기서 별도로 항상 갱신)
+    if(!nowActive){
+      const myIdx = entries.findIndex(e=>e[0]===myClientId);
+      const badge=document.getElementById('waitBadge');
+      if(badge) badge.textContent = `🙋 대기 순번 ${myIdx}번째 · 화면만 함께 보실 수 있어요`;
+    }
   }).catch(e=>console.error('[큐 계산 실패]', e));
 }
 
