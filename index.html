@@ -417,19 +417,20 @@ function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.
 let myClientId = sessionStorage.getItem('dongneClientId');
 if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
 let amActive = null; // false가 아니라 null로 시작 — "아직 안 정해짐"과 "진짜 대기중(false)"을 구분해야, 대기중으로 확정되는 순간에도 setControlsEnabled가 반드시 실행됨
-// 접속시각(ts)이 완전히 같으면(동시 접속 등) 판단이 애매해지므로, clientId까지 같이 비교해서 항상 일관된 순서가 나오게 함
+// [2026-09-02 재설계] 클라이언트마다 시계가 조금씩 다를 수 있으므로, 순서는 반드시
+// Firebase 서버가 도장 찍어주는 시각(ServerValue.TIMESTAMP)만 사용함 — 기기별 시계오차 원천 차단.
+// 큐(대기줄)에서 '제일 먼저 온 사람 = 활성'이라고 모두가 각자 계산만 함 (경쟁/트랜잭션 없음).
 function isEarlierClient(tsA, cidA, tsB, cidB){
   if(tsA !== tsB) return tsA < tsB;
-  return cidA < cidB;
+  return cidA < cidB; // 서버시각이 극히 드물게 완전히 같을 때만 쓰이는 동점 처리
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const myPresenceRef=db.ref('onlineCustomers/'+myClientId);
+const myQueueRef=db.ref('queue/'+myClientId);
 let capacityChecked=false;
 let curZoom=1,panXRatio=0,panYRatio=0;
 let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
 let zoomFBTimer=null;
-let hbTimer = null;
 // ── 아래 변수들은 Firebase 콜백이 예상보다 일찍 실행될 수 있어(브라우저별 타이밍 차이),
 // 화면 초기화(활성화 판정)보다 반드시 먼저 선언되어야 함 — 한 곳에 모아서 관리 ──
 const MENU=[{id:1,e:'🥐',name:'크루아상',desc:'버터향 가득 바삭',price:3200,preset:2},{id:2,e:'🥖',name:'바게트',desc:'겉바속촉 정통',price:4500,preset:3},{id:3,e:'🍞',name:'식빵',desc:'폭신한 우유식빵',price:5500,preset:4},{id:4,e:'🫓',name:'단팥빵',desc:'달콤한 팥소 가득',price:2500,preset:5},{id:5,e:'🧁',name:'소보로빵',desc:'바삭한 소보로',price:2800,preset:6},{id:6,e:'🧇',name:'머핀',desc:'블루베리·초코',price:3500,preset:7},{id:7,e:'🍩',name:'도넛',desc:'달콤 글레이즈드',price:2200,preset:8},{id:8,e:'🫙',name:'베이글',desc:'쫄깃한 플레인',price:3800,preset:9}];
@@ -441,6 +442,7 @@ const arrow=document.getElementById('arrowPointer');
 let pRx=0.5,pRy=0.5,isDragging=false;
 const ROOM_ID='bakery-room-001';
 let pc=null,localStream=null;
+let onCall=false; // 유휴시간 판단 전용 — 통화 관련 모든 상태변화 지점에서 정확히 관리
 
 function setControlsEnabled(enabled){
   const callBtn=document.getElementById('callBtn');
@@ -469,42 +471,27 @@ function setControlsEnabled(enabled){
       const scr=document.getElementById('camScr');
       if(scr) scr.appendChild(badge);
     }
-    updateWaitRank();
   } else if(badge){ badge.remove(); }
 }
-async function updateWaitRank(){
+function updateWaitRankDisplay(){
   const badge=document.getElementById('waitBadge');
   if(!badge) return;
-  try{
-    const [onlineSnap, activeSnap] = await Promise.all([
-      db.ref('onlineCustomers').once('value'),
-      db.ref('activeSession').once('value')
-    ]);
-    const online = onlineSnap.val() || {};
-    const activeClientId = (activeSnap.val()||{}).clientId;
-    const myTs = online[myClientId];
-    if(!myTs){ badge.textContent='🙋 다른 고객 상담 중 · 화면만 함께 보실 수 있어요'; return; }
-    // 활성 고객은 순번 계산에서 제외 — '대기자들 중에서' 몇 번째인지만 셈
-    const earlierWaitingCount = Object.entries(online).filter(([cid,ts])=>cid!==myClientId && cid!==activeClientId && isEarlierClient(ts,cid,myTs,myClientId)).length;
-    const rank = earlierWaitingCount + 1;
-    badge.textContent = `🙋 대기 순번 ${rank}번째 · 화면만 함께 보실 수 있어요`;
-  }catch(e){ badge.textContent='🙋 다른 고객 상담 중 · 화면만 함께 보실 수 있어요'; }
-}
-
-function startHeartbeat(){
-  if(hbTimer) clearInterval(hbTimer);
-  hbTimer=setInterval(()=>{ db.ref('activeSession').set({clientId:myClientId, ts:Date.now()}); }, 5000);
-  db.ref('activeSession').onDisconnect().remove();
-}
-function stopHeartbeat(){
-  if(hbTimer){ clearInterval(hbTimer); hbTimer=null; }
+  db.ref('queue').once('value').then(snap=>{
+    const q = snap.val() || {};
+    const myTs = q[myClientId];
+    if(myTs==null) return;
+    const entries = Object.entries(q);
+    entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+    const myIdx = entries.findIndex(e=>e[0]===myClientId); // 0=활성, 1=대기1번째, 2=대기2번째
+    if(myIdx>0) badge.textContent = `🙋 대기 순번 ${myIdx}번째 · 화면만 함께 보실 수 있어요`;
+  }).catch(()=>{});
 }
 
 // ── 유휴시간 자동 반납 설정 (숫자만 바꾸면 시간 조정됨) ──
-const IDLE_TIMEOUT_MS = 60000;   // 1분 동안 조작 없으면 자동으로 다음 고객에게 넘김
-const IDLE_WARN_BEFORE_MS = 15000; // 넘어가기 15초 전에 경고 문구 표시 (0으로 하면 경고 없이 바로 넘어감)
-const MAX_SESSION_MS = 15*60000; // 계속 조작하고 있어도, 활성화된 지 이 시간이 지나면 무조건 다음 손님에게 (여기 숫자만 바꾸면 시간 조정됨)
-const MAX_SESSION_WARN_BEFORE_MS = 60000; // 끝나기 1분 전에 경고
+const IDLE_TIMEOUT_MS = 60000;
+const IDLE_WARN_BEFORE_MS = 15000;
+const MAX_SESSION_MS = 15*60000;
+const MAX_SESSION_WARN_BEFORE_MS = 60000;
 
 let lastActivityTime = Date.now();
 let idleWarned = false;
@@ -525,8 +512,6 @@ function startIdleWatcher(){
   if(idleCheckTimer) clearInterval(idleCheckTimer);
   idleCheckTimer = setInterval(()=>{
     if(!amActive) return;
-
-    // ── 최대 이용시간(15분) — 통화 중이어도 예외 없이 적용, 대기자에게 공정한 기회를 주기 위함 ──
     const sessionElapsed = Date.now() - activeSessionStartTime;
     if(MAX_SESSION_WARN_BEFORE_MS>0 && !maxSessionWarned && sessionElapsed >= (MAX_SESSION_MS - MAX_SESSION_WARN_BEFORE_MS)){
       maxSessionWarned = true;
@@ -535,11 +520,10 @@ function startIdleWatcher(){
     }
     if(sessionElapsed >= MAX_SESSION_MS){
       toast('⏰ 최대 이용시간(15분)이 지나 다음 고객에게 넘겼어요');
-      releaseActiveIfMine();
+      yieldTurn();
       return;
     }
-
-    if(typeof pc!=='undefined' && pc){ lastActivityTime=Date.now(); idleWarned=false; return; } // 통화 중엔 유휴시간(1분)만 예외, 최대시간(15분)은 위에서 이미 체크함
+    if(onCall){ lastActivityTime=Date.now(); idleWarned=false; return; }
     const idleFor = Date.now() - lastActivityTime;
     if(IDLE_WARN_BEFORE_MS>0 && !idleWarned && idleFor >= (IDLE_TIMEOUT_MS - IDLE_WARN_BEFORE_MS)){
       idleWarned = true;
@@ -548,7 +532,7 @@ function startIdleWatcher(){
     }
     if(idleFor >= IDLE_TIMEOUT_MS){
       toast('⏳ 장시간 조작이 없어 다음 고객에게 넘겼어요');
-      releaseActiveIfMine();
+      yieldTurn();
     }
   }, 3000);
 }
@@ -556,18 +540,10 @@ function stopIdleWatcher(){
   if(idleCheckTimer){ clearInterval(idleCheckTimer); idleCheckTimer=null; }
 }
 
-// 권한을 잃었을 때(스스로 반납했든, 점원이 강제로 다음 고객에게 넘겼든) 4초간은
-// 본인이 셀프로 다시 잡지 않도록 유예 → 대기 중이던 다른 고객에게 우선권을 줌
-let justReleased = false;
-let justReleasedTimer = null;
-function armReleaseGrace(){
-  justReleased = true;
-  if(justReleasedTimer) clearTimeout(justReleasedTimer);
-  justReleasedTimer = setTimeout(()=>{
-    justReleased = false;
-    // 유예 시간이 지나도 아무도 안 잡았으면(혼자 테스트 중 등) 그때는 다시 이용 가능하게
-    db.ref('activeSession').once('value', s=>{ if(!s.val()) tryClaimActive(); });
-  }, 4000);
+// 경쟁(트랜잭션) 없이, 내 큐 항목을 '서버시각'으로 다시 찍어서 대기줄 맨 뒤로 보냄
+// → 그 즉시 모두가 같은 목록을 다시 계산하게 되고, 자동으로 다음 사람이 활성이 됨
+function yieldTurn(){
+  myQueueRef.set(firebase.database.ServerValue.TIMESTAMP);
 }
 
 let welcomeBannerTimer=null;
@@ -586,97 +562,84 @@ function hideWelcomeBanner(){
 }
 function applyActiveState(nowActive){
   if(nowActive===amActive) return;
-  const wasActive = amActive;
   amActive = nowActive;
   setControlsEnabled(amActive);
   if(amActive){
-    startHeartbeat();
     startIdleWatcher();
-    zoomReset(); // 새로 활성 고객이 되면 이전 고객이 남긴 줌/화면이동을 리셋 → 포인터 어긋남 방지
-    gotoPreset(1); // 매장 전체보기 프리셋으로 이동해서 첫인상을 라이브 매장 전경으로
-    db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{})); // 현재 주문 상태 즉시 반영
+    zoomReset();
+    gotoPreset(1);
+    db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{}));
     showWelcomeBanner();
     const menuBtn = document.querySelector('.btab[onclick*="toggleMenuOverlay"]');
-    if(menuBtn){
-      menuBtn.classList.add('ready-pulse');
-      setTimeout(()=>menuBtn.classList.remove('ready-pulse'), 12000);
-    }
+    if(menuBtn){ menuBtn.classList.add('ready-pulse'); setTimeout(()=>menuBtn.classList.remove('ready-pulse'), 12000); }
     const camShortcut = document.getElementById('camMenuShortcut');
-    if(camShortcut){
-      camShortcut.classList.add('show');
-      setTimeout(()=>camShortcut.classList.remove('show'), 12000);
-    }
+    if(camShortcut){ camShortcut.classList.add('show'); setTimeout(()=>camShortcut.classList.remove('show'), 12000); }
   } else {
-    stopHeartbeat();
     stopIdleWatcher();
-    if(wasActive){ toast('⏳ 이용 권한이 다른 고객에게 넘어갔어요'); armReleaseGrace(); }
+    updateWaitRankDisplay();
   }
 }
 
-let hasFinishedShopping = false; // '쇼핑 종료'를 누른 손님은 방을 안 나가도 자동으로 다시 순서를 잡지 않음
-async function tryClaimActive(){
-  if(hasFinishedShopping) return; // '연결' 버튼을 다시 눌러야만 재도전
-  db.ref('activeSession').transaction(cur=>{
-    const now=Date.now();
-    if(!cur || !cur.ts || (now-cur.ts)>15000) return {clientId:myClientId, ts:now};
-    if(cur.clientId===myClientId) return {clientId:myClientId, ts:now};
-    return; // 이미 다른 고객이 활성 상태 → 그대로 둠
-  }, (err,committed,snap)=>{
-    const d = snap ? snap.val() : null;
-    applyActiveState(!!(d && d.clientId===myClientId));
-  });
-}
+let hasFinishedShopping = false; // '쇼핑 종료'를 누른 손님은 방을 안 나가도 더 이상 자동으로 순서를 다시 잡지 않음 (큐에서 완전히 빠지므로 계산에서 자연히 제외됨)
 
-db.ref('activeSession').on('value', snap=>{
-  const d=snap.val();
-  if(!d){
-    if(amActive) applyActiveState(false); // 내가 활성 상태였는데 사라졌다면(점원이 강제로 넘긴 경우 등) 먼저 잃은 것으로 처리 + 유예 시작
-    if(justReleased) return; // 방금 권한을 잃은 직후엔 다른 대기 고객에게 우선권을 줌
-    if(capacityChecked) tryClaimActive(); // 인원 확인을 통과한 손님만 도전 가능 (혼잡 화면인 손님은 절대 끼어들 수 없음)
-    return;
-  }
-  applyActiveState(d.clientId===myClientId);
-});
+// ── 큐(대기줄) 재계산 — 경쟁 없이, 모두가 같은 데이터를 보고 각자 독립적으로 계산만 함 ──
+let recomputeDebounceTimer=null;
+function scheduleRecompute(){
+  if(recomputeDebounceTimer) clearTimeout(recomputeDebounceTimer);
+  recomputeDebounceTimer = setTimeout(recomputeNow, 250); // 짧은 시간 내 여러 신호가 몰려도 딱 한 번만 계산 (화면 깜빡임 방지)
+}
+function recomputeNow(){
+  if(!capacityChecked) return; // 인원초과로 막힌 손님은 계산 자체에 참여 안 함
+  db.ref('queue').once('value').then(snap=>{
+    const q = snap.val() || {};
+    const myTs = q[myClientId];
+    if(myTs==null) return; // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태
+    const entries = Object.entries(q);
+    entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+    const winnerId = entries[0][0];
+    applyActiveState(winnerId === myClientId);
+  }).catch(e=>console.error('[큐 계산 실패]', e));
+}
 
 // ── 접속 인원 표시 + 동시 최대 인원 제한 ──
-// ── 인원수 확인 후 등록 (최초 접속 + 재입장 둘 다 이 함수를 거쳐야 함) ──
+// ── 큐(대기줄) 참가 신청 (최초 접속 + 재입장 둘 다 이 함수를 거쳐야 함) ──
 async function registerPresenceWithCapacityCheck(){
   try{
-    const onlineSnap = await db.ref('onlineCustomers').once('value');
-    const online = onlineSnap.val() || {};
-    const alreadyIn = !!online[myClientId];
-    const count = Object.keys(online).length;
+    const snap = await db.ref('queue').once('value');
+    const q = snap.val() || {};
+    const alreadyIn = q[myClientId]!=null;
+    const count = Object.keys(q).length;
     if(!alreadyIn && count >= MAX_CONCURRENT_VIEWERS){
       showCapacityBlock();
       return false;
     }
   }catch(e){ console.error('[인원확인 실패]', e); }
-  myPresenceRef.set(Date.now());
-  myPresenceRef.onDisconnect().remove();
+  await myQueueRef.set(firebase.database.ServerValue.TIMESTAMP);
+  myQueueRef.onDisconnect().remove();
   return true;
 }
 db.ref('.info/connected').on('value', async snap=>{
   if(!snap.val()) return;
   const ok = await registerPresenceWithCapacityCheck();
   if(!ok) return;
-  if(!capacityChecked){ capacityChecked=true; connCam(); tryClaimActive(); } // 인원 확인을 통과한 손님만 카메라 연결 + 조작권 도전 가능
+  if(!capacityChecked){ capacityChecked=true; connCam(); scheduleRecompute(); } // 인원 확인을 통과한 손님만 카메라 연결 + 활성상태 계산 시작
 });
-db.ref('onlineCustomers').on('value', snap=>{
+db.ref('queue').on('value', snap=>{
   const n = snap.numChildren();
   const el=document.getElementById('queueCount');
   if(el) el.textContent = n>1 ? ('현재 '+n+'명 접속 중') : '';
-  if(!amActive && capacityChecked){ updateWaitRank(); tryClaimActive(); } // 인원 확인을 통과한 손님만 재도전 → 인원초과로 막힌 손님은 절대 끼어들 수 없음
+  scheduleRecompute(); // 큐가 바뀔 때마다 모두가 다시 계산 (경쟁 없이 그냥 계산이라 안전함)
 });
 function showCapacityBlock(){
   const el=document.getElementById('capacityBlock');
   if(el) el.style.display='flex';
   // 자리가 나는 순간을 조용히 지켜보다가, 나면 자동으로 다시 접속 시도 (손님이 버튼 안 눌러도 됨)
-  db.ref('onlineCustomers').off('value', capacityWatchCb); // 혹시 이미 등록돼 있으면 중복 방지
-  db.ref('onlineCustomers').on('value', capacityWatchCb);
+  db.ref('queue').off('value', capacityWatchCb); // 혹시 이미 등록돼 있으면 중복 방지
+  db.ref('queue').on('value', capacityWatchCb);
 }
 function capacityWatchCb(snap){
   if(snap.numChildren() < MAX_CONCURRENT_VIEWERS){
-    db.ref('onlineCustomers').off('value', capacityWatchCb);
+    db.ref('queue').off('value', capacityWatchCb);
     location.reload();
   }
 }
@@ -711,7 +674,7 @@ async function connCam(){
     const ok = await registerPresenceWithCapacityCheck(); // '더 살게요' → 인원수부터 다시 확인
     if(!ok) return; // 인원 초과면 여기서 막고 혼잡 화면(이미 표시됨)으로 대체
     hasFinishedShopping=false;
-    tryClaimActive();
+    scheduleRecompute();
   }
   const status=document.getElementById('streamStatus');
   status.textContent='🟡 연결 중...';
@@ -787,18 +750,6 @@ async function startWHEP(){
   await pc.setRemoteDescription({type:'answer',sdp:answerSdp});
 }
 
-// ── 내가 활성 고객이면 제어 권한을 내려놓기 (다음 대기 고객에게 즉시 넘김) ──
-function releaseActiveIfMine(){
-  if(!amActive) return; // 애초에 내가 활성 상태가 아니면 할 일 없음
-  db.ref('activeSession').transaction(cur=>{
-    if(cur && cur.clientId===myClientId) return null; // 삭제 → 다음 손님이 즉시 잡을 수 있게
-    return cur;
-  }, (err)=>{
-    if(err) console.error('[권한 반납 실패]', err);
-  });
-  applyActiveState(false); // 서버 응답을 기다리지 않고 내 화면 상태부터 즉시 반영(잠금 + 유예 타이머 시작)
-}
-
 function discCam(){
   if(whepRetryTimer){clearTimeout(whepRetryTimer);whepRetryTimer=null;}
   if(whepPc){whepPc.close();whepPc=null;}
@@ -810,12 +761,13 @@ function discCam(){
   const s=document.getElementById('streamStatus');
   s.textContent='⚫ 대기';s.style.background='rgba(0,0,0,.5)';s.style.color='rgba(255,255,255,.5)';
   connected=false;setStep(1);zoomReset();
+  if(pc){ endCall(); } // 통화 중이었다면 같이 정리
   hasFinishedShopping = true; // 방을 안 나가도 더 이상 자동으로 순서를 다시 잡지 않음
-  releaseActiveIfMine();
-  console.log('[쇼핑종료-상단버튼] myClientId:', myClientId, '/ 인원수 반납 시도 중...');
-  myPresenceRef.remove()
-    .then(()=>console.log('[쇼핑종료-상단버튼] 인원수 반납 성공'))
-    .catch(e=>console.error('[쇼핑종료-상단버튼] 인원수 반납 실패:', e));
+  amActive=false; setControlsEnabled(false); stopIdleWatcher(); // 화면상 즉시 잠금 (아래에서 큐에서도 빠지므로 다른 손님에게 자동으로 순서가 넘어감)
+  console.log('[쇼핑종료-상단버튼] myClientId:', myClientId, '/ 큐 이탈 시도 중...');
+  myQueueRef.remove()
+    .then(()=>console.log('[쇼핑종료-상단버튼] 큐 이탈 성공'))
+    .catch(e=>console.error('[쇼핑종료-상단버튼] 큐 이탈 실패:', e));
 }
 function snap(){
   const video = document.getElementById('camVideo');
@@ -992,6 +944,7 @@ async function toggleCall(){
   catch(err){console.error('[통화-고객] 마이크 획득 실패:', err);toast('⚠️ 마이크 권한이 필요해요');btn.className='cbtn v-on';btn.textContent='📞 통화 연결';dot.className='cdot';return;}
   try{
     await startWebRTC();
+    onCall = true;
     console.log('[통화-고객] startWebRTC 완료, offer 전송됨');
   }catch(err){
     console.error('[통화-고객] startWebRTC 실패:', err);
@@ -1028,6 +981,7 @@ async function startWebRTC(){
       db.ref(`rtc/${ROOM_ID}/clerkCandidates`).off('child_added');
       if(pc){pc.close();}
       pc=null;
+      onCall=false;
       if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;} // 예전 마이크를 확실히 놓아줘야 다음 통화가 정상 시작됨
       toast('📵 점원과의 통화가 종료됐어요');
     }
@@ -1044,6 +998,7 @@ function endCall(){
   db.ref(`rtc/${ROOM_ID}/answer`).off('value');
   db.ref(`rtc/${ROOM_ID}/clerkCandidates`).off('child_added');
   if(pc){pc.close();pc=null;}
+  onCall=false;
   if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
   db.ref(`rtc/${ROOM_ID}`).remove();
   document.getElementById('remoteAudio').srcObject=null;
