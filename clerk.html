@@ -586,7 +586,7 @@ db.ref('queue').on('value', snap=>{
   latestQueue = q;
   const entries = Object.entries(q);
   if(entries.length===0) return; // 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
-  entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+  entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
   const cid = entries[0][0];
   if(lastKnownCustomerId !== undefined && cid !== lastKnownCustomerId){
     applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
@@ -845,9 +845,9 @@ function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 function forceNextCustomer(){
   const entries = Object.entries(latestQueue||{});
   if(entries.length===0){ showMsg('⚠️ 지금 활성화된 손님이 없어요'); return; }
-  entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+  entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
   const cid = entries[0][0];
-  db.ref('queue/'+cid).set(firebase.database.ServerValue.TIMESTAMP); // 서버시각으로 다시 찍어서 대기줄 맨 뒤로 → 자동으로 다음 손님이 활성화됨
+  db.ref('queue/'+cid).set({ ts: firebase.database.ServerValue.TIMESTAMP, device: '(점원이 다음고객으로 넘김)', joinedAt: new Date().toLocaleString('ko-KR') }); // 서버시각으로 다시 찍어서 대기줄 맨 뒤로 → 자동으로 다음 손님이 활성화됨
   showMsg('🙋 다음 고객에게 넘겼어요');
 }
 
