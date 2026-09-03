@@ -424,6 +424,15 @@ function isEarlierClient(tsA, cidA, tsB, cidB){
   if(tsA !== tsB) return tsA < tsB;
   return cidA < cidB; // 서버시각이 극히 드물게 완전히 같을 때만 쓰이는 동점 처리
 }
+// Firebase 콘솔에서 이 접속기록이 어떤 기기 것인지 한눈에 알아보기 위한 이름표
+function getDeviceLabel(){
+  const ua = navigator.userAgent;
+  if(/Android/i.test(ua)) return '📱 안드로이드폰';
+  if(/iPhone|iPad|iPod/i.test(ua)) return '📱 아이폰/아이패드';
+  if(/Windows/i.test(ua)) return '💻 윈도우PC';
+  if(/Macintosh/i.test(ua)) return '💻 맥';
+  return '❓ 기타기기';
+}
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
 const myQueueRef=db.ref('queue/'+myClientId);
@@ -478,10 +487,10 @@ function updateWaitRankDisplay(){
   if(!badge) return;
   db.ref('queue').once('value').then(snap=>{
     const q = snap.val() || {};
-    const myTs = q[myClientId];
+    const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null) return;
     const entries = Object.entries(q);
-    entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+    entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const myIdx = entries.findIndex(e=>e[0]===myClientId); // 0=활성, 1=대기1번째, 2=대기2번째
     if(myIdx>0) badge.textContent = `🙋 대기 순번 ${myIdx}번째 · 화면만 함께 보실 수 있어요`;
   }).catch(()=>{});
@@ -543,7 +552,7 @@ function stopIdleWatcher(){
 // 경쟁(트랜잭션) 없이, 내 큐 항목을 '서버시각'으로 다시 찍어서 대기줄 맨 뒤로 보냄
 // → 그 즉시 모두가 같은 목록을 다시 계산하게 되고, 자동으로 다음 사람이 활성이 됨
 function yieldTurn(){
-  myQueueRef.set(firebase.database.ServerValue.TIMESTAMP);
+  myQueueRef.set({ ts: firebase.database.ServerValue.TIMESTAMP, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
 }
 
 let welcomeBannerTimer=null;
@@ -592,10 +601,10 @@ function recomputeNow(){
   if(!capacityChecked) return; // 인원초과로 막힌 손님은 계산 자체에 참여 안 함
   db.ref('queue').once('value').then(snap=>{
     const q = snap.val() || {};
-    const myTs = q[myClientId];
+    const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null) return; // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태
     const entries = Object.entries(q);
-    entries.sort((a,b)=> isEarlierClient(a[1],a[0],b[1],b[0]) ? -1 : 1);
+    entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const winnerId = entries[0][0];
     const nowActive = (winnerId === myClientId);
     applyActiveState(nowActive);
@@ -622,7 +631,11 @@ async function registerPresenceWithCapacityCheck(){
       return false;
     }
   }catch(e){ console.error('[인원확인 실패]', e); }
-  await myQueueRef.set(firebase.database.ServerValue.TIMESTAMP);
+  await myQueueRef.set({
+    ts: firebase.database.ServerValue.TIMESTAMP, // 순서 계산용 (서버시각, 정렬 기준)
+    device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
+    joinedAt: new Date().toLocaleString('ko-KR')
+  });
   myQueueRef.onDisconnect().remove();
   return true;
 }
