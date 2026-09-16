@@ -253,7 +253,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 <script>
 (function(){
   const pw = prompt('🔐 접속 비밀번호를 입력하세요');
-  if(pw !== '0987'){
+  if(pw !== '3333'){
     document.write('<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a0a00;color:#FFD9A0;font-size:1.2rem;font-family:sans-serif;">비밀번호가 틀렸습니다</div>');
     document.close();
     throw new Error('접근 거부');
@@ -497,7 +497,7 @@ function updateWaitRankDisplay(){
 }
 
 // ── 유휴시간 자동 반납 설정 (숫자만 바꾸면 시간 조정됨) ──
-const IDLE_TIMEOUT_MS = 60000;
+const IDLE_TIMEOUT_MS = 180000; // 3분 (알림 보고 클릭해서 돌아올 시간을 넉넉히 확보)
 const IDLE_WARN_BEFORE_MS = 15000;
 const MAX_SESSION_MS = 15*60000;
 const MAX_SESSION_WARN_BEFORE_MS = 60000;
@@ -579,6 +579,7 @@ function applyActiveState(nowActive){
     gotoPreset(1);
     db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{}));
     showWelcomeBanner();
+    sendActiveNotification(); // 다른 탭에 가있어도 "차례가 됐다"는 걸 시스템 알림으로 알려줌
     const menuBtn = document.querySelector('.btab[onclick*="toggleMenuOverlay"]');
     if(menuBtn){ menuBtn.classList.add('ready-pulse'); setTimeout(()=>menuBtn.classList.remove('ready-pulse'), 12000); }
     const camShortcut = document.getElementById('camMenuShortcut');
@@ -589,7 +590,39 @@ function applyActiveState(nowActive){
   }
 }
 
+// ── 시스템 알림 (다른 탭에 가있어도 차례가 된 걸 알려줌) ──
+if('Notification' in window && Notification.permission==='default'){
+  Notification.requestPermission();
+}
+function sendActiveNotification(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  if(document.visibilityState==='visible') return; // 이미 이 화면을 보고 있으면 알림 불필요
+  try{
+    const n = new Notification('✅ 지금 쇼핑하실 차례예요!', {
+      body: '행복한 빵집 — 화면을 눌러 돌아와주세요',
+      vibrate: [300,150,300],
+      requireInteraction: true,
+      tag: 'dongne-turn'
+    });
+    n.onclick = ()=>{ window.focus(); n.close(); };
+  }catch(e){ console.warn('[알림] 실패:', e); }
+}
+
 let hasFinishedShopping = false; // '쇼핑 종료'를 누른 손님은 방을 안 나가도 더 이상 자동으로 순서를 다시 잡지 않음 (큐에서 완전히 빠지므로 계산에서 자연히 제외됨)
+
+// ── 화면을 안 보고 있던 시간이 길면(10초 이상), 돌아왔을 때 곧바로 최신 상태를 다시 확인 ──
+let hiddenSinceIdx = null;
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='hidden'){
+    hiddenSinceIdx = Date.now();
+  } else if(document.visibilityState==='visible'){
+    const awayMs = hiddenSinceIdx ? (Date.now()-hiddenSinceIdx) : 0;
+    hiddenSinceIdx = null;
+    if(awayMs > 10000 && capacityChecked){
+      scheduleRecompute(); // 밀려있었을 수 있는 "차례됨" 소식을 즉시 다시 확인
+    }
+  }
+});
 
 // ── 큐(대기줄) 재계산 — 경쟁 없이, 모두가 같은 데이터를 보고 각자 독립적으로 계산만 함 ──
 let recomputeDebounceTimer=null;
