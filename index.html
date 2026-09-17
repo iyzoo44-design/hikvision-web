@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://www.gstatic.com">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <style>
 :root{--bg:#FFFBF4;--cream:#FFF3E0;--warm:#F5DEB3;--brown:#5C3317;--dbrown:#2E1503;--gold:#B8860B;--accent:#D2691E;--soft:#8B6347;--white:#fff;--green:#1B5E20;--red:#B71C1C;--shadow:rgba(44,21,3,0.12);}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -436,6 +437,21 @@ function getDeviceLabel(){
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
 const myQueueRef=db.ref('queue/'+myClientId);
+  function setupFcmToken(){
+  if(!('serviceWorker' in navigator) || !('Notification' in window)) return;
+  navigator.serviceWorker.register('/firebase-messaging-sw.js').then(function(registration){
+    Notification.requestPermission().then(function(permission){
+      if(permission!=='granted') return;
+      const messaging = firebase.messaging();
+      messaging.getToken({
+        vapidKey: 'BO9-RATtQzWxnPFNLFlaqAn4cUj7mCojnVU02KFC7Yq-dO3nDtWyD3u53MnsJfciH0boDcZ4icZ9r94sqhUU-Ck',
+        serviceWorkerRegistration: registration
+      }).then(function(token){
+        if(token) myQueueRef.child('fcmToken').set(token);
+      }).catch(function(e){ console.warn('[FCM] 토큰 발급 실패:', e); });
+    });
+  }).catch(function(e){ console.warn('[FCM] 서비스워커 등록 실패:', e); });
+}
 let capacityChecked=false;
 let curZoom=1,panXRatio=0,panYRatio=0;
 let pinchStartDist=0,pinchStartZoom=1,pinchStartMidX=0,pinchStartMidY=0,pinchStartPanX=0,pinchStartPanY=0;
@@ -676,7 +692,7 @@ db.ref('.info/connected').on('value', async snap=>{
   if(!snap.val()) return;
   const ok = await registerPresenceWithCapacityCheck();
   if(!ok) return;
-  if(!capacityChecked){ capacityChecked=true; connCam(); scheduleRecompute(); } // 인원 확인을 통과한 손님만 카메라 연결 + 활성상태 계산 시작
+  if(!capacityChecked){ capacityChecked=true; connCam(); scheduleRecompute(); setupFcmToken(); } // 인원 확인을 통과한 손님만 카메라 연결 + 활성상태 계산 시작
 });
 db.ref('queue').on('value', snap=>{
   const n = snap.numChildren();
