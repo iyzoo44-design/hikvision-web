@@ -568,7 +568,7 @@ function stopIdleWatcher(){
 // 경쟁(트랜잭션) 없이, 내 큐 항목을 '서버시각'으로 다시 찍어서 대기줄 맨 뒤로 보냄
 // → 그 즉시 모두가 같은 목록을 다시 계산하게 되고, 자동으로 다음 사람이 활성이 됨
 function yieldTurn(){
-  myQueueRef.set({ ts: firebase.database.ServerValue.TIMESTAMP, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
+  myQueueRef.update({ ts: firebase.database.ServerValue.TIMESTAMP, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
 }
 
 let welcomeBannerTimer=null;
@@ -680,7 +680,7 @@ async function registerPresenceWithCapacityCheck(){
       return false;
     }
   }catch(e){ console.error('[인원확인 실패]', e); }
-  await myQueueRef.set({
+  await myQueueRef.update({
     ts: firebase.database.ServerValue.TIMESTAMP, // 순서 계산용 (서버시각, 정렬 기준)
     device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
     joinedAt: new Date().toLocaleString('ko-KR')
