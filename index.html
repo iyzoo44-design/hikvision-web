@@ -439,7 +439,7 @@ const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 �
 const myQueueRef=db.ref('queue/'+myClientId);
   function setupFcmToken(){
   if(!('serviceWorker' in navigator) || !('Notification' in window)) return;
-  navigator.serviceWorker.register('/firebase-messaging-sw.js').then(function(registration){
+  navigator.serviceWorker.register('./firebase-messaging-sw.js').then(function(registration){
     Notification.requestPermission().then(function(permission){
       if(permission!=='granted') return;
       const messaging = firebase.messaging();
