@@ -3,7 +3,7 @@ importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
 
 firebase.initializeApp({
-  apiKey: "AIzaSyC7GngQFP1JhnqIb8h_FcFEWAza1nvPFg0",
+  apiKey: "AIzaSyC7GngQFP1JhnqIb8h_FcfEWA2a1nvPFg0",
   authDomain: "dongne-bakery.firebaseapp.com",
   databaseURL: "https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "dongne-bakery",
