@@ -438,19 +438,37 @@ const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
 const myQueueRef=db.ref('queue/'+myClientId);
   function setupFcmToken(){
-  if(!('serviceWorker' in navigator) || !('Notification' in window)) return;
+  console.log('[FCM] setupFcmToken 시작');
+  if(!('serviceWorker' in navigator) || !('Notification' in window)){
+    console.log('[FCM] 브라우저 미지원으로 중단');
+    return;
+  }
   navigator.serviceWorker.register('./firebase-messaging-sw.js').then(function(registration){
+    console.log('[FCM] 서비스워커 등록 성공', registration);
     Notification.requestPermission().then(function(permission){
+      console.log('[FCM] 알림 권한:', permission);
       if(permission!=='granted') return;
-      const messaging = firebase.messaging();
-      messaging.getToken({
-        vapidKey: 'BO9-RATtQzWxnPFNLFlaqAn4cUj7mCojnVU02KFC7Yq-dO3nDtWyD3u53MnsJfciH0boDcZ4icZ9r94sqhUU-Ck',
-        serviceWorkerRegistration: registration
-      }).then(function(token){
-        if(token) myQueueRef.child('fcmToken').set(token);
-      }).catch(function(e){ console.warn('[FCM] 토큰 발급 실패:', e); });
-    });
-  }).catch(function(e){ console.warn('[FCM] 서비스워커 등록 실패:', e); });
+      try{
+        const messaging = firebase.messaging();
+        console.log('[FCM] messaging 객체 생성 성공');
+        messaging.getToken({
+          vapidKey: 'BO9-RATtQzWxnPFNLFlaqAn4cUj7mCojnVU02KFC7Yq-dO3nDtWyD3u53MnsJfciH0boDcZ4icZ9r94sqhUU-Ck',
+          serviceWorkerRegistration: registration
+        }).then(function(token){
+          console.log('[FCM] 토큰 발급:', token);
+          if(token){
+            myQueueRef.child('fcmToken').set(token).then(function(){
+              console.log('[FCM] Firebase 저장 성공');
+            }).catch(function(e){
+              console.error('[FCM] Firebase 저장 실패:', e);
+            });
+          }
+        }).catch(function(e){ console.error('[FCM] 토큰 발급 실패:', e); });
+      }catch(e){
+        console.error('[FCM] messaging 객체 생성 중 예외:', e);
+      }
+    }).catch(function(e){ console.error('[FCM] 권한 요청 실패:', e); });
+  }).catch(function(e){ console.error('[FCM] 서비스워커 등록 실패:', e); });
 }
 let capacityChecked=false;
 let curZoom=1,panXRatio=0,panYRatio=0;
