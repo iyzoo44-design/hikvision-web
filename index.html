@@ -514,7 +514,8 @@ function setControlsEnabled(enabled){
       const scr=document.getElementById('camScr');
       if(scr) scr.appendChild(badge);
     }
-  } else if(badge){ badge.remove(); }
+    showNotifyHintBanner(); // 대기자가 되는 순간 알림 안내 배너를 띄움
+  } else if(badge){ badge.remove(); } 
 }
 function updateWaitRankDisplay(){
   const badge=document.getElementById('waitBadge');
@@ -589,7 +590,19 @@ function yieldTurn(){
   myQueueRef.update({ ts: firebase.database.ServerValue.TIMESTAMP, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
 }
 
-let welcomeBannerTimer=null;
+let notifyHintShown = false; // 세션당 한 번만 보여주기 위한 플래그
+function showNotifyHintBanner(){
+  if(notifyHintShown) return;
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='granted') return; // 이미 허용했으면 안내 불필요
+  notifyHintShown = true;
+  const el=document.getElementById('welcomeBanner');
+  if(!el) return;
+  el.innerHTML = '<b>🔔 대기 중엔 알림으로 알려드려요!</b><br>방금 뜬 "허용"을 눌러주세요<br><span style="font-size:.68rem;opacity:.75;">자세한 설정은 하단 "이용안내"에서 확인하세요</span>';
+  el.classList.add('show');
+  setTimeout(()=>{ el.classList.remove('show'); }, 8000);
+}
+  let welcomeBannerTimer=null;
 function showWelcomeBanner(){
   const el=document.getElementById('welcomeBanner');
   if(!el) return;
