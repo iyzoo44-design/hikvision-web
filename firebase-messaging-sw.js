@@ -19,7 +19,7 @@ messaging.onBackgroundMessage(function(payload) {
   const options = {
     body: payload.notification.body || "",
     icon: "https://iyzoo44-design.github.io/hikvision-web/icon.png",
-    vibrate: [300, 150, 300],
+    vibrate: [400, 200, 400, 200, 400],
     tag: "dongne-turn",
     requireInteraction: true
   };
