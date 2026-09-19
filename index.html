@@ -364,7 +364,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <p class="sec-title">📋 이용 안내</p>
   <div class="url-box"><div class="url-txt">🔗 iyzoo44-design.github.io/hikvision-web/</div><p>이 주소가 빵집 전용 쇼핑 주소예요.</p><button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button></div>
   <div class="guide-card"><h3>📱 이용 방법</h3><ul><li>① 앱 열면 카메라 자동 연결</li><li>② 빨간 화살표를 드래그해서 상품 지정</li><li>③ PTZ 버튼으로 카메라 방향 조절</li><li>④ [통화 연결] 눌러서 점원과 직접 대화</li><li>⑤ 결제 → 배달 받기 🚚</li></ul></div>
-  <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>③ 알림을 길게 눌러 "설정" → 중요도를 "긴급"으로 바꾸면 화면 위로 바로 뜹니다</li></ul></div>
+  <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
 </div>
@@ -1343,7 +1343,38 @@ function finishAndExit(){
 function copyUrl(){const url='https://iyzoo44-design.github.io/hikvision-web/';if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('📋 주소 복사됐어요!'));else toast('주소: '+url);}
 function toast(msg){const el=document.getElementById('toastEl');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);}
 
-renderMenu();
+// ── 음성 안내: 대기하다가 내 차례가 되면 말로 알려줌 ──
+let speechUnlocked = false;
+function unlockSpeech(){
+  if(speechUnlocked) return;
+  speechUnlocked = true;
+  try{
+    if('speechSynthesis' in window){
+      const u = new SpeechSynthesisUtterance('');
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+document.addEventListener('touchstart', unlockSpeech, {once:true, passive:true});
+document.addEventListener('click', unlockSpeech, {once:true});
+function speakTurn(){
+  try{
+    if(!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance('행복한 빵집입니다. 지금 쇼핑하실 차례예요. 화면을 확인해 주세요.');
+    u.lang = 'ko-KR';
+    u.volume = 1;
+    window.speechSynthesis.speak(u);
+  }catch(e){ console.warn('[음성안내] 실패:', e); }
+}
+const _origApplyActiveState = applyActiveState;
+applyActiveState = function(nowActive){
+  const wasWaiting = (amActive === false);
+  _origApplyActiveState(nowActive);
+  if(wasWaiting && nowActive === true) speakTurn();
+};
+  renderMenu();
 renderCamMenuOverlay();
 </script>
 </body>
