@@ -21,7 +21,7 @@ messaging.onBackgroundMessage(function(payload) {
     icon: "https://iyzoo44-design.github.io/hikvision-web/icon.png",
     vibrate: [400, 200, 400, 200, 400],
     tag: "dongne-turn",
-   renotify: true, 
+    renotify: true, 
     requireInteraction: true
   };
   self.registration.showNotification(title, options);
