@@ -1400,7 +1400,21 @@ function speakTurn(){
     toast('🔊 음성 안내 재생 시도');
   }catch(e){ toast('⚠️ 음성 안내 실패'); }
 }
-  renderMenu();
+// ── 대기 안내 배너 (알림 소리의 뜻을 미리 알려줌, 앞의 같은 이름 함수를 덮어씀) ──
+function showNotifyHintBanner(){
+  if(notifyHintShown) return;
+  notifyHintShown = true;
+  const el=document.getElementById('welcomeBanner');
+  if(!el) return;
+  const needAllow = ('Notification' in window) && Notification.permission!=='granted';
+  el.innerHTML = '<b>🔔 대기 중이에요</b><br>'
+    + (needAllow ? '① 방금 뜬 "허용"을 눌러주세요<br>' : '')
+    + '차례가 되면 <b>알림 소리와 진동</b>이 나요.<br>그때 사이트를 열어 주세요.<br>'
+    + '<span style="font-size:.68rem;opacity:.75;">화면이 아직 "대기"로 보여도 잠시 기다리면 바뀌어요<br>자세한 설정은 하단 "안내"에서 확인하세요</span>';
+  el.classList.add('show');
+  setTimeout(()=>{ el.classList.remove('show'); }, 12000);
+}
+renderMenu();
 renderCamMenuOverlay();
 </script>
 </body>
