@@ -672,16 +672,38 @@ document.addEventListener('visibilitychange', ()=>{
   }
 });
 
+// 화면이 다시 앞으로 오거나 인터넷이 다시 붙는 순간에도 곧바로 최신 상태를 확인 (여러 신호가 겹쳐도 한 번만 계산됨)
+['focus','pageshow','online'].forEach(function(ev){
+  window.addEventListener(ev, function(){ if(capacityChecked) scheduleRecompute(); });
+});
+document.addEventListener('resume', function(){ if(capacityChecked) scheduleRecompute(); });
+
 // ── 큐(대기줄) 재계산 — 경쟁 없이, 모두가 같은 데이터를 보고 각자 독립적으로 계산만 함 ──
 let recomputeDebounceTimer=null;
 function scheduleRecompute(){
   if(recomputeDebounceTimer) clearTimeout(recomputeDebounceTimer);
   recomputeDebounceTimer = setTimeout(recomputeNow, 250); // 짧은 시간 내 여러 신호가 몰려도 딱 한 번만 계산 (화면 깜빡임 방지)
 }
+// ── 최신 명단 읽기 ──
+// 폰이 오래 뒤로 물러나 있으면 앱 안의 실시간 연결이 죽어서 '옛 명단'을 들고 있을 수 있음(알림은 서버가 보내므로 오지만 화면은 아직 대기로 보임).
+// 그래서 서버에 인터넷(REST)으로 직접 물어봐서 최신 명단을 읽고, 실패하면 예전 방식으로 되돌아감.
+let recomputeSeq = 0;
+async function fetchQueueFresh(){
+  try{
+    const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(()=>ctrl.abort(), 4000) : null;
+    const res = await fetch(firebaseConfig.databaseURL + '/queue.json', { cache:'no-store', signal: ctrl ? ctrl.signal : undefined });
+    if(timer) clearTimeout(timer);
+    if(res.ok){ const q = await res.json(); return q || {}; }
+  }catch(e){ /* 실패하면 아래의 예전 방식 사용 */ }
+  const snap = await db.ref('queue').once('value');
+  return snap.val() || {};
+}
 function recomputeNow(){
   if(!capacityChecked) return; // 인원초과로 막힌 손님은 계산 자체에 참여 안 함
-  db.ref('queue').once('value').then(snap=>{
-    const q = snap.val() || {};
+  const seq = ++recomputeSeq;
+  fetchQueueFresh().then(q=>{
+    if(seq !== recomputeSeq) return; // 더 새로운 계산이 이미 시작됐으면 이 결과는 버림 (순서 뒤바뀜 방지)
     const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null) return; // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태
     const entries = Object.entries(q);
