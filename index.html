@@ -705,7 +705,11 @@ function recomputeNow(){
   fetchQueueFresh().then(q=>{
     if(seq !== recomputeSeq) return; // 더 새로운 계산이 이미 시작됐으면 이 결과는 버림 (순서 뒤바뀜 방지)
     const myTs = q[myClientId] && q[myClientId].ts;
-    if(myTs==null) return; // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태
+    if(myTs==null){
+      // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태이면 그대로 둠. 그 외(연결이 끊겨 서버가 내 항목을 지운 경우)에는 바로 다시 적어 넣음
+      if(capacityChecked && !hasFinishedShopping){ rejoinViaRest(q).then(ok=>{ if(ok) scheduleRecompute(); }); }
+      return;
+    }
     const entries = Object.entries(q);
     entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const winnerId = entries[0][0];
@@ -736,48 +740,65 @@ myQueueRef.child('ts').on('value', function(s){
 let serverTimeOffset = 0; // 내 기기 시계와 서버 시계의 차이 (시계가 틀린 기기에서도 오래된 번호표를 걸러내기 위함)
 db.ref('.info/serverTimeOffset').on('value', function(s){ serverTimeOffset = s.val() || 0; });
 const RESTORE_TS_MAX_AGE_MS = 60*60000; // 이보다 오래된 번호표는 되살리지 않음 (1시간)
-async function registerPresenceWithCapacityCheck(){
-  let exists = false;
-  let othersFirstTs = null; // 지금 이용 중인(가장 빠른) 다른 손님의 번호표
-  try{
-    const snap = await db.ref('queue').once('value');
-    const q = snap.val() || {};
-    exists = q[myClientId]!=null;
-    const count = Object.keys(q).length;
-    if(!exists && count >= MAX_CONCURRENT_VIEWERS){
-      showCapacityBlock();
-      return false;
-    }
-    Object.keys(q).forEach(function(id){
-      if(id===myClientId) return;
-      const t = q[id] && q[id].ts;
-      if(typeof t==='number' && (othersFirstTs===null || t<othersFirstTs)) othersFirstTs = t;
-    });
-  }catch(e){ console.error('[인원확인 실패]', e); }
+// 명단에 넣을 내 항목(번호표·토큰 등)을 만듦. 명단에 이미 내가 있으면 번호표를 건드리지 않음.
+// 반환값의 ts가 'SERVER'이면 "서버 시각으로 새 번호표"라는 뜻 (SDK/REST가 각자 방식으로 서버시각 표시로 바꿔 씀)
+function buildEntryData(q, exists){
   const data = {
     device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
     joinedAt: new Date().toLocaleString('ko-KR')
   };
-  if(!exists){
-    // 명단에 내 이름이 없는 상태 = 처음 왔거나, 연결이 끊겼다 돌아온 경우
-    let savedTs = NaN, savedToken = null;
-    try{ savedTs = parseInt(sessionStorage.getItem('dongneTs'), 10); savedToken = sessionStorage.getItem('dongneFcmToken'); }catch(e){}
-    const serverNow = Date.now() + serverTimeOffset;
-    const restorable = !hasFinishedShopping && savedTs && savedTs <= serverNow + 5000 && (serverNow - savedTs) < RESTORE_TS_MAX_AGE_MS;
-    if(restorable){
-      let ts = savedTs;
-      // 돌아온 손님이 지금 쇼핑 중인 손님을 밀어내면 안 되므로, 이용 중인 사람 바로 뒤까지만 앞당김
-      if(othersFirstTs!==null && ts <= othersFirstTs) ts = othersFirstTs + 1;
-      data.ts = ts;
-    } else {
-      data.ts = firebase.database.ServerValue.TIMESTAMP; // 새로 온 손님: 서버시각으로 새 번호표
-    }
-    if(savedToken) data.fcmToken = savedToken; // 알림 받을 주소(토큰)도 다시 붙여줌
+  if(exists) return data; // 명단에 이미 있는 경우에는 번호표(ts)를 건드리지 않음 (예전에는 여기서 매번 새 번호표를 뽑아 맨 뒤로 밀렸음)
+  // 명단에 내 이름이 없는 상태 = 처음 왔거나, 연결이 끊겼다 돌아온 경우
+  let othersFirstTs = null; // 지금 이용 중인(가장 빠른) 다른 손님의 번호표
+  Object.keys(q).forEach(function(id){
+    if(id===myClientId) return;
+    const t = q[id] && q[id].ts;
+    if(typeof t==='number' && (othersFirstTs===null || t<othersFirstTs)) othersFirstTs = t;
+  });
+  let savedTs = NaN, savedToken = null;
+  try{ savedTs = parseInt(sessionStorage.getItem('dongneTs'), 10); savedToken = sessionStorage.getItem('dongneFcmToken'); }catch(e){}
+  const serverNow = Date.now() + serverTimeOffset;
+  const restorable = !hasFinishedShopping && savedTs && savedTs <= serverNow + 5000 && (serverNow - savedTs) < RESTORE_TS_MAX_AGE_MS;
+  if(restorable){
+    let ts = savedTs;
+    // 돌아온 손님이 지금 쇼핑 중인 손님을 밀어내면 안 되므로, 이용 중인 사람 바로 뒤까지만 앞당김
+    if(othersFirstTs!==null && ts <= othersFirstTs) ts = othersFirstTs + 1;
+    data.ts = ts;
+  } else {
+    data.ts = 'SERVER'; // 새로 온 손님: 서버시각으로 새 번호표
   }
-  // 명단에 이미 있는 경우에는 번호표(ts)를 건드리지 않음 (예전에는 여기서 매번 새 번호표를 뽑아 맨 뒤로 밀렸음)
+  if(savedToken) data.fcmToken = savedToken; // 알림 받을 주소(토큰)도 다시 붙여줌
+  return data;
+}
+async function registerPresenceWithCapacityCheck(){
+  let exists = false, q = {};
+  try{
+    q = await fetchQueueFresh(); // 앱 안의 옛 정보가 아니라 서버의 최신 명단으로 판단
+    exists = q[myClientId] != null;
+    if(!exists && Object.keys(q).length >= MAX_CONCURRENT_VIEWERS){
+      showCapacityBlock();
+      return false;
+    }
+  }catch(e){ console.error('[인원확인 실패]', e); }
+  const data = buildEntryData(q, exists);
+  if(data.ts === 'SERVER') data.ts = firebase.database.ServerValue.TIMESTAMP;
   await myQueueRef.update(data);
   myQueueRef.onDisconnect().remove();
   return true;
+}
+// 폰이 오래 뒤에 있다 돌아왔을 때, 서버가 내 항목을 이미 지운 상태라면 앱 안의 연결이 복구되길 기다리지 않고
+// 인터넷(REST)으로 곧바로 내 항목을 다시 적어 넣음 (원래 번호표·토큰 그대로)
+let rejoining = false, lastRejoinAt = 0;
+async function rejoinViaRest(q){
+  if(rejoining || Date.now() - lastRejoinAt < 8000) return false; // 너무 자주 반복하지 않음
+  rejoining = true; lastRejoinAt = Date.now();
+  try{
+    const data = buildEntryData(q, false);
+    if(data.ts === 'SERVER') data.ts = {'.sv':'timestamp'};
+    const res = await fetch(firebaseConfig.databaseURL + '/queue/' + myClientId + '.json', { method:'PATCH', body: JSON.stringify(data) });
+    return res.ok;
+  }catch(e){ console.warn('[재입장 실패]', e); return false; }
+  finally{ rejoining = false; }
 }
 db.ref('.info/connected').on('value', async snap=>{
   if(!snap.val()) return;
