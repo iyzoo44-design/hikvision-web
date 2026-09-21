@@ -367,6 +367,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0921d</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -408,6 +409,45 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 const firebaseConfig={apiKey:"AIzaSyC7GngQFP1JhnqIb8h_FcfEWA2a1nvPFg0",authDomain:"dongne-bakery.firebaseapp.com",databaseURL:"https://dongne-bakery-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"dongne-bakery",storageBucket:"dongne-bakery.firebasestorage.app",messagingSenderId:"835419452184",appId:"1:835419452184:web:e710137926fc24ffd8646d"};
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
+
+// ── 진단 기록 (테스트용) ──
+// 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
+const APP_VERSION = 'v0921d';
+const DEBUG_ON = (function(){
+  try{
+    if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
+    if(/[?&]debug=0/.test(location.search)) localStorage.removeItem('dongneDebug');
+    return localStorage.getItem('dongneDebug')==='1';
+  }catch(e){ return false; }
+})();
+const PAGE_ID = Math.random().toString(36).slice(2,5); // 같은 화면인지, 새로 열린 화면인지 구분하는 표시
+function dlog(msg){
+  if(!DEBUG_ON) return;
+  try{
+    const d=new Date();
+    const hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+    const arr=JSON.parse(localStorage.getItem('dongneLog')||'[]');
+    arr.push(hh+' ['+PAGE_ID+'] '+msg);
+    while(arr.length>90) arr.shift();
+    localStorage.setItem('dongneLog', JSON.stringify(arr));
+    renderDebug();
+  }catch(e){}
+}
+function renderDebug(){
+  const box=document.getElementById('dbgBox');
+  if(!box) return;
+  try{ box.textContent = JSON.parse(localStorage.getItem('dongneLog')||'[]').join('\n'); }catch(e){}
+}
+function initDebugPanel(){
+  if(!DEBUG_ON) return;
+  const g=document.getElementById('guide');
+  if(!g) return;
+  const wrap=document.createElement('div');
+  wrap.style.cssText='margin-top:14px;padding:10px;border-radius:10px;background:#1c1c1c;color:#d8ffd8;';
+  wrap.innerHTML='<div style="font-size:.7rem;font-weight:700;margin-bottom:6px;">🛠 진단 기록 ('+APP_VERSION+') <button onclick="try{localStorage.removeItem(\'dongneLog\');}catch(e){} renderDebug();" style="margin-left:8px;font-size:.62rem;">지우기</button></div><pre id="dbgBox" style="font-size:.6rem;line-height:1.35;white-space:pre-wrap;word-break:break-all;max-height:none;"></pre>';
+  g.appendChild(wrap);
+  renderDebug();
+}
 
 // ── WHEP URL ──
 const WHEP_URL='https://whep.priceline.co.kr';
@@ -663,20 +703,38 @@ let hiddenSinceIdx = null;
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState==='hidden'){
     hiddenSinceIdx = Date.now();
+    dlog('화면 숨김');
   } else if(document.visibilityState==='visible'){
     const awayMs = hiddenSinceIdx ? (Date.now()-hiddenSinceIdx) : 0;
     hiddenSinceIdx = null;
+    dlog('화면 복귀 (뒤에 있던 시간 '+Math.round(awayMs/1000)+'초)');
     if(awayMs > 10000 && capacityChecked){
-      scheduleRecompute(); // 밀려있었을 수 있는 "차례됨" 소식을 즉시 다시 확인
+      startCatchUp(); // 밀려있었을 수 있는 "차례됨" 소식을 즉시 다시 확인 (이후 5분간 3초마다 반복)
     }
   }
 });
 
+// 폰이 뒤에 있다 돌아오면, 인터넷이 다시 살아나는 데 시간이 걸릴 수 있으므로 돌아온 뒤 5분 동안 3초마다 서버에 직접 물어봄
+let catchUpTimer = null, catchUpUntil = 0;
+function startCatchUp(){
+  if(!capacityChecked) return;
+  catchUpUntil = Date.now() + 5*60000;
+  scheduleRecompute();
+  if(catchUpTimer) return;
+  catchUpTimer = setInterval(function(){
+    if(!capacityChecked || Date.now() > catchUpUntil || document.visibilityState!=='visible'){ clearInterval(catchUpTimer); catchUpTimer = null; return; }
+    scheduleRecompute();
+  }, 3000);
+}
+// 대기 중인 손님은 화면이 켜져 있는 동안 계속 3초마다 서버에 직접 확인 (앱 내부 연결이 늦게 복구돼도 화면이 곧바로 따라잡도록)
+setInterval(function(){
+  if(capacityChecked && !hasFinishedShopping && amActive !== true && document.visibilityState==='visible') scheduleRecompute();
+}, 3000);
 // 화면이 다시 앞으로 오거나 인터넷이 다시 붙는 순간에도 곧바로 최신 상태를 확인 (여러 신호가 겹쳐도 한 번만 계산됨)
 ['focus','pageshow','online'].forEach(function(ev){
-  window.addEventListener(ev, function(){ if(capacityChecked) scheduleRecompute(); });
+  window.addEventListener(ev, function(){ dlog('이벤트 '+ev); startCatchUp(); });
 });
-document.addEventListener('resume', function(){ if(capacityChecked) scheduleRecompute(); });
+document.addEventListener('resume', function(){ dlog('이벤트 resume'); startCatchUp(); });
 
 // ── 큐(대기줄) 재계산 — 경쟁 없이, 모두가 같은 데이터를 보고 각자 독립적으로 계산만 함 ──
 let recomputeDebounceTimer=null;
@@ -694,9 +752,11 @@ async function fetchQueueFresh(){
     const timer = ctrl ? setTimeout(()=>ctrl.abort(), 4000) : null;
     const res = await fetch(firebaseConfig.databaseURL + '/queue.json', { cache:'no-store', signal: ctrl ? ctrl.signal : undefined });
     if(timer) clearTimeout(timer);
-    if(res.ok){ const q = await res.json(); return q || {}; }
-  }catch(e){ /* 실패하면 아래의 예전 방식 사용 */ }
+    if(res.ok){ const q = await res.json(); dlog('서버조회 OK 명단 '+Object.keys(q||{}).length+'명, 내 항목 '+((q && q[myClientId])?'있음':'없음')); return q || {}; }
+    dlog('서버조회 응답코드 '+res.status);
+  }catch(e){ dlog('서버조회 실패: '+(e && e.name ? e.name : e)); /* 실패하면 아래의 예전 방식 사용 */ }
   const snap = await db.ref('queue').once('value');
+  dlog('앱 내부 옛 명단 사용');
   return snap.val() || {};
 }
 function recomputeNow(){
@@ -707,13 +767,14 @@ function recomputeNow(){
     const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null){
       // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태이면 그대로 둠. 그 외(연결이 끊겨 서버가 내 항목을 지운 경우)에는 바로 다시 적어 넣음
-      if(capacityChecked && !hasFinishedShopping){ rejoinViaRest(q).then(ok=>{ if(ok) scheduleRecompute(); }); }
+      if(capacityChecked && !hasFinishedShopping){ dlog('내 항목 없음 → 재입장 시도'); rejoinViaRest(q).then(ok=>{ dlog('재입장 '+(ok?'성공':'실패')); if(ok){ scheduleRecompute(); kickSdkConnection(); } }); }
       return;
     }
     const entries = Object.entries(q);
     entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const winnerId = entries[0][0];
     const nowActive = (winnerId === myClientId);
+    dlog('계산: 1등='+(nowActive?'나':'남')+', 내 순번 '+entries.findIndex(e=>e[0]===myClientId));
     applyActiveState(nowActive);
     // 활성/대기 '상태' 자체는 안 바뀌어도, 대기 중이면 '몇 번째'는 매번 다시 계산해서 보여줌
     // (applyActiveState는 상태 전환이 없으면 조기 종료하므로, 순번 텍스트는 여기서 별도로 항상 갱신)
@@ -796,12 +857,26 @@ async function rejoinViaRest(q){
     const data = buildEntryData(q, false);
     if(data.ts === 'SERVER') data.ts = {'.sv':'timestamp'};
     const res = await fetch(firebaseConfig.databaseURL + '/queue/' + myClientId + '.json', { method:'PATCH', body: JSON.stringify(data) });
+    dlog('재입장 응답코드 '+res.status);
     return res.ok;
-  }catch(e){ console.warn('[재입장 실패]', e); return false; }
+  }catch(e){ dlog('재입장 오류: '+(e && e.name ? e.name : e)); console.warn('[재입장 실패]', e); return false; }
   finally{ rejoining = false; }
+}
+// 서버가 내 항목을 지웠다는 것은 앱 내부 연결이 이미 끊겼다는 뜻이므로, 복구를 기다리지 말고 곧바로 연결을 새로 맺음
+// (연결이 늦게 복구되도록 하는 대기시간을 없애고, 창을 닫을 때 항목이 자동으로 지워지는 장치도 새 연결에 다시 걸림)
+let lastKickAt = 0;
+function kickSdkConnection(){
+  if(Date.now() - lastKickAt < 30000) return;
+  lastKickAt = Date.now();
+  try{
+    dlog('앱 내부 연결 새로 맺기');
+    db.goOffline();
+    setTimeout(function(){ try{ db.goOnline(); }catch(e){} }, 300);
+  }catch(e){}
 }
 db.ref('.info/connected').on('value', async snap=>{
   if(!snap.val()) return;
+  if(hasFinishedShopping) return; // 쇼핑 종료한 손님은 연결이 잠깐 끊겼다 돌아와도 자동으로 다시 명단에 들어가지 않음 ([연결] 버튼을 눌러야 재입장)
   const ok = await registerPresenceWithCapacityCheck();
   if(!ok) return;
   if(!capacityChecked){ capacityChecked=true; connCam(); scheduleRecompute(); setupFcmToken(); } // 인원 확인을 통과한 손님만 카메라 연결 + 활성상태 계산 시작
@@ -1452,6 +1527,7 @@ function speakTurn(){
 const _origApplyActiveState = applyActiveState;
 applyActiveState = function(nowActive){
   const wasWaiting = (amActive === false);
+  if(nowActive !== amActive) dlog('상태 변경: '+amActive+' → '+nowActive);
   _origApplyActiveState(nowActive);
   if(wasWaiting && nowActive === true) speakTurn();
 };
@@ -1496,6 +1572,9 @@ function showNotifyHintBanner(){
   el.classList.add('show');
   setTimeout(()=>{ el.classList.remove('show'); }, 15000);
 }
+db.ref('.info/connected').on('value', function(s){ dlog('앱 내부 연결 '+(s.val()?'ON':'OFF')); });
+initDebugPanel();
+dlog('화면 열림 '+APP_VERSION+' ('+document.visibilityState+')');
 renderMenu();
 renderCamMenuOverlay();
 </script>
