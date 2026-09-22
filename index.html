@@ -364,10 +364,10 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <p class="sec-title">📋 이용 안내</p>
   <div class="url-box"><div class="url-txt">🔗 iyzoo44-design.github.io/hikvision-web/</div><p>이 주소가 빵집 전용 쇼핑 주소예요.</p><button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button><button class="copy-btn" onclick="speakTurn()">🔊 음성 테스트</button></div>
   <div class="guide-card"><h3>📱 이용 방법</h3><ul><li>① 앱 열면 카메라 자동 연결</li><li>② 빨간 화살표를 드래그해서 상품 지정</li><li>③ PTZ 버튼으로 카메라 방향 조절</li><li>④ [통화 연결] 눌러서 점원과 직접 대화</li><li>⑤ 결제 → 배달 받기 🚚</li></ul></div>
-  <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
+  <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0921d</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0921f</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -412,7 +412,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0921d';
+const APP_VERSION = 'v0921f';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
@@ -568,7 +568,7 @@ function updateWaitRankDisplay(){
     const entries = Object.entries(q);
     entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const myIdx = entries.findIndex(e=>e[0]===myClientId); // 0=활성, 1=대기1번째, 2=대기2번째
-    if(myIdx>0) badge.textContent = `🙋 대기 순번 ${myIdx}번째 · 화면만 함께 보실 수 있어요`;
+    if(myIdx>0) badge.innerHTML = waitBadgeHtml(myIdx);
   }).catch(()=>{});
 }
 
@@ -781,7 +781,7 @@ function recomputeNow(){
     if(!nowActive){
       const myIdx = entries.findIndex(e=>e[0]===myClientId);
       const badge=document.getElementById('waitBadge');
-      if(badge) badge.textContent = `🙋 대기 순번 ${myIdx}번째 · 화면만 함께 보실 수 있어요`;
+      if(badge) badge.innerHTML = waitBadgeHtml(myIdx);
     }
   }).catch(e=>console.error('[큐 계산 실패]', e));
 }
@@ -1524,12 +1524,19 @@ function speakTurn(){
     window.speechSynthesis.speak(u);
   }catch(e){ console.warn('[음성안내] 실패:', e); }
 }
+let pendingSpeak = false;  // 화면이 뒤에 있는 동안 차례가 돼서 아직 못 들려준 음성이 있는지
+let speakAttempts = 0;     // 같은 차례에 대해 음성을 시도한 횟수 (무한 반복 방지)
 const _origApplyActiveState = applyActiveState;
 applyActiveState = function(nowActive){
   const wasWaiting = (amActive === false);
   if(nowActive !== amActive) dlog('상태 변경: '+amActive+' → '+nowActive);
   _origApplyActiveState(nowActive);
-  if(wasWaiting && nowActive === true) speakTurn();
+  if(wasWaiting && nowActive === true){
+    speakAttempts = 0;
+    // 폰 브라우저는 화면이 꺼져 있거나 뒤에 있으면 음성을 재생하지 못하고 그대로 잃어버림 → 화면이 앞으로 올 때까지 미뤄 둠
+    if(document.visibilityState === 'visible'){ speakAttempts++; speakTurn(); }
+    else { pendingSpeak = true; dlog('음성은 화면이 앞으로 올 때 재생 예정'); }
+  }
 };
   // ── 음성 안내 보강 (앞에 있는 같은 이름 함수를 덮어씀) ──
 function unlockSpeech(){
@@ -1542,21 +1549,40 @@ function unlockSpeech(){
   }catch(e){}
 }
 document.addEventListener('touchend', unlockSpeech, {once:true, passive:true});
+let voiceStarted = false;
 function speakTurn(){
   try{
-    if(!('speechSynthesis' in window)){ toast('⚠️ 이 폰은 음성 안내를 지원하지 않아요'); return; }
+    if(!('speechSynthesis' in window)){ dlog('이 폰은 음성 안내 미지원'); return; }
     const synth = window.speechSynthesis;
-    synth.resume();
+    voiceStarted = false;
+    try{ synth.cancel(); }catch(e){}   // 뒤에 밀려 있던 옛 음성이 있으면 비워 줌
+    try{ synth.resume(); }catch(e){}
     const u = new SpeechSynthesisUtterance('행복한 빵집입니다. 지금 쇼핑하실 차례예요. 화면을 확인해 주세요.');
     u.lang = 'ko-KR';
     u.volume = 1;
     const ko = synth.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
     if(ko) u.voice = ko;
-    u.onerror = function(e){ toast('⚠️ 음성 오류: ' + (e && e.error ? e.error : '알 수 없음')); };
-    synth.speak(u);
-    toast('🔊 음성 안내 재생 시도');
-  }catch(e){ toast('⚠️ 음성 안내 실패'); }
+    u.onstart = function(){ voiceStarted = true; dlog('음성 재생 시작'); };
+    u.onerror = function(e){ dlog('음성 오류: '+(e && e.error ? e.error : '알 수 없음')); if(e && e.error==='not-allowed') pendingSpeak = true; };
+    setTimeout(function(){ try{ synth.speak(u); }catch(e){} }, 120);
+    // 2초 안에 시작하지 않으면 화면을 다음에 터치할 때 다시 시도
+    setTimeout(function(){ if(!voiceStarted){ pendingSpeak = true; dlog('음성이 시작되지 않음 → 터치할 때 다시 시도'); } }, 2000);
+  }catch(e){ dlog('음성 안내 실패'); }
 }
+// 미뤄 둔 음성이 있으면, 화면이 앞으로 오거나 손님이 화면을 만지는 순간에 재생 (한 차례당 최대 3번)
+function trySpeakPending(){
+  if(!pendingSpeak || amActive !== true || document.visibilityState !== 'visible') return;
+  pendingSpeak = false;
+  if(speakAttempts >= 3) return;
+  speakAttempts++;
+  speakTurn();
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') setTimeout(trySpeakPending, 400); });
+window.addEventListener('pageshow', function(){ setTimeout(trySpeakPending, 400); });
+window.addEventListener('focus', function(){ setTimeout(trySpeakPending, 400); });
+document.addEventListener('touchend', function(){ setTimeout(trySpeakPending, 50); }, {passive:true});
+document.addEventListener('click', function(){ setTimeout(trySpeakPending, 50); });
+
 // ── 대기 안내 배너 (알림 소리의 뜻을 미리 알려줌, 앞의 같은 이름 함수를 덮어씀) ──
 function showNotifyHintBanner(){
   if(hasFinishedShopping){ notifyHintShown = false; return; } // 쇼핑 종료 화면에서는 대기 안내를 띄우지 않음
@@ -1567,11 +1593,36 @@ function showNotifyHintBanner(){
   const needAllow = ('Notification' in window) && Notification.permission!=='granted';
   el.innerHTML = '<b>🔔 대기 중이에요</b><br>'
     + (needAllow ? '① 방금 뜬 "허용"을 눌러주세요<br>' : '')
-    + '차례가 되면 <b>알림 소리와 진동</b>이 나요.<br>그때 사이트를 열어 주세요.<br>'
-    + '<span style="font-size:.68rem;opacity:.75;">화면이 아직 "대기"로 보여도 잠시 기다리면 바뀌어요<br>자세한 설정은 하단 "안내"에서 확인하세요</span>';
+    + '차례가 되면 <b>알림 소리와 진동</b>이 나요.<br>소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b><br>"행복한 빵집" 알림을 눌러 주세요.<br>'
+    + '<span style="font-size:.68rem;opacity:.8;">💡 이 화면을 켜 둔 채 기다리시면 음성으로도 알려드려요<br>자세한 설정은 하단 "안내"에서 확인하세요</span>';
   el.classList.add('show');
   setTimeout(()=>{ el.classList.remove('show'); }, 15000);
 }
+// 대기 순번 알약 문구 (2줄)
+function waitBadgeHtml(idx){
+  return '🙋 대기 순번 '+idx+'번째 · 화면만 함께 보실 수 있어요'
+    + '<br><span style="font-size:.58rem;font-weight:500;opacity:.85;">🔔 차례가 되면 알림 소리·진동이 와요<br>이 화면을 켜 둔 채 기다리면 음성으로도 알려드려요</span>';
+}
+// ── 대기 중인 손님이 이 화면을 보고 있는 동안에는 폰 화면이 저절로 꺼지지 않게 함 (Wake Lock) ──
+// 손님이 화면을 켜 둔 채 기다리면 검은 화면에서 알림 소리에만 의존하지 않아도 되고, 차례가 되면 음성·화면 안내가 바로 나옴
+let wakeLockSentinel = null, wakeLockRetryAt = 0;
+async function updateWakeLock(){
+  try{
+    if(!('wakeLock' in navigator)) return;
+    const need = capacityChecked && !hasFinishedShopping && amActive === false && document.visibilityState === 'visible';
+    if(need && !wakeLockSentinel && Date.now() >= wakeLockRetryAt){
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', function(){ wakeLockSentinel = null; });
+      dlog('화면 켜 두기 켬');
+    } else if(!need && wakeLockSentinel){
+      const s = wakeLockSentinel; wakeLockSentinel = null;
+      await s.release();
+      dlog('화면 켜 두기 끔');
+    }
+  }catch(e){ wakeLockRetryAt = Date.now() + 30000; dlog('화면 켜 두기 실패: '+(e && e.name ? e.name : e)); } // 폰이 허용하지 않으면 30초 뒤에 다시 시도
+}
+setInterval(updateWakeLock, 2000);
+document.addEventListener('visibilitychange', updateWakeLock);
 db.ref('.info/connected').on('value', function(s){ dlog('앱 내부 연결 '+(s.val()?'ON':'OFF')); });
 initDebugPanel();
 dlog('화면 열림 '+APP_VERSION+' ('+document.visibilityState+')');
