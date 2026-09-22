@@ -367,7 +367,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0921f</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922a</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -412,7 +412,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0921f';
+const APP_VERSION = 'v0922a';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
@@ -726,10 +726,9 @@ function startCatchUp(){
     scheduleRecompute();
   }, 3000);
 }
-// 대기 중인 손님은 화면이 켜져 있는 동안 계속 3초마다 서버에 직접 확인 (앱 내부 연결이 늦게 복구돼도 화면이 곧바로 따라잡도록)
-setInterval(function(){
-  if(capacityChecked && !hasFinishedShopping && amActive !== true && document.visibilityState==='visible') scheduleRecompute();
-}, 3000);
+// (2026-09-22: 이 자리에 있던 "대기 중 계속 3초마다 확인" 반복 확인은 의도와 다르게 훨씬 더 자주 실행되어
+//  서버에 요청이 몰리는 문제를 일으켜 제거함. 아래 startCatchUp()이 화면이 앞으로 올 때마다 5분간 3초 간격으로
+//  안전하게 확인하므로 이것으로 충분함.)
 // 화면이 다시 앞으로 오거나 인터넷이 다시 붙는 순간에도 곧바로 최신 상태를 확인 (여러 신호가 겹쳐도 한 번만 계산됨)
 ['focus','pageshow','online'].forEach(function(ev){
   window.addEventListener(ev, function(){ dlog('이벤트 '+ev); startCatchUp(); });
@@ -767,7 +766,7 @@ function recomputeNow(){
     const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null){
       // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태이면 그대로 둠. 그 외(연결이 끊겨 서버가 내 항목을 지운 경우)에는 바로 다시 적어 넣음
-      if(capacityChecked && !hasFinishedShopping){ dlog('내 항목 없음 → 재입장 시도'); rejoinViaRest(q).then(ok=>{ dlog('재입장 '+(ok?'성공':'실패')); if(ok){ scheduleRecompute(); kickSdkConnection(); } }); }
+      if(capacityChecked && !hasFinishedShopping){ dlog('내 항목 없음 → 재입장 시도'); rejoinViaRest(q).then(ok=>{ dlog('재입장 '+(ok?'성공':'실패')); if(ok){ rearmOnDisconnect(); scheduleRecompute(); } }); }
       return;
     }
     const entries = Object.entries(q);
@@ -862,17 +861,11 @@ async function rejoinViaRest(q){
   }catch(e){ dlog('재입장 오류: '+(e && e.name ? e.name : e)); console.warn('[재입장 실패]', e); return false; }
   finally{ rejoining = false; }
 }
-// 서버가 내 항목을 지웠다는 것은 앱 내부 연결이 이미 끊겼다는 뜻이므로, 복구를 기다리지 말고 곧바로 연결을 새로 맺음
-// (연결이 늦게 복구되도록 하는 대기시간을 없애고, 창을 닫을 때 항목이 자동으로 지워지는 장치도 새 연결에 다시 걸림)
-let lastKickAt = 0;
-function kickSdkConnection(){
-  if(Date.now() - lastKickAt < 30000) return;
-  lastKickAt = Date.now();
-  try{
-    dlog('앱 내부 연결 새로 맺기');
-    db.goOffline();
-    setTimeout(function(){ try{ db.goOnline(); }catch(e){} }, 300);
-  }catch(e){}
+// (2026-09-22: 여기 있던 "연결을 강제로 끊었다 다시 붙이기"는 연결을 끊는 순간 그 연결에 걸려 있던
+//  onDisconnect(자동 삭제) 장치가 즉시 발동해 방금 되살린 명단 항목을 다시 지워버리는 심각한 부작용이 있어 제거함.
+//  대신 재입장 뒤에는 onDisconnect만 다시 걸어 두어, 이후 진짜로 연결이 끊길 때만 정상적으로 지워지게 함.)
+function rearmOnDisconnect(){
+  try{ myQueueRef.onDisconnect().remove(); }catch(e){}
 }
 db.ref('.info/connected').on('value', async snap=>{
   if(!snap.val()) return;
