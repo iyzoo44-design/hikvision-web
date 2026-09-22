@@ -367,7 +367,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922c</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922e</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -412,7 +412,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0922c';
+const APP_VERSION = 'v0922e';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
@@ -563,10 +563,7 @@ function updateWaitRankDisplay(){
   if(!badge) return;
   db.ref('queue').once('value').then(snap=>{
     const q = snap.val() || {};
-    const myTs = q[myClientId] && q[myClientId].ts;
-    if(myTs==null) return;
-    const entries = Object.entries(q);
-    entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
+    const entries = liveEntries(q);
     const myIdx = entries.findIndex(e=>e[0]===myClientId); // 0=활성, 1=대기1번째, 2=대기2번째
     if(myIdx>0) badge.innerHTML = waitBadgeHtml(myIdx);
   }).catch(()=>{});
@@ -629,7 +626,8 @@ function stopIdleWatcher(){
 // → 그 즉시 모두가 같은 목록을 다시 계산하게 되고, 자동으로 다음 사람이 활성이 됨
 function yieldTurn(){
   // yieldedAt: 스스로 차례를 넘겨 뒤로 간 손님이라는 표시 (ts와 같은 서버시각이 찍힘)
-  myQueueRef.update({ ts: firebase.database.ServerValue.TIMESTAMP, yieldedAt: firebase.database.ServerValue.TIMESTAMP, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
+  try{ sessionStorage.removeItem('dongneTs'); }catch(e){} // 넘긴 뒤에는 예전(앞쪽) 번호표로 되돌아가지 않게 함
+  myQueueRef.update({ ts: firebase.database.ServerValue.TIMESTAMP, yieldedAt: firebase.database.ServerValue.TIMESTAMP, activeAt: null, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
 }
 
 let notifyHintShown = false; // 세션당 한 번만 보여주기 위한 플래그
@@ -746,19 +744,57 @@ function scheduleRecompute(){
 // 폰이 오래 뒤로 물러나 있으면 앱 안의 실시간 연결이 죽어서 '옛 명단'을 들고 있을 수 있음(알림은 서버가 보내므로 오지만 화면은 아직 대기로 보임).
 // 그래서 서버에 인터넷(REST)으로 직접 물어봐서 최신 명단을 읽고, 실패하면 예전 방식으로 되돌아감.
 let recomputeSeq = 0;
+const freshQueues = new WeakSet(); // 서버에서 방금 받은 명단인지(앱 내부 옛 명단이 아닌지) 표시
 async function fetchQueueFresh(){
   try{
     const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
     const timer = ctrl ? setTimeout(()=>ctrl.abort(), 4000) : null;
     const res = await fetch(firebaseConfig.databaseURL + '/queue.json', { cache:'no-store', signal: ctrl ? ctrl.signal : undefined });
     if(timer) clearTimeout(timer);
-    if(res.ok){ const q = await res.json(); dlog('서버조회 OK 명단 '+Object.keys(q||{}).length+'명, 내 항목 '+((q && q[myClientId])?'있음':'없음')); return q || {}; }
+    if(res.ok){ const q = await res.json(); dlog('서버조회 OK 명단 '+Object.keys(q||{}).length+'명, 내 항목 '+((q && q[myClientId])?'있음':'없음')); const out = q || {}; freshQueues.add(out); return out; }
     dlog('서버조회 응답코드 '+res.status);
   }catch(e){ dlog('서버조회 실패: '+(e && e.name ? e.name : e)); /* 실패하면 아래의 예전 방식 사용 */ }
   const snap = await db.ref('queue').once('value');
   dlog('앱 내부 옛 명단 사용');
   return snap.val() || {};
 }
+// ── 차례 판단 규칙 (2026-09-22) ──
+// 1) 쇼핑 종료로 나가는 손님(leftAt 표시)과 번호표 없는 항목은 순서에서 뺀다.
+// 2) 내 앞사람이 "쇼핑 종료"나 "차례 넘김" 없이 갑자기 사라졌다면(폰을 다시 켜는 순간 연결이 바뀌며 잠깐 지워지는 경우가 대부분),
+//    곧바로 차례를 가져가지 않고 HOLD_MS 동안 그 사람이 돌아오는지 기다린다. → 두 기기가 동시에 "차례"라고 말하는 문제 방지
+const HOLD_MS = 25000;
+function liveEntries(q){
+  const out = [];
+  Object.keys(q||{}).forEach(function(id){
+    const e = q[id];
+    if(!e || typeof e.ts !== 'number') return;
+    if(typeof e.leftAt === 'number') return;
+    out.push([id, e]);
+  });
+  out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
+  return out;
+}
+// q: 지금 명단, prevQ: 직전에 본 명단, hold: {ids, until} 또는 null, isActive: 지금 내가 활성인지
+function computeTurn(q, me, prevQ, hold, isActive, now){
+  const entries = liveEntries(q);
+  const idx = entries.findIndex(e=>e[0]===me);
+  if(idx < 0) return { idx: -1, nowActive: false, hold: null, entries: entries };
+  const iAmFirst = (idx === 0);
+  if(!iAmFirst || isActive === true) return { idx: idx, nowActive: iAmFirst, hold: null, entries: entries };
+  let h = hold;
+  if(!h && prevQ){
+    const prevLive = liveEntries(prevQ);
+    const myPrevIdx = prevLive.findIndex(e=>e[0]===me);
+    const aheadBefore = myPrevIdx > 0 ? prevLive.slice(0, myPrevIdx).map(e=>e[0]) : [];
+    const vanished = aheadBefore.filter(id=> !(q && q[id])); // 쇼핑 종료(leftAt) 없이 명단에서 사라진 앞사람
+    if(vanished.length) h = { ids: vanished, until: now + HOLD_MS };
+  }
+  if(h && now < h.until) return { idx: idx, nowActive: false, hold: h, entries: entries, holding: true };
+  return { idx: idx, nowActive: true, hold: null, entries: entries };
+}
+let prevQueueSnap = null, prevQueueSnapAt = 0, turnHold = null, lastHiddenAt = 0;
+// 내가 화면을 떠나 있었다면 직전 명단은 오래된 정보이므로 "갑자기 사라졌다" 판단에 쓰지 않음 (돌아온 손님이 괜히 기다리지 않게)
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') lastHiddenAt = Date.now(); });
 function recomputeNow(){
   if(!capacityChecked) return; // 인원초과로 막힌 손님은 계산 자체에 참여 안 함
   const seq = ++recomputeSeq;
@@ -770,18 +806,24 @@ function recomputeNow(){
       if(capacityChecked && !hasFinishedShopping){ dlog('내 항목 없음 → 재입장 시도'); rejoinViaRest(q).then(ok=>{ dlog('재입장 '+(ok?'성공':'실패')); if(ok){ rearmOnDisconnect(); scheduleRecompute(); } }); }
       return;
     }
-    const entries = Object.entries(q);
-    entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
-    const winnerId = entries[0][0];
-    const nowActive = (winnerId === myClientId);
-    dlog('계산: 1등='+(nowActive?'나':'남')+', 내 순번 '+entries.findIndex(e=>e[0]===myClientId));
+    const hadHold = !!turnHold;
+    const fresh = freshQueues.has(q); // 앱 내부 옛 명단으로 계산한 결과는 "갑자기 사라짐" 판단에 쓰지 않음
+    const usePrev = (fresh && prevQueueSnap && !(lastHiddenAt >= prevQueueSnapAt)) ? prevQueueSnap : null;
+    const r = computeTurn(q, myClientId, usePrev, turnHold, amActive, Date.now());
+    if(fresh){ prevQueueSnap = q; prevQueueSnapAt = Date.now(); }
+    turnHold = r.hold;
+    if(r.holding && !hadHold){ dlog('앞사람이 갑자기 사라짐 → '+Math.round(HOLD_MS/1000)+'초 동안 돌아오는지 기다림'); setTimeout(scheduleRecompute, HOLD_MS + 300); }
+    if(r.idx < 0) return;
+    const entries = r.entries;
+    const nowActive = r.nowActive;
+    dlog('계산: 1등='+(r.idx===0?'나':'남')+', 내 순번 '+r.idx+(r.holding?' (확인 대기 중)':''));
     applyActiveState(nowActive);
     // 활성/대기 '상태' 자체는 안 바뀌어도, 대기 중이면 '몇 번째'는 매번 다시 계산해서 보여줌
     // (applyActiveState는 상태 전환이 없으면 조기 종료하므로, 순번 텍스트는 여기서 별도로 항상 갱신)
     if(!nowActive){
       const myIdx = entries.findIndex(e=>e[0]===myClientId);
       const badge=document.getElementById('waitBadge');
-      if(badge) badge.innerHTML = waitBadgeHtml(myIdx);
+      if(badge) badge.innerHTML = r.holding ? '⏳ 곧 차례예요 · 앞 손님 확인 중 (최대 25초)' : waitBadgeHtml(myIdx);
     }
   }).catch(e=>console.error('[큐 계산 실패]', e));
 }
@@ -808,17 +850,21 @@ function buildEntryData(q, exists){
     device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
     joinedAt: new Date().toLocaleString('ko-KR')
   };
-  if(exists) return data; // 명단에 이미 있는 경우에는 번호표(ts)를 건드리지 않음 (예전에는 여기서 매번 새 번호표를 뽑아 맨 뒤로 밀렸음)
+  if(exists){ data.leftAt = null; return data; } // 명단에 이미 있는 경우에는 번호표(ts)를 건드리지 않음 (예전에는 여기서 매번 새 번호표를 뽑아 맨 뒤로 밀렸음)
   // 명단에 내 이름이 없는 상태 = 처음 왔거나, 연결이 끊겼다 돌아온 경우
   let othersFirstTs = null, othersFirstId = null; // 지금 이용 중인(가장 빠른) 다른 손님
   Object.keys(q).forEach(function(id){
     if(id===myClientId) return;
     const t = q[id] && q[id].ts;
+    if(q[id] && typeof q[id].leftAt==='number') return;
     if(typeof t==='number' && (othersFirstTs===null || t<othersFirstTs)){ othersFirstTs = t; othersFirstId = id; }
   });
   // 앞사람이 3분 무조작으로 스스로 차례를 넘긴 사람이면(ts===yieldedAt), 그 사람은 이미 뒤로 간 것이므로
   // 되돌아온 내가 그 뒤로 밀려나면 안 됨 → 이 경우에는 원래 번호표를 그대로 씀
   const firstYielded = othersFirstId && q[othersFirstId] && typeof q[othersFirstId].yieldedAt==='number' && q[othersFirstId].yieldedAt === q[othersFirstId].ts;
+  // 실제로 쇼핑 중인 사람 = 차례를 받은 지 10초가 지난 사람. 이미 "차례예요" 안내를 들은 사람의 차례는 빼앗지 않음
+  // (10초 안에는 아직 안내 직후라, 원래 앞이던 손님이 곧바로 돌아오면 그 손님에게 양보)
+  const firstShopping = othersFirstId && q[othersFirstId] && typeof q[othersFirstId].activeAt==='number' && ((Date.now() + serverTimeOffset) - q[othersFirstId].activeAt) > 10000;
   let savedTs = NaN, savedToken = null;
   try{ savedTs = parseInt(sessionStorage.getItem('dongneTs'), 10); savedToken = sessionStorage.getItem('dongneFcmToken'); }catch(e){}
   const serverNow = Date.now() + serverTimeOffset;
@@ -826,7 +872,7 @@ function buildEntryData(q, exists){
   if(restorable){
     let ts = savedTs;
     // 돌아온 손님이 지금 쇼핑 중인 손님을 밀어내면 안 되므로, 이용 중인 사람 바로 뒤까지만 앞당김
-    if(othersFirstTs!==null && ts <= othersFirstTs && !firstYielded) ts = othersFirstTs + 1;
+    if(othersFirstTs!==null && ts <= othersFirstTs && firstShopping && !firstYielded) ts = othersFirstTs + 1;
     dlog('재입장 자리: '+(ts===savedTs?'원래 번호표 그대로':'이용 중인 사람 바로 뒤')+(firstYielded?' (앞사람은 차례를 넘긴 사람)':''));
     data.ts = ts;
   } else {
@@ -839,8 +885,8 @@ async function registerPresenceWithCapacityCheck(){
   let exists = false, q = {};
   try{
     q = await fetchQueueFresh(); // 앱 안의 옛 정보가 아니라 서버의 최신 명단으로 판단
-    exists = q[myClientId] != null;
-    if(!exists && Object.keys(q).length >= MAX_CONCURRENT_VIEWERS){
+    exists = !!(q[myClientId] && typeof q[myClientId].ts === 'number');
+    if(!exists && liveEntries(q).length >= MAX_CONCURRENT_VIEWERS){
       showCapacityBlock();
       return false;
     }
@@ -1022,7 +1068,10 @@ function discCam(){
   amActive=null; setControlsEnabled(false); stopIdleWatcher(); // null(미확정)로 두어야, 재입장 후 다음 계산에서 '상태 안 바뀜'으로 오인되어 배지 재생성이 생략되는 일이 없음
   const wb=document.getElementById('waitBadge'); if(wb) wb.remove(); // 큐를 완전히 나가는 것이므로 '대기 순번' 표시는 더 이상 의미없음 → 숨김
   console.log('[쇼핑종료-상단버튼] myClientId:', myClientId, '/ 큐 이탈 시도 중...');
-  myQueueRef.remove()
+  myQueueRef.update({ leftAt: firebase.database.ServerValue.TIMESTAMP, activeAt: null })
+    .catch(function(){})
+    .then(function(){ return new Promise(function(res){ setTimeout(res, 1500); }); })
+    .then(function(){ if(hasFinishedShopping) return myQueueRef.remove(); })
     .then(()=>console.log('[쇼핑종료-상단버튼] 큐 이탈 성공'))
     .catch(e=>console.error('[쇼핑종료-상단버튼] 큐 이탈 실패:', e));
 }
@@ -1543,7 +1592,12 @@ const _origApplyActiveState = applyActiveState;
 applyActiveState = function(nowActive){
   const wasWaiting = (amActive === false);
   if(nowActive !== amActive) dlog('상태 변경: '+amActive+' → '+nowActive);
+  const wasActive = (amActive === true);
   _origApplyActiveState(nowActive);
+  try{
+    if(nowActive === true && !wasActive) myQueueRef.update({ activeAt: firebase.database.ServerValue.TIMESTAMP, yieldedAt: null });
+    if(nowActive === false && wasActive) myQueueRef.update({ activeAt: null });
+  }catch(e){}
   if(wasWaiting && nowActive === true){
     speakAttempts = 0;
     turnFallbackDone = false;
