@@ -367,7 +367,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922b</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922c</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -412,7 +412,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0922b';
+const APP_VERSION = 'v0922c';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
@@ -1522,6 +1522,21 @@ function speakTurn(){
     window.speechSynthesis.speak(u);
   }catch(e){ console.warn('[음성안내] 실패:', e); }
 }
+let turnFallbackDone = false; // 이번 차례에 대체 알림(시스템 알림 소리)을 이미 보냈는지
+// 음성이 막히거나 안 나올 때, 윈도우/폰의 시스템 알림(알림음 포함)으로 대신 알려줌 (한 차례에 한 번만)
+function turnAlertFallback(){
+  if(turnFallbackDone || amActive !== true) return;
+  turnFallbackDone = true;
+  if(!('Notification' in window) || Notification.permission !== 'granted'){ dlog('대체 알림 불가 (알림 권한 없음)'); return; }
+  const title = '✅ 지금 쇼핑하실 차례예요!';
+  const opts = { body: '행복한 빵집 — 지금부터 이용하실 수 있어요', tag: 'dongne-turn', renotify: true, vibrate: [300,150,300] };
+  const viaSW = (navigator.serviceWorker && navigator.serviceWorker.getRegistration) ? navigator.serviceWorker.getRegistration() : Promise.resolve(null);
+  viaSW.then(function(reg){
+    if(reg) return reg.showNotification(title, opts);
+    new Notification(title, opts);
+  }).then(function(){ dlog('대체 알림(알림음) 보냄'); })
+    .catch(function(){ try{ new Notification(title, opts); dlog('대체 알림(알림음) 보냄'); }catch(e){ dlog('대체 알림 실패'); } });
+}
 let pendingSpeak = false;  // 화면이 뒤에 있는 동안 차례가 돼서 아직 못 들려준 음성이 있는지
 let speakAttempts = 0;     // 같은 차례에 대해 음성을 시도한 횟수 (무한 반복 방지)
 const _origApplyActiveState = applyActiveState;
@@ -1531,6 +1546,12 @@ applyActiveState = function(nowActive){
   _origApplyActiveState(nowActive);
   if(wasWaiting && nowActive === true){
     speakAttempts = 0;
+    turnFallbackDone = false;
+    // 이 화면을 한 번도 누르지 않은 경우(PC에서 비번만 치고 기다린 손님 등) 브라우저가 음성을 막으므로, 곧바로 시스템 알림 소리로 알림
+    if(document.visibilityState === 'visible' && navigator.userActivation && !navigator.userActivation.hasBeenActive){
+      dlog('화면을 누른 적 없음 → 시스템 알림 소리로 대신 알림');
+      turnAlertFallback();
+    }
     // 폰 브라우저는 화면이 꺼져 있거나 뒤에 있으면 음성을 재생하지 못하고 그대로 잃어버림 → 화면이 앞으로 올 때까지 미뤄 둠
     if(document.visibilityState === 'visible'){ speakAttempts++; speakTurn(); }
     else { pendingSpeak = true; dlog('음성은 화면이 앞으로 올 때 재생 예정'); }
@@ -1561,10 +1582,10 @@ function speakTurn(){
     const ko = synth.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
     if(ko) u.voice = ko;
     u.onstart = function(){ voiceStarted = true; dlog('음성 재생 시작'); };
-    u.onerror = function(e){ dlog('음성 오류: '+(e && e.error ? e.error : '알 수 없음')); if(e && e.error==='not-allowed') pendingSpeak = true; };
+    u.onerror = function(e){ dlog('음성 오류: '+(e && e.error ? e.error : '알 수 없음')); if(e && e.error==='not-allowed'){ pendingSpeak = true; turnAlertFallback(); } };
     setTimeout(function(){ try{ synth.speak(u); }catch(e){} }, 120);
     // 2초 안에 시작하지 않으면 화면을 다음에 터치할 때 다시 시도
-    setTimeout(function(){ if(!voiceStarted){ pendingSpeak = true; dlog('음성이 시작되지 않음 → 터치할 때 다시 시도'); } }, 2000);
+    setTimeout(function(){ if(!voiceStarted){ pendingSpeak = true; dlog('음성이 시작되지 않음 → 알림음으로 대신 알리고, 터치할 때 다시 시도'); if(document.visibilityState==='visible') turnAlertFallback(); } }, 2000);
   }catch(e){ dlog('음성 안내 실패'); }
 }
 // 미뤄 둔 음성이 있으면, 화면이 앞으로 오거나 손님이 화면을 만지는 순간에 재생 (한 차례당 최대 3번)
@@ -1598,7 +1619,9 @@ function showNotifyHintBanner(){
 }
 // 대기 순번 알약 문구 (2줄)
 function waitBadgeHtml(idx){
-  return '🙋 대기 순번 '+idx+'번째 · 화면만 함께 보실 수 있어요'
+  const needTap = navigator.userActivation && !navigator.userActivation.hasBeenActive;
+  const tapBtn = needTap ? '<br><button onclick="event.stopPropagation(); unlockSpeech(); this.remove();" style="margin-top:4px;padding:4px 12px;border:none;border-radius:12px;background:#D2691E;color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">🔊 차례 소리 켜기 (한 번 눌러주세요)</button>' : '';
+  return '🙋 대기 순번 '+idx+'번째 · 화면만 함께 보실 수 있어요' + tapBtn
     + '<br><span style="font-size:.58rem;font-weight:500;opacity:.85;">🔔 차례가 되면 알림 소리·진동이 와요<br>이 화면을 켜 둔 채 기다리면 음성으로도 알려드려요</span>';
 }
 // ── 대기 중인 손님이 이 화면을 보고 있는 동안에는 폰 화면이 저절로 꺼지지 않게 함 (Wake Lock) ──
