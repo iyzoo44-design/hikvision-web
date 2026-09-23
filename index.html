@@ -367,7 +367,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922g</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0923a</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -412,7 +412,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0922g';
+const APP_VERSION = 'v0923a';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
@@ -578,8 +578,37 @@ const MAX_SESSION_WARN_BEFORE_MS = 60000;
 let lastActivityTime = Date.now();
 let idleWarned = false;
 let idleCheckTimer = null;
-let activeSessionStartTime = 0;
 let maxSessionWarned = false;
+// ── 이용시간 계산 (2026-09-23) ──
+// 이 시스템은 "점원과 통화하면서 고르는" 방식이므로, 통화 중에는 최대 이용시간이 흐르지 않게 멈춤.
+// 점원이 연장해 주면(extraMs) 그만큼 더 쓸 수 있음.
+let sessionSpentMs = 0;      // 통화하지 않고 혼자 둘러본 시간의 합계
+let lastSessionTick = 0;
+let extraMs = 0;             // 점원이 늘려준 시간
+let lastPublishedPaused = null, lastPublishAt = 0;
+function sessionRemainMs(){ return (MAX_SESSION_MS + extraMs) - sessionSpentMs; }
+// 점원 화면이 "남은 시간"을 볼 수 있도록 알려줌 (통화 중이면 멈춤 표시)
+function publishSessionState(force){
+  if(amActive !== true) return;
+  const paused = !!onCall;
+  if(!force && paused === lastPublishedPaused && Date.now() - lastPublishAt < 30000) return;
+  lastPublishedPaused = paused; lastPublishAt = Date.now();
+  const data = { paused: paused ? true : null, endsAt: paused ? null : (Date.now() + serverTimeOffset + sessionRemainMs()), remainMs: sessionRemainMs() };
+  try{ myQueueRef.update(data); }catch(e){}
+}
+// 점원이 연장해 주면 즉시 반영
+myQueueRef.child('extraMs').on('value', function(s){
+  const v = s.val();
+  const n = (typeof v === 'number') ? v : 0;
+  if(n === extraMs) return;
+  const added = n - extraMs;
+  extraMs = n;
+  if(amActive === true && added > 0){
+    maxSessionWarned = false;
+    toast('🕗 점원이 ' + Math.round(added/60000) + '분 연장해 드렸어요');
+    publishSessionState(true);
+  }
+});
 
 function markActivity(){
   lastActivityTime = Date.now();
@@ -589,23 +618,28 @@ function markActivity(){
 function startIdleWatcher(){
   lastActivityTime = Date.now();
   idleWarned = false;
-  activeSessionStartTime = Date.now();
+  sessionSpentMs = 0;
+  lastSessionTick = Date.now();
   maxSessionWarned = false;
+  publishSessionState(true);
   if(idleCheckTimer) clearInterval(idleCheckTimer);
   idleCheckTimer = setInterval(()=>{
     if(!amActive) return;
-    const sessionElapsed = Date.now() - activeSessionStartTime;
-    if(MAX_SESSION_WARN_BEFORE_MS>0 && !maxSessionWarned && sessionElapsed >= (MAX_SESSION_MS - MAX_SESSION_WARN_BEFORE_MS)){
+    const now = Date.now();
+    if(!onCall) sessionSpentMs += (now - lastSessionTick); // 통화 중에는 이용시간이 흐르지 않음
+    lastSessionTick = now;
+    publishSessionState(false);
+    const remain = sessionRemainMs();
+    if(!onCall && MAX_SESSION_WARN_BEFORE_MS>0 && !maxSessionWarned && remain <= MAX_SESSION_WARN_BEFORE_MS){
       maxSessionWarned = true;
-      const minLeft = Math.ceil((MAX_SESSION_MS - sessionElapsed)/60000);
-      toast('⏰ 최대 이용시간이 곧 끝나요 (약 '+minLeft+'분 후 자동 종료)');
+      toast('⏰ 이용시간이 곧 끝나요 (약 '+Math.max(1,Math.ceil(remain/60000))+'분 남음 · 점원과 통화 중에는 시간이 멈춰요)');
     }
-    if(sessionElapsed >= MAX_SESSION_MS){
-      toast('⏰ 최대 이용시간(15분)이 지나 다음 고객에게 넘겼어요');
+    if(!onCall && remain <= 0){
+      toast('⏰ 이용시간이 다 되어 다음 고객에게 넘겼어요');
       yieldTurn();
       return;
     }
-    if(onCall){ lastActivityTime=Date.now(); idleWarned=false; return; }
+    if(onCall){ lastActivityTime=now; idleWarned=false; return; }
     const idleFor = Date.now() - lastActivityTime;
     if(IDLE_WARN_BEFORE_MS>0 && !idleWarned && idleFor >= (IDLE_TIMEOUT_MS - IDLE_WARN_BEFORE_MS)){
       idleWarned = true;

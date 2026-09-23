@@ -385,6 +385,14 @@ html,body{
 <button id="nextCustBtn" onclick="forceNextCustomer()" style="position:fixed;top:50px;left:10px;z-index:200;padding:8px 12px;border:none;border-radius:14px;background:rgba(184,134,11,.9);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.66rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);text-align:center;line-height:1.5;">🙋 다음 고객으로<br>넘기기</button>
 <div id="camOrderBadge" style="position:fixed;top:110px;left:10px;z-index:200;color:#FFD9A0;font-size:.68rem;font-weight:700;line-height:1.55;display:none;max-width:60%;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,1);"></div>
 
+<div id="sessionPanel" style="position:fixed;top:92px;left:10px;z-index:200;background:rgba(0,0,0,.6);color:#FFD9A0;padding:7px 10px;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;line-height:1.5;">
+  <div id="sessionInfo">손님 없음</div>
+  <div style="display:flex;gap:4px;margin-top:5px;">
+    <button onclick="extendCustomer(3)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+3분</button>
+    <button onclick="extendCustomer(5)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+5분</button>
+    <button onclick="extendCustomer(10)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+10분</button>
+  </div>
+</div>
 <div id="clock"></div>
 
 <!-- 하단 정보 -->
@@ -581,12 +589,45 @@ function isEarlierClient(tsA, cidA, tsB, cidB){
 }
 let lastKnownCustomerId = undefined; // undefined = 아직 아무도 관찰 안 함(점원 첫 접속)
 let latestQueue = {};
+// ── 고객 화면과 같은 규칙으로 "지금 쇼핑 중인 손님"을 고름 (2026-09-23) ──
+// leftAt: 쇼핑 종료하고 나가는 손님 / offlineAt: 연결이 끊겨 자리를 비운 손님
+const OFFLINE_KEEP_MS = 15*60000;
+const OFFLINE_FIRST_KEEP_MS = 180000;
+function liveQueueEntries(q){
+  const now = Date.now();
+  const out = [], stale = [];
+  Object.keys(q||{}).forEach(function(id){
+    const e = q[id];
+    if(!e || typeof e.ts !== 'number'){ if(e && typeof e.offlineAt==='number' && now - e.offlineAt > OFFLINE_KEEP_MS) stale.push(id); return; }
+    if(typeof e.leftAt === 'number'){ stale.push(id); return; }
+    if(typeof e.offlineAt === 'number' && now - e.offlineAt > OFFLINE_KEEP_MS){ stale.push(id); return; }
+    out.push([id, e]);
+  });
+  out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
+  while(out.length > 1){
+    const f = out[0][1];
+    if(typeof f.offlineAt === 'number' && now - f.offlineAt > OFFLINE_FIRST_KEEP_MS){ stale.push(out[0][0]); out.shift(); }
+    else break;
+  }
+  out.stale = stale;
+  return out;
+}
+// 손님이 아무도 접속해 있지 않을 때를 대비해, 점원 화면이 오래된 항목을 정리함
+const lastCleanAt = {};
+function cleanupStaleEntries(ids){
+  (ids||[]).forEach(function(id){
+    if(lastCleanAt[id] && Date.now() - lastCleanAt[id] < 30000) return;
+    lastCleanAt[id] = Date.now();
+    db.ref('queue/'+id).remove().catch(function(){});
+  });
+}
 db.ref('queue').on('value', snap=>{
   const q = snap.val() || {};
   latestQueue = q;
-  const entries = Object.entries(q);
+  const entries = liveQueueEntries(q);
+  cleanupStaleEntries(entries.stale);
+  updateSessionPanel();
   if(entries.length===0) return; // 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
-  entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
   const cid = entries[0][0];
   if(lastKnownCustomerId !== undefined && cid !== lastKnownCustomerId){
     applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
@@ -841,13 +882,54 @@ function endCall(){
 }
 function ptz(cmd){db.ref('ptz').set({cmd:cmd,t:Date.now()});}
 
+// ── 지금 쇼핑 중인 손님의 남은 시간 표시 + 점원 연장 ──
+function currentCustomerId(){
+  const entries = liveQueueEntries(latestQueue||{});
+  return entries.length ? entries[0][0] : null;
+}
+function updateSessionPanel(){
+  const el = document.getElementById('sessionInfo');
+  if(!el) return;
+  const entries = liveQueueEntries(latestQueue||{});
+  if(!entries.length){ el.innerHTML = '손님 없음'; return; }
+  const [cid, e] = entries[0];
+  const waiting = entries.length - 1;
+  const extraMin = e.extraMs ? Math.round(e.extraMs/60000) : 0;
+  let line;
+  if(e.paused === true){
+    line = '🟢 쇼핑 중 (통화 중 — 시간 멈춤)';
+  } else if(typeof e.endsAt === 'number'){
+    const left = Math.max(0, e.endsAt - Date.now());
+    const m = Math.floor(left/60000), s = Math.floor((left%60000)/1000);
+    line = '⏳ 남은 시간 ' + m + ':' + String(s).padStart(2,'0');
+  } else {
+    line = '🙂 손님 접속 중';
+  }
+  if(typeof e.offlineAt === 'number') line += ' · 자리 비움';
+  el.innerHTML = line + (extraMin ? ' <span style="opacity:.8;">(+'+extraMin+'분)</span>' : '') + '<br><span style="font-size:.62rem;opacity:.75;">대기 '+waiting+'명</span>';
+}
+setInterval(updateSessionPanel, 1000);
+function extendCustomer(min){
+  const cid = currentCustomerId();
+  if(!cid){ showMsg('⚠️ 지금 쇼핑 중인 손님이 없어요'); return; }
+  const cur = (latestQueue[cid] && typeof latestQueue[cid].extraMs === 'number') ? latestQueue[cid].extraMs : 0;
+  db.ref('queue/'+cid).update({ extraMs: cur + min*60000 })
+    .then(function(){ showMsg('🕗 ' + min + '분 연장했어요'); })
+    .catch(function(){ showMsg('⚠️ 연장에 실패했어요'); });
+}
+
 // ── 점원이 직접 "다음 고객으로 넘기기" (현재 활성 고객을 대기줄 맨 뒤로 보냄) ──
 function forceNextCustomer(){
-  const entries = Object.entries(latestQueue||{});
+  const entries = liveQueueEntries(latestQueue||{});
   if(entries.length===0){ showMsg('⚠️ 지금 활성화된 손님이 없어요'); return; }
-  entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
   const cid = entries[0][0];
-  db.ref('queue/'+cid).set({ ts: firebase.database.ServerValue.TIMESTAMP, device: '(점원이 다음고객으로 넘김)', joinedAt: new Date().toLocaleString('ko-KR') }); // 서버시각으로 다시 찍어서 대기줄 맨 뒤로 → 자동으로 다음 손님이 활성화됨
+  // update(덮어쓰기 아님): 알림 토큰(fcmToken)을 지우지 않아야 그 손님이 다음 차례에 알림을 받을 수 있음
+  db.ref('queue/'+cid).update({
+    ts: firebase.database.ServerValue.TIMESTAMP,
+    yieldedAt: firebase.database.ServerValue.TIMESTAMP,
+    activeAt: null, endsAt: null, paused: null, extraMs: null,
+    joinedAt: new Date().toLocaleString('ko-KR')
+  }); // 서버시각으로 다시 찍어서 대기줄 맨 뒤로 → 자동으로 다음 손님이 활성화됨
   showMsg('🙋 다음 고객에게 넘겼어요');
 }
 
