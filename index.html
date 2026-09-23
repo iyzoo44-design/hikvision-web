@@ -367,7 +367,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922f</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0922g</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -412,7 +412,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0922f';
+const APP_VERSION = 'v0922g';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
@@ -563,7 +563,7 @@ function updateWaitRankDisplay(){
   if(!badge) return;
   db.ref('queue').once('value').then(snap=>{
     const q = snap.val() || {};
-    const entries = liveEntries(q);
+    const entries = liveEntries(q, Date.now());
     const myIdx = entries.findIndex(e=>e[0]===myClientId); // 0=활성, 1=대기1번째, 2=대기2번째
     if(myIdx>0) badge.innerHTML = waitBadgeHtml(myIdx);
   }).catch(()=>{});
@@ -728,6 +728,7 @@ function startCatchUp(){
 // (2026-09-22: 이 자리에 있던 "대기 중 계속 3초마다 확인" 반복 확인은 의도와 다르게 훨씬 더 자주 실행되어
 //  서버에 요청이 몰리는 문제를 일으켜 제거함. 아래 startCatchUp()이 화면이 앞으로 올 때마다 5분간 3초 간격으로
 //  안전하게 확인하므로 이것으로 충분함.)
+setInterval(function(){ if(capacityChecked && document.visibilityState==='visible') scheduleRecompute(); }, 20000); // 오래 자리 비운 항목 정리용
 // 화면이 다시 앞으로 오거나 인터넷이 다시 붙는 순간에도 곧바로 최신 상태를 확인 (여러 신호가 겹쳐도 한 번만 계산됨)
 ['focus','pageshow','online'].forEach(function(ev){
   window.addEventListener(ev, function(){ dlog('이벤트 '+ev); startCatchUp(); });
@@ -744,6 +745,17 @@ function scheduleRecompute(){
 // 폰이 오래 뒤로 물러나 있으면 앱 안의 실시간 연결이 죽어서 '옛 명단'을 들고 있을 수 있음(알림은 서버가 보내므로 오지만 화면은 아직 대기로 보임).
 // 그래서 서버에 인터넷(REST)으로 직접 물어봐서 최신 명단을 읽고, 실패하면 예전 방식으로 되돌아감.
 let recomputeSeq = 0;
+const lastCleanAt = {};
+function cleanupStale(ids){
+  (ids||[]).forEach(function(id){
+    if(id === myClientId) return;
+    if(lastCleanAt[id] && Date.now() - lastCleanAt[id] < 30000) return;
+    lastCleanAt[id] = Date.now();
+    fetch(firebaseConfig.databaseURL + '/queue/' + id + '.json', { method:'DELETE' })
+      .then(function(){ dlog('오래된 항목 정리'); scheduleRecompute(); })
+      .catch(function(){});
+  });
+}
 const freshQueues = new WeakSet(); // 서버에서 방금 받은 명단인지(앱 내부 옛 명단이 아닌지) 표시
 async function fetchQueueFresh(){
   try{
@@ -763,34 +775,47 @@ async function fetchQueueFresh(){
 // 2) 내 앞사람이 "쇼핑 종료"나 "차례 넘김" 없이 갑자기 사라졌다면(폰을 다시 켜는 순간 연결이 바뀌며 잠깐 지워지는 경우가 대부분),
 //    곧바로 차례를 가져가지 않고 HOLD_MS 동안 그 사람이 돌아오는지 기다린다. → 두 기기가 동시에 "차례"라고 말하는 문제 방지
 const HOLD_MS = 25000;
-function liveEntries(q){
-  const out = [];
+// 폰이 다른 앱에 있거나 화면이 꺼지면 인터넷 연결이 끊길 수 있는데, 그렇다고 명단에서 바로 빼면 알림을 못 받음.
+// 그래서 연결이 끊기면 "자리 비움(offlineAt)" 표시만 남기고, 자리는 아래 기준으로 유지함.
+const OFFLINE_KEEP_MS = 15*60000;      // 대기 중 손님: 15분까지 자리 유지
+const OFFLINE_FIRST_KEEP_MS = 180000;  // 차례가 된 손님: 3분까지 기다려 주고, 그 뒤엔 다음 손님에게 넘김
+function liveEntries(q, now){
+  const nowMs = now || Date.now();
+  const out = [], stale = [];
   Object.keys(q||{}).forEach(function(id){
     const e = q[id];
-    if(!e || typeof e.ts !== 'number') return;
-    if(typeof e.leftAt === 'number') return;
+    if(!e || typeof e.ts !== 'number'){ if(e && typeof e.offlineAt==='number' && nowMs - e.offlineAt > OFFLINE_KEEP_MS) stale.push(id); return; }
+    if(typeof e.leftAt === 'number'){ stale.push(id); return; }
+    if(typeof e.offlineAt === 'number' && nowMs - e.offlineAt > OFFLINE_KEEP_MS){ stale.push(id); return; }
     out.push([id, e]);
   });
   out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
+  while(out.length > 1){
+    const f = out[0][1];
+    if(typeof f.offlineAt === 'number' && nowMs - f.offlineAt > OFFLINE_FIRST_KEEP_MS){ stale.push(out[0][0]); out.shift(); }
+    else break;
+  }
+  out.stale = stale;
   return out;
 }
 // q: 지금 명단, prevQ: 직전에 본 명단, hold: {ids, until} 또는 null, isActive: 지금 내가 활성인지
 function computeTurn(q, me, prevQ, hold, isActive, now){
-  const entries = liveEntries(q);
+  const entries = liveEntries(q, now);
+  const stale = entries.stale || [];
   const idx = entries.findIndex(e=>e[0]===me);
-  if(idx < 0) return { idx: -1, nowActive: false, hold: null, entries: entries };
+  if(idx < 0) return { idx: -1, nowActive: false, hold: null, entries: entries, stale: stale };
   const iAmFirst = (idx === 0);
-  if(!iAmFirst || isActive === true) return { idx: idx, nowActive: iAmFirst, hold: null, entries: entries };
+  if(!iAmFirst || isActive === true) return { idx: idx, nowActive: iAmFirst, hold: null, entries: entries, stale: stale };
   let h = hold;
   if(!h && prevQ){
-    const prevLive = liveEntries(prevQ);
+    const prevLive = liveEntries(prevQ, now);
     // 바로 앞(1등)이던 손님이 "쇼핑 종료" 표시 없이 사라진 경우에만 잠깐 확인함.
     // (뒤쪽 대기자가 창을 닫는 것 같은 일로는 기다리지 않음 → 화면에 '확인 중'이 자주 뜨지 않게)
     const prevFirst = prevLive.length ? prevLive[0][0] : null;
     if(prevFirst && prevFirst !== me && !(q && q[prevFirst])) h = { ids: [prevFirst], until: now + HOLD_MS };
   }
-  if(h && now < h.until) return { idx: idx, nowActive: false, hold: h, entries: entries, holding: true };
-  return { idx: idx, nowActive: true, hold: null, entries: entries };
+  if(h && now < h.until) return { idx: idx, nowActive: false, hold: h, entries: entries, holding: true, stale: stale };
+  return { idx: idx, nowActive: true, hold: null, entries: entries, stale: stale };
 }
 let prevQueueSnap = null, prevQueueSnapAt = 0, turnHold = null, lastHiddenAt = 0;
 // 내가 화면을 떠나 있었다면 직전 명단은 오래된 정보이므로 "갑자기 사라졌다" 판단에 쓰지 않음 (돌아온 손님이 괜히 기다리지 않게)
@@ -810,7 +835,7 @@ function recomputeNow(){
     const fresh = freshQueues.has(q); // 앱 내부 옛 명단으로 계산한 결과는 "갑자기 사라짐" 판단에 쓰지 않음
     const usePrev = (fresh && prevQueueSnap && !(lastHiddenAt >= prevQueueSnapAt)) ? prevQueueSnap : null;
     const r = computeTurn(q, myClientId, usePrev, turnHold, amActive, Date.now());
-    if(fresh){ prevQueueSnap = q; prevQueueSnapAt = Date.now(); }
+    if(fresh){ prevQueueSnap = q; prevQueueSnapAt = Date.now(); cleanupStale(r.stale); }
     turnHold = r.hold;
     if(r.holding && !hadHold){ dlog('앞사람이 갑자기 사라짐 → '+Math.round(HOLD_MS/1000)+'초 동안 돌아오는지 기다림'); setTimeout(scheduleRecompute, HOLD_MS + 300); }
     if(r.idx < 0) return;
@@ -850,13 +875,14 @@ function buildEntryData(q, exists){
     device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
     joinedAt: new Date().toLocaleString('ko-KR')
   };
-  if(exists){ data.leftAt = null; return data; } // 명단에 이미 있는 경우에는 번호표(ts)를 건드리지 않음 (예전에는 여기서 매번 새 번호표를 뽑아 맨 뒤로 밀렸음)
+  if(exists){ data.leftAt = null; data.offlineAt = null; return data; } // 명단에 이미 있는 경우에는 번호표(ts)를 건드리지 않음 (예전에는 여기서 매번 새 번호표를 뽑아 맨 뒤로 밀렸음)
   // 명단에 내 이름이 없는 상태 = 처음 왔거나, 연결이 끊겼다 돌아온 경우
   let othersFirstTs = null, othersFirstId = null; // 지금 이용 중인(가장 빠른) 다른 손님
   Object.keys(q).forEach(function(id){
     if(id===myClientId) return;
     const t = q[id] && q[id].ts;
     if(q[id] && typeof q[id].leftAt==='number') return;
+    if(q[id] && typeof q[id].offlineAt==='number' && (Date.now()+serverTimeOffset) - q[id].offlineAt > OFFLINE_FIRST_KEEP_MS) return;
     if(typeof t==='number' && (othersFirstTs===null || t<othersFirstTs)){ othersFirstTs = t; othersFirstId = id; }
   });
   // 앞사람이 3분 무조작으로 스스로 차례를 넘긴 사람이면(ts===yieldedAt), 그 사람은 이미 뒤로 간 것이므로
@@ -879,6 +905,7 @@ function buildEntryData(q, exists){
     data.ts = 'SERVER'; // 새로 온 손님: 서버시각으로 새 번호표
   }
   if(savedToken) data.fcmToken = savedToken; // 알림 받을 주소(토큰)도 다시 붙여줌
+  data.offlineAt = null; data.leftAt = null;
   return data;
 }
 async function registerPresenceWithCapacityCheck(){
@@ -886,7 +913,7 @@ async function registerPresenceWithCapacityCheck(){
   try{
     q = await fetchQueueFresh(); // 앱 안의 옛 정보가 아니라 서버의 최신 명단으로 판단
     exists = !!(q[myClientId] && typeof q[myClientId].ts === 'number');
-    if(!exists && liveEntries(q).length >= MAX_CONCURRENT_VIEWERS){
+    if(!exists && liveEntries(q, Date.now()).length >= MAX_CONCURRENT_VIEWERS){
       showCapacityBlock();
       return false;
     }
@@ -894,7 +921,7 @@ async function registerPresenceWithCapacityCheck(){
   const data = buildEntryData(q, exists);
   if(data.ts === 'SERVER') data.ts = firebase.database.ServerValue.TIMESTAMP;
   await myQueueRef.update(data);
-  myQueueRef.onDisconnect().remove();
+  myQueueRef.onDisconnect().update({ offlineAt: firebase.database.ServerValue.TIMESTAMP });
   return true;
 }
 // 폰이 오래 뒤에 있다 돌아왔을 때, 서버가 내 항목을 이미 지운 상태라면 앱 안의 연결이 복구되길 기다리지 않고
@@ -916,7 +943,7 @@ async function rejoinViaRest(q){
 //  onDisconnect(자동 삭제) 장치가 즉시 발동해 방금 되살린 명단 항목을 다시 지워버리는 심각한 부작용이 있어 제거함.
 //  대신 재입장 뒤에는 onDisconnect만 다시 걸어 두어, 이후 진짜로 연결이 끊길 때만 정상적으로 지워지게 함.)
 function rearmOnDisconnect(){
-  try{ myQueueRef.onDisconnect().remove(); }catch(e){}
+  try{ myQueueRef.onDisconnect().update({ offlineAt: firebase.database.ServerValue.TIMESTAMP }); }catch(e){}
 }
 db.ref('.info/connected').on('value', async snap=>{
   if(!snap.val()) return;
@@ -1068,6 +1095,7 @@ function discCam(){
   amActive=null; setControlsEnabled(false); stopIdleWatcher(); // null(미확정)로 두어야, 재입장 후 다음 계산에서 '상태 안 바뀜'으로 오인되어 배지 재생성이 생략되는 일이 없음
   const wb=document.getElementById('waitBadge'); if(wb) wb.remove(); // 큐를 완전히 나가는 것이므로 '대기 순번' 표시는 더 이상 의미없음 → 숨김
   console.log('[쇼핑종료-상단버튼] myClientId:', myClientId, '/ 큐 이탈 시도 중...');
+  try{ myQueueRef.onDisconnect().cancel(); }catch(e){}
   myQueueRef.update({ leftAt: firebase.database.ServerValue.TIMESTAMP, activeAt: null })
     .catch(function(){})
     .then(function(){ return new Promise(function(res){ setTimeout(res, 1500); }); })
