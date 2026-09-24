@@ -392,6 +392,7 @@ html,body{
     <button onclick="extendCustomer(5)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+5분</button>
     <button onclick="extendCustomer(10)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+10분</button>
   </div>
+  <div id="custList" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.18);padding-top:5px;font-size:.64rem;line-height:1.6;"></div>
   <div style="display:flex;gap:4px;margin-top:4px;">
     <button onclick="clearQueueAll()" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(150,40,40,.95);color:#fff;font-size:.62rem;font-weight:700;cursor:pointer;">🧹 대기명단 비우기</button>
   </div>
@@ -912,6 +913,33 @@ function updateSessionPanel(){
   }
   if(typeof e.offlineAt === 'number') line += ' · 자리 비움';
   el.innerHTML = line + (extraMin ? ' <span style="opacity:.8;">(+'+extraMin+'분)</span>' : '') + '<br><span style="font-size:.62rem;opacity:.75;">대기 '+waiting+'명</span>';
+  renderCustomerList(entries);
+}
+// ── 지금 접속한 손님 목록 (보기 전용) ──
+function renderCustomerList(entries){
+  const box = document.getElementById('custList');
+  if(!box) return;
+  if(!entries || !entries.length){ box.innerHTML = '<span style="opacity:.6;">접속한 손님이 없어요</span>'; return; }
+  const now = Date.now();
+  box.innerHTML = entries.map(function(pair, i){
+    const e = pair[1];
+    const num = ['①','②','③','④','⑤','⑥'][i] || ('('+(i+1)+')');
+    const dev = e.device || '❓ 기타기기';
+    const role = (i === 0) ? '쇼핑 중' : ('대기 ' + i + '번');
+    let state;
+    if(i === 0 && e.paused === true) state = '📞 통화 중';
+    else if(typeof e.offlineAt === 'number'){
+      const m = Math.floor((now - e.offlineAt)/60000), s = Math.floor(((now - e.offlineAt)%60000)/1000);
+      state = '💤 화면 안 봄 (' + (m ? m+'분 ' : '') + s + '초)';
+    }
+    else if(i === 0 && typeof e.endsAt === 'number'){
+      const left = Math.max(0, e.endsAt - now);
+      state = '⏳ 남은 ' + Math.floor(left/60000) + ':' + String(Math.floor((left%60000)/1000)).padStart(2,'0');
+    }
+    else state = '🙂 접속 중';
+    const bell = e.fcmToken ? '' : ' <span style="opacity:.6;">🔕</span>'; // 알림을 받을 수 없는 손님(시크릿창 등)
+    return '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + num + ' ' + dev + ' · ' + role + ' · ' + state + bell + '</div>';
+  }).join('');
 }
 setInterval(updateSessionPanel, 1000);
 // 손님 기기가 모두 잠들어 있으면 아무도 명단을 정리하지 못하므로, 점원 화면이 대신 주기적으로 정리함
