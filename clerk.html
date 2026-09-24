@@ -392,6 +392,9 @@ html,body{
     <button onclick="extendCustomer(5)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+5분</button>
     <button onclick="extendCustomer(10)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+10분</button>
   </div>
+  <div style="display:flex;gap:4px;margin-top:4px;">
+    <button onclick="clearQueueAll()" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(150,40,40,.95);color:#fff;font-size:.62rem;font-weight:700;cursor:pointer;">🧹 대기명단 비우기</button>
+  </div>
 </div>
 <div id="clock"></div>
 
@@ -592,7 +595,8 @@ let latestQueue = {};
 // ── 고객 화면과 같은 규칙으로 "지금 쇼핑 중인 손님"을 고름 (2026-09-23) ──
 // leftAt: 쇼핑 종료하고 나가는 손님 / offlineAt: 연결이 끊겨 자리를 비운 손님
 const OFFLINE_KEEP_MS = 15*60000;
-const OFFLINE_FIRST_KEEP_MS = 180000;
+const OFFLINE_FIRST_KEEP_MS = 40000;        // 차례인 손님의 연결이 끊겼을 때 기다려 주는 시간
+const OFFLINE_FIRST_KEEP_ONCALL_MS = 180000; // 통화 중이던 손님이면 더 길게 기다려 줌
 function liveQueueEntries(q){
   const now = Date.now();
   const out = [], stale = [];
@@ -606,7 +610,8 @@ function liveQueueEntries(q){
   out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
   while(out.length > 1){
     const f = out[0][1];
-    if(typeof f.offlineAt === 'number' && now - f.offlineAt > OFFLINE_FIRST_KEEP_MS){ stale.push(out[0][0]); out.shift(); }
+    const keep = (f.paused === true) ? OFFLINE_FIRST_KEEP_ONCALL_MS : OFFLINE_FIRST_KEEP_MS;
+    if(typeof f.offlineAt === 'number' && now - f.offlineAt > keep){ stale.push(out[0][0]); out.shift(); }
     else break;
   }
   out.stale = stale;
@@ -909,6 +914,17 @@ function updateSessionPanel(){
   el.innerHTML = line + (extraMin ? ' <span style="opacity:.8;">(+'+extraMin+'분)</span>' : '') + '<br><span style="font-size:.62rem;opacity:.75;">대기 '+waiting+'명</span>';
 }
 setInterval(updateSessionPanel, 1000);
+// 손님 기기가 모두 잠들어 있으면 아무도 명단을 정리하지 못하므로, 점원 화면이 대신 주기적으로 정리함
+setInterval(function(){ const e = liveQueueEntries(latestQueue||{}); cleanupStaleEntries(e.stale); }, 10000);
+// 비상용: 손님이 아무도 없는데 명단만 남아 있을 때 점원이 직접 비움
+function clearQueueAll(){
+  const n = Object.keys(latestQueue||{}).length;
+  if(n===0){ showMsg('명단이 이미 비어 있어요'); return; }
+  if(!confirm('대기명단을 모두 비울까요?\n지금 쇼핑 중인 손님이 있으면 그 손님도 나가게 됩니다. (' + n + '명)')) return;
+  db.ref('queue').remove()
+    .then(function(){ showMsg('🧹 대기명단을 비웠어요'); })
+    .catch(function(){ showMsg('⚠️ 비우기에 실패했어요'); });
+}
 function extendCustomer(min){
   const cid = currentCustomerId();
   if(!cid){ showMsg('⚠️ 지금 쇼핑 중인 손님이 없어요'); return; }

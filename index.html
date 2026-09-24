@@ -367,7 +367,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0923a</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0923c</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -412,7 +412,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0923a';
+const APP_VERSION = 'v0923c';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
@@ -783,6 +783,7 @@ const lastCleanAt = {};
 function cleanupStale(ids){
   (ids||[]).forEach(function(id){
     if(id === myClientId) return;
+    if(!id) return;
     if(lastCleanAt[id] && Date.now() - lastCleanAt[id] < 30000) return;
     lastCleanAt[id] = Date.now();
     fetch(firebaseConfig.databaseURL + '/queue/' + id + '.json', { method:'DELETE' })
@@ -812,7 +813,8 @@ const HOLD_MS = 25000;
 // 폰이 다른 앱에 있거나 화면이 꺼지면 인터넷 연결이 끊길 수 있는데, 그렇다고 명단에서 바로 빼면 알림을 못 받음.
 // 그래서 연결이 끊기면 "자리 비움(offlineAt)" 표시만 남기고, 자리는 아래 기준으로 유지함.
 const OFFLINE_KEEP_MS = 15*60000;      // 대기 중 손님: 15분까지 자리 유지
-const OFFLINE_FIRST_KEEP_MS = 180000;  // 차례가 된 손님: 3분까지 기다려 주고, 그 뒤엔 다음 손님에게 넘김
+const OFFLINE_FIRST_KEEP_MS = 40000;        // 차례인 손님의 연결이 끊겼을 때 기다려 주는 시간
+const OFFLINE_FIRST_KEEP_ONCALL_MS = 180000; // 통화 중이던 손님이면 더 길게 기다려 줌  // 차례가 된 손님: 3분까지 기다려 주고, 그 뒤엔 다음 손님에게 넘김
 function liveEntries(q, now){
   const nowMs = now || Date.now();
   const out = [], stale = [];
@@ -826,7 +828,8 @@ function liveEntries(q, now){
   out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
   while(out.length > 1){
     const f = out[0][1];
-    if(typeof f.offlineAt === 'number' && nowMs - f.offlineAt > OFFLINE_FIRST_KEEP_MS){ stale.push(out[0][0]); out.shift(); }
+    const keep = (f.paused === true) ? OFFLINE_FIRST_KEEP_ONCALL_MS : OFFLINE_FIRST_KEEP_MS;
+    if(typeof f.offlineAt === 'number' && nowMs - f.offlineAt > keep){ stale.push(out[0][0]); out.shift(); }
     else break;
   }
   out.stale = stale;
@@ -1000,11 +1003,20 @@ function showCapacityBlock(){
   db.ref('queue').on('value', capacityWatchCb);
 }
 function capacityWatchCb(snap){
-  if(snap.numChildren() < MAX_CONCURRENT_VIEWERS){
+  // 나간 손님·연결 끊긴 옛 항목은 사람 수에서 빼고, 남아 있으면 정리까지 함
+  const q = snap.val() || {};
+  const live = liveEntries(q, Date.now());
+  cleanupStale(live.stale);
+  if(live.length < MAX_CONCURRENT_VIEWERS){
     db.ref('queue').off('value', capacityWatchCb);
     location.reload();
   }
 }
+setInterval(function(){ // 혼잡 화면에 막혀 있는 동안에도 옛 항목이 정리되도록 주기적으로 확인
+  const el=document.getElementById('capacityBlock');
+  if(!el || el.style.display!=='flex') return;
+  db.ref('queue').once('value').then(function(s){ capacityWatchCb(s); }).catch(function(){});
+}, 15000);
 
 // ── 대기 고객용: 활성 고객의 디지털 줌·화면이동을 그대로 반영 ──
 function applyIncomingZoom(z, px, py){
@@ -1663,6 +1675,8 @@ applyActiveState = function(nowActive){
   if(wasWaiting && nowActive === true){
     speakAttempts = 0;
     turnFallbackDone = false;
+    spokeThisTurn = false;
+    pendingSpeak = false;
     // 이 화면을 한 번도 누르지 않은 경우(PC에서 비번만 치고 기다린 손님 등) 브라우저가 음성을 막으므로, 곧바로 시스템 알림 소리로 알림
     if(document.visibilityState === 'visible' && navigator.userActivation && !navigator.userActivation.hasBeenActive){
       dlog('화면을 누른 적 없음 → 시스템 알림 소리로 대신 알림');
@@ -1684,7 +1698,7 @@ function unlockSpeech(){
   }catch(e){}
 }
 document.addEventListener('touchend', unlockSpeech, {once:true, passive:true});
-let voiceStarted = false;
+let voiceStarted = false, spokeThisTurn = false;
 function speakTurn(){
   try{
     if(!('speechSynthesis' in window)){ dlog('이 폰은 음성 안내 미지원'); return; }
@@ -1697,7 +1711,7 @@ function speakTurn(){
     u.volume = 1;
     const ko = synth.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
     if(ko) u.voice = ko;
-    u.onstart = function(){ voiceStarted = true; dlog('음성 재생 시작'); };
+    u.onstart = function(){ voiceStarted = true; spokeThisTurn = true; pendingSpeak = false; dlog('음성 재생 시작'); };
     u.onerror = function(e){ dlog('음성 오류: '+(e && e.error ? e.error : '알 수 없음')); if(e && e.error==='not-allowed'){ pendingSpeak = true; turnAlertFallback(); } };
     setTimeout(function(){ try{ synth.speak(u); }catch(e){} }, 120);
     // 2초 안에 시작하지 않으면 화면을 다음에 터치할 때 다시 시도
@@ -1706,6 +1720,11 @@ function speakTurn(){
 }
 // 미뤄 둔 음성이 있으면, 화면이 앞으로 오거나 손님이 화면을 만지는 순간에 재생 (한 차례당 최대 3번)
 function trySpeakPending(){
+  if(spokeThisTurn){ pendingSpeak = false; return; } // 이번 차례에는 이미 안내했음
+  try{ // 이미 말하는 중이거나 말하기 직전이면 다시 시키지 않음 (같은 안내가 두 번 나오는 것 방지)
+    const sy = window.speechSynthesis;
+    if(sy && (sy.speaking || sy.pending)) return;
+  }catch(e){}
   if(!pendingSpeak || amActive !== true || document.visibilityState !== 'visible') return;
   pendingSpeak = false;
   if(speakAttempts >= 3) return;
