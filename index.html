@@ -204,8 +204,10 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .cart-total{background:var(--cream);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;margin:12px 0 10px;border:1px solid var(--warm);}
 .ct-lbl{font-size:.8rem;color:var(--soft);}.ct-val{font-size:1.2rem;font-weight:700;color:var(--accent);}
 .pay-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.92rem;font-weight:700;cursor:pointer;}
-.back-bar{display:flex;align-items:center;gap:6px;width:100%;padding:11px 12px;margin-bottom:12px;border:none;border-radius:12px;background:var(--brown);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px var(--shadow);}
-.back-bar:active{transform:scale(.99);opacity:.9;}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;}
+.sec-head .sec-title{margin-bottom:0;}
+.back-btn{flex:0 0 auto;padding:6px 11px;border:none;border-radius:16px;background:var(--brown);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.back-btn:active{opacity:.85;}
 .guide-card{background:var(--white);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);border-left:4px solid var(--gold);}
 .guide-card h3{font-size:.88rem;font-weight:700;color:var(--brown);margin-bottom:8px;}
 .guide-card p,.guide-card li{font-size:.76rem;color:var(--soft);line-height:1.7;}
@@ -352,10 +354,9 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
     </div>
   </div>
 </div>
-<div class="sec" id="menu"><button class="back-bar" onclick="backToCam()">← 📷 쇼핑 화면으로 돌아가기</button><p class="sec-title">🍞 오늘의 빵</p><div class="menu-grid" id="menuGrid"></div></div>
+<div class="sec" id="menu"><div class="sec-head"><p class="sec-title">🍞 오늘의 빵</p><button class="back-btn" onclick="backToCam()">← 📷 화면으로</button></div><div class="menu-grid" id="menuGrid"></div></div>
 <div class="sec" id="cart">
-  <button class="back-bar" onclick="backToCam()">← 📷 쇼핑 화면으로 돌아가기</button>
-  <p class="sec-title">🛒 장바구니</p>
+  <div class="sec-head"><p class="sec-title">🛒 장바구니</p><button class="back-btn" onclick="backToCam()">← 📷 화면으로</button></div>
   <div id="cartList"><div class="cart-empty"><span class="emo">🛒</span>아직 담은 빵이 없어요</div></div>
   <div id="cartBottom" style="display:none;">
     <div class="cart-total"><span class="ct-lbl">합계</span><span class="ct-val" id="totalPr">₩0</span></div>
@@ -364,15 +365,13 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   </div>
 </div>
 <div class="sec" id="guide">
-  <button class="back-bar" onclick="backToCam()">← 📷 쇼핑 화면으로 돌아가기</button>
-  <p class="sec-title">📋 이용 안내</p>
+  <div class="sec-head"><p class="sec-title">📋 이용 안내</p><button class="back-btn" onclick="backToCam()">← 📷 화면으로</button></div>
   <div class="url-box"><div class="url-txt">🔗 iyzoo44-design.github.io/hikvision-web/</div><p>이 주소가 빵집 전용 쇼핑 주소예요.</p><button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button><button class="copy-btn" onclick="speakTurn()">🔊 음성 테스트</button></div>
   <div class="guide-card"><h3>📱 이용 방법</h3><ul><li>① 앱 열면 카메라 자동 연결</li><li>② 빨간 화살표를 드래그해서 상품 지정</li><li>③ PTZ 버튼으로 카메라 방향 조절</li><li>④ [통화 연결] 눌러서 점원과 직접 대화</li><li>⑤ 결제 → 배달 받기 🚚</li></ul></div>
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <button class="back-bar" onclick="backToCam()" style="margin-top:4px;">← 📷 쇼핑 화면으로 돌아가기</button>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0923d</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0923e</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -417,7 +416,7 @@ const db=firebase.database();
 
 // ── 진단 기록 (테스트용) ──
 // 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0923d';
+const APP_VERSION = 'v0923e';
 const DEBUG_ON = (function(){
   try{
     if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
