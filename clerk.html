@@ -595,12 +595,15 @@ let lastKnownCustomerId = undefined; // undefined = 아직 아무도 관찰 안 
 let latestQueue = {};
 // ── 고객 화면과 같은 규칙으로 "지금 쇼핑 중인 손님"을 고름 (2026-09-23) ──
 // leftAt: 쇼핑 종료하고 나가는 손님 / offlineAt: 연결이 끊겨 자리를 비운 손님
-const OFFLINE_KEEP_MS = 15*60000;
-const OFFLINE_FIRST_KEEP_MS = 40000;        // 차례인 손님의 연결이 끊겼을 때 기다려 주는 시간
-const OFFLINE_FIRST_KEEP_ONCALL_MS = 180000; // 통화 중이던 손님이면 더 길게 기다려 줌
+const OFFLINE_KEEP_MS = 15*60000;            // 대기 중 손님: 15분까지 자리 유지
+const OFFLINE_FIRST_KEEP_MS = 40000;         // 쇼핑하던 손님이 창을 닫았을 때: 40초 뒤 다음 손님에게
+const OFFLINE_FIRST_KEEP_ONCALL_MS = 180000; // 통화 중이던 손님이면 3분까지 기다려 줌
+const TURN_RETURN_GRACE_MS = 60000;          // 연결이 끊긴 채 차례가 된 손님: 알림을 받고 돌아올 시간 1분
+                                             // (더 길게 잡으면 뒤에 기다리는 손님이 오래 멈춰 있게 됨)
+const firstSeenAt = {};                      // 내가 각 손님을 '1등'으로 처음 본 시각 (이 화면 안에서만 쓰는 기록)
 function liveQueueEntries(q){
   const now = Date.now();
-  const out = [], stale = [];
+  const out = [], stale = [], requeue = [];
   Object.keys(q||{}).forEach(function(id){
     const e = q[id];
     if(!e || typeof e.ts !== 'number'){ if(e && typeof e.offlineAt==='number' && now - e.offlineAt > OFFLINE_KEEP_MS) stale.push(id); return; }
@@ -610,12 +613,26 @@ function liveQueueEntries(q){
   });
   out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
   while(out.length > 1){
-    const f = out[0][1];
-    const keep = (f.paused === true) ? OFFLINE_FIRST_KEEP_ONCALL_MS : OFFLINE_FIRST_KEEP_MS;
-    if(typeof f.offlineAt === 'number' && now - f.offlineAt > keep){ stale.push(out[0][0]); out.shift(); }
+    const fid = out[0][0], f = out[0][1];
+    if(!firstSeenAt[fid]) firstSeenAt[fid] = now;
+    const becameFirst = firstSeenAt[fid];
+    if(typeof f.offlineAt !== 'number') break;
+    const wentOfflineWhileFirst = f.offlineAt >= becameFirst;
+    const keep = (f.paused === true) ? OFFLINE_FIRST_KEEP_ONCALL_MS
+               : (wentOfflineWhileFirst ? OFFLINE_FIRST_KEEP_MS : TURN_RETURN_GRACE_MS);
+    const since = Math.max(f.offlineAt, becameFirst);
+    if(now - since > keep){
+      // 통화하며 물건을 고르던 중 끊긴 손님은 지우지 않고 '줄 맨 뒤'로 (알림 주소 유지)
+      if(f.paused === true && typeof f.requeuedAt !== 'number') requeue.push(fid);
+      else stale.push(fid);
+      delete firstSeenAt[fid]; out.shift();
+    }
     else break;
   }
+  if(out.length){ const fid = out[0][0]; if(!firstSeenAt[fid]) firstSeenAt[fid] = now;
+    Object.keys(firstSeenAt).forEach(function(k){ if(k !== fid) delete firstSeenAt[k]; }); }
   out.stale = stale;
+  out.requeue = requeue;
   return out;
 }
 // 손님이 아무도 접속해 있지 않을 때를 대비해, 점원 화면이 오래된 항목을 정리함
@@ -627,11 +644,25 @@ function cleanupStaleEntries(ids){
     db.ref('queue/'+id).remove().catch(function(){});
   });
 }
+// 통화 중 끊긴 손님은 지우지 않고 줄 맨 뒤로 보냄
+const lastRequeueAt = {};
+function requeueEntries(ids){
+  (ids||[]).forEach(function(id){
+    if(lastRequeueAt[id] && Date.now() - lastRequeueAt[id] < 60000) return;
+    lastRequeueAt[id] = Date.now();
+    db.ref('queue/'+id).update({
+      ts: firebase.database.ServerValue.TIMESTAMP,
+      yieldedAt: firebase.database.ServerValue.TIMESTAMP,
+      requeuedAt: firebase.database.ServerValue.TIMESTAMP,
+      activeAt: null, paused: null, endsAt: null, remainMs: null, extraMs: null, idleMs: null
+    }).catch(function(){});
+  });
+}
 db.ref('queue').on('value', snap=>{
   const q = snap.val() || {};
   latestQueue = q;
   const entries = liveQueueEntries(q);
-  cleanupStaleEntries(entries.stale);
+  cleanupStaleEntries(entries.stale); requeueEntries(entries.requeue);
   updateSessionPanel();
   if(entries.length===0) return; // 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
   const cid = entries[0][0];
@@ -912,6 +943,13 @@ function updateSessionPanel(){
     line = '🙂 손님 접속 중';
   }
   if(typeof e.offlineAt === 'number') line += ' · 자리 비움';
+  // 손님이 화면을 안 만지고 있는 시간 (3분이 되면 자동으로 다음 손님에게 넘어감)
+  // → 점원이 "이 손님 통화하며 고르는 중이구나" 판단해서 +분 버튼으로 시간을 늘려 줄 수 있게 보여 줌
+  if(e.paused !== true && typeof e.idleMs === 'number' && e.idleMs > 45000){
+    const im = Math.floor(e.idleMs/60000), isec = Math.floor((e.idleMs%60000)/1000);
+    const near = e.idleMs > 135000;   // 2분 15초가 넘으면 빨갛게
+    line += ' <span style="color:'+(near?'#e05a3a':'#b8860b')+';font-weight:700;">· 무조작 '+im+':'+String(isec).padStart(2,'0')+(near?' ⚠':'')+'</span>';
+  }
   el.innerHTML = line + (extraMin ? ' <span style="opacity:.8;">(+'+extraMin+'분)</span>' : '') + '<br><span style="font-size:.62rem;opacity:.75;">대기 '+waiting+'명</span>';
   renderCustomerList(entries);
 }
@@ -943,7 +981,7 @@ function renderCustomerList(entries){
 }
 setInterval(updateSessionPanel, 1000);
 // 손님 기기가 모두 잠들어 있으면 아무도 명단을 정리하지 못하므로, 점원 화면이 대신 주기적으로 정리함
-setInterval(function(){ const e = liveQueueEntries(latestQueue||{}); cleanupStaleEntries(e.stale); }, 10000);
+setInterval(function(){ const e = liveQueueEntries(latestQueue||{}); cleanupStaleEntries(e.stale); requeueEntries(e.requeue); }, 10000);
 // 비상용: 손님이 아무도 없는데 명단만 남아 있을 때 점원이 직접 비움
 function clearQueueAll(){
   const n = Object.keys(latestQueue||{}).length;
