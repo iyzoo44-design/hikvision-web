@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.4 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.5 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -454,7 +454,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v1.4';
+const APP_VERSION = 'v1.5';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
@@ -873,9 +873,10 @@ function recomputeNow(){
 // ── 접속 인원 표시 + 동시 최대 인원 제한 ──
 // ── 큐(대기줄) 참가 신청 (최초 접속 + 재입장 둘 다 이 함수를 거쳐야 함) ──
 async function registerPresenceWithCapacityCheck(){
+  let alreadyIn = false;
   try{
     const q = await fetchQueueFresh();
-    const alreadyIn = q[myClientId]!=null;
+    alreadyIn = q[myClientId]!=null && typeof q[myClientId].ts === 'number';
     const count = Object.keys(q).length;
     if(!alreadyIn && count >= MAX_CONCURRENT_VIEWERS){
       dlog('인원 초과(' + count + '명) → 혼잡 화면');
@@ -883,12 +884,20 @@ async function registerPresenceWithCapacityCheck(){
       return false;
     }
     dlog('명단 등록 (' + (alreadyIn ? '이미 있던 번호표 유지' : '새 번호표') + ', 지금 ' + count + '명)');
-  }catch(e){ console.error('[인원확인 실패]', e); }
-  await myQueueRef.update({
-    ts: firebase.database.ServerValue.TIMESTAMP, // 순서 계산용 (서버시각, 정렬 기준)
+  }catch(e){ dlog('인원 확인 실패: ' + e); }
+  // ★ 2026-09-27 수정 ★
+  // 예전에는 여기서 ts(번호표)를 '항상' 새로 찍었다.
+  // 옛 방식에서는 연결이 끊기면 항목이 지워졌으므로, 돌아올 때 새 번호표를 받는 게 맞았다.
+  // 그런데 이제는 항목을 지우지 않으므로, 여기서 새로 찍으면
+  // 폰이 다른 앱에 갔다 돌아올 때마다 번호표가 갱신되어 줄 맨 뒤로 밀려났다.
+  // (그래서 점원이 넘겨도 폰 화면이 계속 '대기 1번'이었다)
+  // → 명단에 이미 있으면 번호표는 건드리지 않는다.
+  const data = {
     device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
     joinedAt: new Date().toLocaleString('ko-KR')
-  });
+  };
+  if(!alreadyIn) data.ts = firebase.database.ServerValue.TIMESTAMP; // 처음 왔을 때만 번호표를 받음
+  await myQueueRef.update(data);
   // 2026-09-27: 예전에는 여기서 onDisconnect().remove() 로, 연결이 끊기면 자리를 지웠다.
   // 그래서 손님이 다른 앱으로 가거나 화면을 끄면 자리와 알림 주소가 함께 사라져
   // "차례가 됐다"는 알림을 보낼 곳이 없어졌다. 이제 지우지 않는다.
