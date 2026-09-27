@@ -29,6 +29,9 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .tab.on{color:var(--brown);border-bottom-color:var(--gold);font-weight:700;}
 .sec{display:none;padding:14px;}
 .sec.on{display:block;}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;}
+.sec-head .sec-title{margin-bottom:0;}
+.back-btn{flex:0 0 auto;padding:6px 12px;border:1px solid var(--warm);border-radius:14px;background:#fff;color:var(--brown);font-size:.72rem;font-weight:700;cursor:pointer;}
 .sec-title{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;}
 .rs-tagline{
   text-align:center;margin-bottom:12px;font-family:'Nanum Myeongjo',serif;
@@ -204,10 +207,6 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .cart-total{background:var(--cream);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;margin:12px 0 10px;border:1px solid var(--warm);}
 .ct-lbl{font-size:.8rem;color:var(--soft);}.ct-val{font-size:1.2rem;font-weight:700;color:var(--accent);}
 .pay-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#8B3500);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.92rem;font-weight:700;cursor:pointer;}
-.sec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;}
-.sec-head .sec-title{margin-bottom:0;}
-.back-btn{flex:0 0 auto;padding:6px 11px;border:none;border-radius:16px;background:var(--brown);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;}
-.back-btn:active{opacity:.85;}
 .guide-card{background:var(--white);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);border-left:4px solid var(--gold);}
 .guide-card h3{font-size:.88rem;font-weight:700;color:var(--brown);margin-bottom:8px;}
 .guide-card p,.guide-card li{font-size:.76rem;color:var(--soft);line-height:1.7;}
@@ -272,6 +271,12 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <h2 style="font-family:'Nanum Myeongjo',serif;margin-bottom:10px;">지금은 매장이 혼잡합니다</h2>
   <p style="font-size:.85rem;opacity:.8;margin-bottom:22px;line-height:1.6;">동시 이용 인원(최대 3명)이 가득 찼어요.<br>자리가 나면 이 화면에서 자동으로 넘어갑니다.<br>그냥 잠시 기다려 주세요 🙂</p>
   <button onclick="location.reload()" style="padding:12px 24px;border:none;border-radius:10px;background:var(--gold);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;">🔄 지금 다시 확인</button>
+</div>
+<div id="kickedBlock" style="position:fixed;inset:0;z-index:9999;background:var(--dbrown);color:#FFD9A0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
+  <div style="font-size:3rem;margin-bottom:16px;">⚠️</div>
+  <h2 style="font-family:'Nanum Myeongjo',serif;margin-bottom:10px;">대기가 취소되었습니다</h2>
+  <p style="font-size:.85rem;opacity:.8;margin-bottom:22px;line-height:1.6;">점원이 대기 명단에서 내보냈어요.<br>다시 이용하시려면 아래를 눌러 주세요.</p>
+  <button onclick="location.reload()" style="padding:12px 24px;border:none;border-radius:10px;background:var(--gold);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;">🙋 다시 줄 서기</button>
 </div>
 <div class="app">
 <header>
@@ -366,12 +371,12 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 </div>
 <div class="sec" id="guide">
   <div class="sec-head"><p class="sec-title">📋 이용 안내</p><button class="back-btn" onclick="backToCam()">← 📷 화면으로</button></div>
-  <div class="url-box"><div class="url-txt">🔗 iyzoo44-design.github.io/hikvision-web/</div><p>이 주소가 빵집 전용 쇼핑 주소예요.</p><button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button><span id="voiceTestSlot"></span></div>
+  <div class="url-box"><div class="url-txt">🔗 iyzoo44-design.github.io/hikvision-web/</div><p>이 주소가 빵집 전용 쇼핑 주소예요.</p><button class="copy-btn" onclick="copyUrl()">📋 주소 복사</button></div>
   <div class="guide-card"><h3>📱 이용 방법</h3><ul><li>① 앱 열면 카메라 자동 연결</li><li>② 빨간 화살표를 드래그해서 상품 지정</li><li>③ PTZ 버튼으로 카메라 방향 조절</li><li>④ [통화 연결] 눌러서 점원과 직접 대화</li><li>⑤ 결제 → 배달 받기 🚚</li></ul></div>
-  <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 차례를 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 <b>이 화면을 켜 둔 채</b> 기다리시면 가장 확실해요. 화면이 저절로 꺼지지 않게 해 드리고, 차례가 되면 음성으로 알려드려요</li><li>③ 다른 앱을 보거나 화면을 꺼도 괜찮아요. 차례가 되면 <b>알림 소리와 진동</b>이 와요. 다만 브라우저를 닫지는 마세요 (닫으면 대기가 취소돼요)</li><li>④ 알림 소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b> "행복한 빵집" 알림을 누르세요. 못 찾겠으면 브라우저(크롬 등)를 열어 이 사이트로 돌아오세요</li><li>⑤ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>⑥ 알림을 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
+  <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:6px 0 2px;">v0926b</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.2 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -414,47 +419,6 @@ const firebaseConfig={apiKey:"AIzaSyC7GngQFP1JhnqIb8h_FcfEWA2a1nvPFg0",authDomai
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-// ── 진단 기록 (테스트용) ──
-// 주소 뒤에 ?debug=1 을 붙여 한 번 열면 켜지고(?debug=0 이면 꺼짐), "안내" 탭 맨 아래에 최근 기록이 표시됨.
-const APP_VERSION = 'v0926b';
-const DEBUG_ON = (function(){
-  try{
-    if(/[?&]debug=1/.test(location.search)) localStorage.setItem('dongneDebug','1');
-    if(/[?&]debug=0/.test(location.search)) localStorage.removeItem('dongneDebug');
-    return localStorage.getItem('dongneDebug')==='1';
-  }catch(e){ return false; }
-})();
-const PAGE_ID = Math.random().toString(36).slice(2,5); // 같은 화면인지, 새로 열린 화면인지 구분하는 표시
-function dlog(msg){
-  if(!DEBUG_ON) return;
-  try{
-    const d=new Date();
-    const hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
-    const arr=JSON.parse(localStorage.getItem('dongneLog')||'[]');
-    arr.push(hh+' ['+PAGE_ID+'] '+msg);
-    while(arr.length>90) arr.shift();
-    localStorage.setItem('dongneLog', JSON.stringify(arr));
-    renderDebug();
-  }catch(e){}
-}
-function renderDebug(){
-  const box=document.getElementById('dbgBox');
-  if(!box) return;
-  try{ box.textContent = JSON.parse(localStorage.getItem('dongneLog')||'[]').join('\n'); }catch(e){}
-}
-function initDebugPanel(){
-  if(!DEBUG_ON) return;
-  const slot=document.getElementById('voiceTestSlot'); // 음성 테스트 버튼은 진단 모드에서만 보임
-  if(slot) slot.innerHTML = '<button class="copy-btn" onclick="speakTurn()">🔊 음성 테스트</button>';
-  const g=document.getElementById('guide');
-  if(!g) return;
-  const wrap=document.createElement('div');
-  wrap.style.cssText='margin-top:14px;padding:10px;border-radius:10px;background:#1c1c1c;color:#d8ffd8;';
-  wrap.innerHTML='<div style="font-size:.7rem;font-weight:700;margin-bottom:6px;">🛠 진단 기록 ('+APP_VERSION+') <button onclick="try{localStorage.removeItem(\'dongneLog\');}catch(e){} renderDebug();" style="margin-left:8px;font-size:.62rem;">지우기</button></div><pre id="dbgBox" style="font-size:.6rem;line-height:1.35;white-space:pre-wrap;word-break:break-all;max-height:none;"></pre>';
-  g.appendChild(wrap);
-  renderDebug();
-}
-
 // ── WHEP URL ──
 const WHEP_URL='https://whep.priceline.co.kr';
 
@@ -462,8 +426,15 @@ const WHEP_URL='https://whep.priceline.co.kr';
 // 다중 고객 동시 접속 관리 (활성 고객 1명 + 대기 고객)
 // ═══════════════════════════════════════════
 function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
-let myClientId = sessionStorage.getItem('dongneClientId');
-if(!myClientId){ myClientId = genClientId(); sessionStorage.setItem('dongneClientId', myClientId); }
+// 2026-09-27: sessionStorage → localStorage.
+// sessionStorage 는 창을 닫으면 지워져서, 알림을 눌러 다시 들어온 손님이 '다른 사람'으로 잡혔다.
+// localStorage 는 창을 닫아도 남으므로, 같은 손님으로 알아보고 받아둔 번호표를 그대로 쓴다.
+let myClientId = null;
+try{ myClientId = localStorage.getItem('dongneClientId') || sessionStorage.getItem('dongneClientId'); }catch(e){}
+if(!myClientId) myClientId = genClientId();
+try{ localStorage.setItem('dongneClientId', myClientId); }catch(e){
+  try{ sessionStorage.setItem('dongneClientId', myClientId); }catch(e2){}  // 저장이 막힌 브라우저 대비
+}
 let amActive = null; // false가 아니라 null로 시작 — "아직 안 정해짐"과 "진짜 대기중(false)"을 구분해야, 대기중으로 확정되는 순간에도 setControlsEnabled가 반드시 실행됨
 // [2026-09-02 재설계] 클라이언트마다 시계가 조금씩 다를 수 있으므로, 순서는 반드시
 // Firebase 서버가 도장 찍어주는 시각(ServerValue.TIMESTAMP)만 사용함 — 기기별 시계오차 원천 차단.
@@ -483,7 +454,43 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
+const APP_VERSION = 'v1.2';
 const myQueueRef=db.ref('queue/'+myClientId);
+
+// ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
+// 주소 끝에 ?debug=1 을 붙이면 화면 아래에 기록창이 생긴다. ?debug=0 이면 끈다.
+// 문제가 생겼을 때 "몇 초에 무슨 일이 있었나"를 추측 없이 볼 수 있게 하기 위한 것.
+const DEBUG_ON = (function(){
+  try{
+    const q = new URLSearchParams(location.search).get('debug');
+    if(q === '1'){ localStorage.setItem('dongneLog','1'); return true; }
+    if(q === '0'){ localStorage.removeItem('dongneLog'); return false; }
+    return localStorage.getItem('dongneLog') === '1';
+  }catch(e){ return false; }
+})();
+let dbgBox = null;
+function dlog(msg){
+  if(!DEBUG_ON) return;
+  const t = new Date().toLocaleTimeString('ko-KR');
+  try{ console.log('[진단] '+msg); }catch(e){}
+  if(!dbgBox){
+    dbgBox = document.createElement('div');
+    dbgBox.style.cssText = 'position:fixed;left:6px;right:6px;bottom:64px;max-height:38vh;overflow:auto;z-index:9999;'
+      + 'background:rgba(0,0,0,.82);color:#9EE37D;font:11px/1.45 monospace;padding:7px 9px;border-radius:9px;white-space:pre-wrap;';
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;margin-bottom:5px;';
+    bar.innerHTML = '<button style="font:11px monospace;padding:2px 7px;border:none;border-radius:6px;background:#555;color:#fff;">지우기</button>'
+                  + '<button style="font:11px monospace;padding:2px 7px;border:none;border-radius:6px;background:#555;color:#fff;">닫기</button>';
+    bar.children[0].onclick = function(){ while(dbgBox.childNodes.length>1) dbgBox.removeChild(dbgBox.lastChild); };
+    bar.children[1].onclick = function(){ dbgBox.style.display='none'; };
+    dbgBox.appendChild(bar);
+    document.body.appendChild(dbgBox);
+  }
+  const line = document.createElement('div');
+  line.textContent = t + '  ' + msg;
+  dbgBox.appendChild(line);
+  dbgBox.scrollTop = dbgBox.scrollHeight;
+}
   function setupFcmToken(){
   console.log('[FCM] setupFcmToken 시작');
   if(!('serviceWorker' in navigator) || !('Notification' in window)){
@@ -569,140 +576,105 @@ function updateWaitRankDisplay(){
   if(!badge) return;
   db.ref('queue').once('value').then(snap=>{
     const q = snap.val() || {};
-    const entries = liveEntries(q, Date.now());
+    const myTs = q[myClientId] && q[myClientId].ts;
+    if(myTs==null) return;
+    const entries = Object.entries(q);
+    entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const myIdx = entries.findIndex(e=>e[0]===myClientId); // 0=활성, 1=대기1번째, 2=대기2번째
-    if(myIdx>0) badge.innerHTML = waitBadgeHtml(myIdx);
+    if(myIdx>0) badge.textContent = `🙋 대기 순번 ${myIdx}번째 · 화면만 함께 보실 수 있어요`;
   }).catch(()=>{});
 }
 
-// ── 유휴시간 자동 반납 설정 (숫자만 바꾸면 시간 조정됨) ──
-const IDLE_TIMEOUT_MS = 180000; // 3분 (알림 보고 클릭해서 돌아올 시간을 넉넉히 확보)
-const IDLE_WARN_BEFORE_MS = 15000;
-const MAX_SESSION_MS = 15*60000;
+// ── 이용시간 안내 설정 (2026-09-27 · 점원 조정판) ──────────────────
+// 프로그램은 차례를 스스로 넘기지 않는다. 넘기기는 점원이 판단해서 누른다.
+// 아래 시간은 '점원 화면에 얼마나 지났는지 보여주기' 위한 기준일 뿐, 자동 넘기기를 하지 않는다.
+const AUTO_YIELD = false;        // true 로 바꾸면 예전처럼 프로그램이 스스로 넘긴다 (지금은 안 함)
+const IDLE_TIMEOUT_MS = 180000;  // 화면을 안 만진 지 이만큼 되면 점원 화면에 표시 (3분)
+const IDLE_WARN_BEFORE_MS = 0;   // 자동 넘기기가 없으므로 예고 없음
+const MAX_SESSION_MS = 15*60000; // 이 시간이 지나면 점원 화면에 '시간 초과'로 표시 (15분)
 const MAX_SESSION_WARN_BEFORE_MS = 60000;
 
 let lastActivityTime = Date.now();
 let idleWarned = false;
 let idleCheckTimer = null;
+let activeSessionStartTime = 0;
 let maxSessionWarned = false;
-// ── 이용시간 계산 (2026-09-23) ──
-// 이 시스템은 "점원과 통화하면서 고르는" 방식이므로, 통화 중에는 최대 이용시간이 흐르지 않게 멈춤.
-// 점원이 연장해 주면(extraMs) 그만큼 더 쓸 수 있음.
-let sessionSpentMs = 0;      // 통화하지 않고 혼자 둘러본 시간의 합계
-let lastSessionTick = 0;
-let extraMs = 0;             // 점원이 늘려준 시간
-let lastPublishedPaused = null, lastPublishAt = 0;
-function sessionRemainMs(){ return (MAX_SESSION_MS + extraMs) - sessionSpentMs; }
-// 점원 화면이 "남은 시간"을 볼 수 있도록 알려줌 (통화 중이면 멈춤 표시)
-function publishSessionState(force){
-  if(amActive !== true) return;
-  const paused = !!onCall;
-  if(!force && paused === lastPublishedPaused && Date.now() - lastPublishAt < 10000) return;
-  lastPublishedPaused = paused; lastPublishAt = Date.now();
-  const data = { paused: paused ? true : null, endsAt: paused ? null : (Date.now() + serverTimeOffset + sessionRemainMs()), remainMs: sessionRemainMs(),
-                 idleMs: paused ? null : (Date.now() - lastActivityTime) };   // 점원이 '이 손님 그냥 보고만 있구나'를 알 수 있게
-  try{ myQueueRef.update(data); }catch(e){}
-}
-// 점원이 연장해 주면 즉시 반영
-myQueueRef.child('extraMs').on('value', function(s){
-  const v = s.val();
-  const n = (typeof v === 'number') ? v : 0;
-  if(n === extraMs) return;
-  const added = n - extraMs;
-  extraMs = n;
-  if(amActive === true && added > 0){
-    maxSessionWarned = false;
-    markActivity();   // 점원이 "더 쓰세요" 한 것이므로 3분 무조작 시계도 처음부터 다시 셈
-    toast('🕗 점원이 ' + Math.round(added/60000) + '분 연장해 드렸어요');
-    publishSessionState(true);
-  }
-});
+let maxSessionOverToast = false;   // '이용시간이 지났어요' 안내를 한 번만 띄우기 위한 표시
 
+let idlePublished = false;   // 점원 화면에 '무조작 중'으로 보이고 있는지
 function markActivity(){
+  const wasShown = idlePublished;
   lastActivityTime = Date.now();
   idleWarned = false;
-}
-// ── 넘기기 직전 경고를 '소리'로도 알림 (2026-09-26) ──
-// 화면 앞에 있는데 스크롤만 안 하고 있던 손님이 글씨를 놓쳐서 차례를 잃는 일을 막기 위함.
-// 화면이 꺼져 있거나 다른 앱을 보고 있으면 브라우저가 소리를 막으므로, 그 경우엔 들리지 않음(어쩔 수 없음).
-let warnAudioCtx = null;
-function warnBeep(){
-  try{
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if(!AC) return;
-    if(!warnAudioCtx) warnAudioCtx = new AC();
-    if(warnAudioCtx.state === 'suspended') warnAudioCtx.resume();
-    // '삐-삐-삐' 세 번
-    [0, 0.42, 0.84].forEach(function(delay){
-      const o = warnAudioCtx.createOscillator(), g = warnAudioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = 880;
-      const t0 = warnAudioCtx.currentTime + delay;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(0.25, t0 + 0.02);
-      g.gain.linearRampToValueAtTime(0, t0 + 0.30);
-      o.connect(g); g.connect(warnAudioCtx.destination);
-      o.start(t0); o.stop(t0 + 0.32);
-    });
-  }catch(e){}
-}
-function warnSpeak(sec){
-  try{
-    if(!('speechSynthesis' in window)) return;
-    if(speechSynthesis.speaking || speechSynthesis.pending) return;
-    const u = new SpeechSynthesisUtterance(sec + '초 후에 다음 손님에게 넘어갑니다. 화면을 한 번 만져 주세요.');
-    u.lang = 'ko-KR'; u.rate = 1.05;
-    speechSynthesis.speak(u);
-  }catch(e){}
+  if(wasShown){ idlePublished = false; if(amActive === true) publishSessionState(true); }
 }
 
 function startIdleWatcher(){
   lastActivityTime = Date.now();
   idleWarned = false;
-  sessionSpentMs = 0;
-  lastSessionTick = Date.now();
+  activeSessionStartTime = Date.now();
   maxSessionWarned = false;
-  publishSessionState(true);
+  maxSessionOverToast = false;
+  idlePublished = false;
   if(idleCheckTimer) clearInterval(idleCheckTimer);
+  publishSessionState(true);
   idleCheckTimer = setInterval(()=>{
     if(!amActive) return;
-    const now = Date.now();
-    if(!onCall) sessionSpentMs += (now - lastSessionTick); // 통화 중에는 이용시간이 흐르지 않음
-    lastSessionTick = now;
     publishSessionState(false);
-    const remain = sessionRemainMs();
-    if(!onCall && MAX_SESSION_WARN_BEFORE_MS>0 && !maxSessionWarned && remain <= MAX_SESSION_WARN_BEFORE_MS){
+    const sessionElapsed = Date.now() - activeSessionStartTime;
+    if(MAX_SESSION_WARN_BEFORE_MS>0 && !maxSessionWarned && sessionElapsed >= (MAX_SESSION_MS - MAX_SESSION_WARN_BEFORE_MS)){
       maxSessionWarned = true;
-      toast('⏰ 이용시간이 곧 끝나요 (약 '+Math.max(1,Math.ceil(remain/60000))+'분 남음 · 점원과 통화 중에는 시간이 멈춰요)');
+      const minLeft = Math.ceil((MAX_SESSION_MS - sessionElapsed)/60000);
+      toast('⏰ 최대 이용시간이 곧 끝나요 (약 '+minLeft+'분 후 자동 종료)');
     }
-    if(!onCall && remain <= 0){
-      toast('⏰ 이용시간이 다 되어 다음 고객에게 넘겼어요');
-      yieldTurn();
-      return;
+    if(sessionElapsed >= MAX_SESSION_MS){
+      if(AUTO_YIELD){ toast('⏰ 최대 이용시간(15분)이 지나 다음 고객에게 넘겼어요'); yieldTurn(); return; }
+      if(!maxSessionOverToast){ maxSessionOverToast = true; toast('⏰ 이용시간이 지났어요 (점원이 확인 후 안내해 드려요)'); }
     }
-    if(onCall){ lastActivityTime=now; idleWarned=false; return; }
+    if(onCall){ lastActivityTime=Date.now(); idleWarned=false; return; }
     const idleFor = Date.now() - lastActivityTime;
+    // 화면을 안 만진 지 45초가 넘는 순간 딱 한 번 점원 화면에 알려 줌 (그 뒤는 점원 화면이 스스로 셈)
+    if(!idlePublished && idleFor > 45000){ idlePublished = true; publishSessionState(true); }
     if(IDLE_WARN_BEFORE_MS>0 && !idleWarned && idleFor >= (IDLE_TIMEOUT_MS - IDLE_WARN_BEFORE_MS)){
       idleWarned = true;
       const secLeft = Math.round((IDLE_TIMEOUT_MS - idleFor)/1000);
       toast('⏳ '+secLeft+'초 후 다음 고객에게 넘어갑니다 (화면을 조작하면 취소돼요)');
-      warnBeep(); warnSpeak(secLeft);   // 글씨를 못 보고 차례를 잃지 않도록 소리로도 알림
     }
-    if(idleFor >= IDLE_TIMEOUT_MS){
+    if(AUTO_YIELD && idleFor >= IDLE_TIMEOUT_MS){
       toast('⏳ 장시간 조작이 없어 다음 고객에게 넘겼어요');
       yieldTurn();
     }
   }, 3000);
 }
+// ── 점원 화면이 판단할 수 있도록 내 상태를 알려줌 (2026-09-27) ────────
+// 점원 화면은 이 값으로 '남은 시간 / 통화 중 / 화면 안 만진 시간'을 보여준다.
+// 서버에 자주 쓰면 알림 서버 함수가 그만큼 여러 번 깨어나므로, 30초에 한 번만 쓴다.
+let lastPublishAt = 0, lastPublishedPaused = null;
+function publishSessionState(force){
+  if(amActive !== true) return;
+  const paused = !!onCall;
+  if(!force && paused === lastPublishedPaused && Date.now() - lastPublishAt < 30000) return;
+  lastPublishedPaused = paused; lastPublishAt = Date.now();
+  const elapsed = Date.now() - activeSessionStartTime;
+  try{
+    myQueueRef.update({
+      paused: paused ? true : null,
+      startedAt: activeSessionStartTime,          // 이 손님이 차례를 받은 시각 (점원 화면이 경과시간을 셈)
+      endsAt: activeSessionStartTime + MAX_SESSION_MS,
+      idleSince: paused ? null : lastActivityTime  // 마지막으로 화면을 만진 시각 (점원 화면이 스스로 셈)
+    });
+  }catch(e){}
+}
 function stopIdleWatcher(){
   if(idleCheckTimer){ clearInterval(idleCheckTimer); idleCheckTimer=null; }
+  try{ myQueueRef.update({ paused:null, startedAt:null, endsAt:null, idleSince:null }); }catch(e){}
+  lastPublishAt = 0; lastPublishedPaused = null;
 }
 
 // 경쟁(트랜잭션) 없이, 내 큐 항목을 '서버시각'으로 다시 찍어서 대기줄 맨 뒤로 보냄
 // → 그 즉시 모두가 같은 목록을 다시 계산하게 되고, 자동으로 다음 사람이 활성이 됨
 function yieldTurn(){
-  // yieldedAt: 스스로 차례를 넘겨 뒤로 간 손님이라는 표시 (ts와 같은 서버시각이 찍힘)
-  try{ sessionStorage.removeItem('dongneTs'); }catch(e){} // 넘긴 뒤에는 예전(앞쪽) 번호표로 되돌아가지 않게 함
-  myQueueRef.update({ ts: firebase.database.ServerValue.TIMESTAMP, yieldedAt: firebase.database.ServerValue.TIMESTAMP, activeAt: null, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
+  myQueueRef.update({ ts: firebase.database.ServerValue.TIMESTAMP, device: getDeviceLabel(), joinedAt: new Date().toLocaleString('ko-KR') });
 }
 
 let notifyHintShown = false; // 세션당 한 번만 보여주기 위한 플래그
@@ -750,6 +722,7 @@ function applyActiveState(nowActive){
     stopIdleWatcher();
     updateWaitRankDisplay();
   }
+  dlog('상태: ' + (amActive ? '쇼핑 중(활성)' : '대기'));
 }
 
 // ── 시스템 알림 (다른 탭에 가있어도 차례가 된 걸 알려줌) ──
@@ -777,38 +750,14 @@ let hiddenSinceIdx = null;
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState==='hidden'){
     hiddenSinceIdx = Date.now();
-    dlog('화면 숨김');
   } else if(document.visibilityState==='visible'){
     const awayMs = hiddenSinceIdx ? (Date.now()-hiddenSinceIdx) : 0;
     hiddenSinceIdx = null;
-    dlog('화면 복귀 (뒤에 있던 시간 '+Math.round(awayMs/1000)+'초)');
     if(awayMs > 10000 && capacityChecked){
-      startCatchUp(); // 밀려있었을 수 있는 "차례됨" 소식을 즉시 다시 확인 (이후 5분간 3초마다 반복)
+      scheduleRecompute(); // 밀려있었을 수 있는 "차례됨" 소식을 즉시 다시 확인
     }
   }
 });
-
-// 폰이 뒤에 있다 돌아오면, 인터넷이 다시 살아나는 데 시간이 걸릴 수 있으므로 돌아온 뒤 5분 동안 3초마다 서버에 직접 물어봄
-let catchUpTimer = null, catchUpUntil = 0;
-function startCatchUp(){
-  if(!capacityChecked) return;
-  catchUpUntil = Date.now() + 5*60000;
-  scheduleRecompute();
-  if(catchUpTimer) return;
-  catchUpTimer = setInterval(function(){
-    if(!capacityChecked || Date.now() > catchUpUntil || document.visibilityState!=='visible'){ clearInterval(catchUpTimer); catchUpTimer = null; return; }
-    scheduleRecompute();
-  }, 3000);
-}
-// (2026-09-22: 이 자리에 있던 "대기 중 계속 3초마다 확인" 반복 확인은 의도와 다르게 훨씬 더 자주 실행되어
-//  서버에 요청이 몰리는 문제를 일으켜 제거함. 아래 startCatchUp()이 화면이 앞으로 올 때마다 5분간 3초 간격으로
-//  안전하게 확인하므로 이것으로 충분함.)
-setInterval(function(){ if(capacityChecked && document.visibilityState==='visible') scheduleRecompute(); }, 20000); // 오래 자리 비운 항목 정리용
-// 화면이 다시 앞으로 오거나 인터넷이 다시 붙는 순간에도 곧바로 최신 상태를 확인 (여러 신호가 겹쳐도 한 번만 계산됨)
-['focus','pageshow','online'].forEach(function(ev){
-  window.addEventListener(ev, function(){ dlog('이벤트 '+ev); startCatchUp(); });
-});
-document.addEventListener('resume', function(){ dlog('이벤트 resume'); startCatchUp(); });
 
 // ── 큐(대기줄) 재계산 — 경쟁 없이, 모두가 같은 데이터를 보고 각자 독립적으로 계산만 함 ──
 let recomputeDebounceTimer=null;
@@ -816,260 +765,108 @@ function scheduleRecompute(){
   if(recomputeDebounceTimer) clearTimeout(recomputeDebounceTimer);
   recomputeDebounceTimer = setTimeout(recomputeNow, 250); // 짧은 시간 내 여러 신호가 몰려도 딱 한 번만 계산 (화면 깜빡임 방지)
 }
-// ── 최신 명단 읽기 ──
-// 폰이 오래 뒤로 물러나 있으면 앱 안의 실시간 연결이 죽어서 '옛 명단'을 들고 있을 수 있음(알림은 서버가 보내므로 오지만 화면은 아직 대기로 보임).
-// 그래서 서버에 인터넷(REST)으로 직접 물어봐서 최신 명단을 읽고, 실패하면 예전 방식으로 되돌아감.
-let recomputeSeq = 0;
-const lastCleanAt = {};
-function cleanupStale(ids){
-  (ids||[]).forEach(function(id){
-    if(id === myClientId) return;
-    if(!id) return;
-    if(lastCleanAt[id] && Date.now() - lastCleanAt[id] < 30000) return;
-    lastCleanAt[id] = Date.now();
-    fetch(firebaseConfig.databaseURL + '/queue/' + id + '.json', { method:'DELETE' })
-      .then(function(){ dlog('오래된 항목 정리'); scheduleRecompute(); })
-      .catch(function(){});
-  });
-}
-// 통화 중 끊긴 손님을 '줄 맨 뒤'로 보냄 (지우지 않음 → 알림 주소와 대기 자격을 그대로 유지)
-const lastRequeueAt = {};
-function requeueToBack(ids){
-  (ids||[]).forEach(function(id){
-    if(id === myClientId) return;
-    if(!id) return;
-    if(lastRequeueAt[id] && Date.now() - lastRequeueAt[id] < 60000) return; // 여러 화면이 동시에 밀지 않도록
-    lastRequeueAt[id] = Date.now();
-    fetch(firebaseConfig.databaseURL + '/queue/' + id + '.json', { method:'PATCH', body: JSON.stringify({
-      ts: {'.sv':'timestamp'}, yieldedAt: {'.sv':'timestamp'}, requeuedAt: {'.sv':'timestamp'},
-      activeAt: null, paused: null, endsAt: null, remainMs: null, extraMs: null, idleMs: null
-    })}).then(function(){ dlog('통화 중 끊긴 손님을 맨 뒤로'); scheduleRecompute(); })
-      .catch(function(){});
-  });
-}
-const freshQueues = new WeakSet(); // 서버에서 방금 받은 명단인지(앱 내부 옛 명단이 아닌지) 표시
-async function fetchQueueFresh(){
-  try{
-    const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(()=>ctrl.abort(), 4000) : null;
-    const res = await fetch(firebaseConfig.databaseURL + '/queue.json', { cache:'no-store', signal: ctrl ? ctrl.signal : undefined });
-    if(timer) clearTimeout(timer);
-    if(res.ok){ const q = await res.json(); dlog('서버조회 OK 명단 '+Object.keys(q||{}).length+'명, 내 항목 '+((q && q[myClientId])?'있음':'없음')); const out = q || {}; freshQueues.add(out); return out; }
-    dlog('서버조회 응답코드 '+res.status);
-  }catch(e){ dlog('서버조회 실패: '+(e && e.name ? e.name : e)); /* 실패하면 아래의 예전 방식 사용 */ }
-  const snap = await db.ref('queue').once('value');
-  dlog('앱 내부 옛 명단 사용');
-  return snap.val() || {};
-}
-// ── 차례 판단 규칙 (2026-09-22) ──
-// 1) 쇼핑 종료로 나가는 손님(leftAt 표시)과 번호표 없는 항목은 순서에서 뺀다.
-// 2) 내 앞사람이 "쇼핑 종료"나 "차례 넘김" 없이 갑자기 사라졌다면(폰을 다시 켜는 순간 연결이 바뀌며 잠깐 지워지는 경우가 대부분),
-//    곧바로 차례를 가져가지 않고 HOLD_MS 동안 그 사람이 돌아오는지 기다린다. → 두 기기가 동시에 "차례"라고 말하는 문제 방지
-const HOLD_MS = 25000;
-// 폰이 다른 앱에 있거나 화면이 꺼지면 인터넷 연결이 끊길 수 있는데, 그렇다고 명단에서 바로 빼면 알림을 못 받음.
-// 그래서 연결이 끊기면 "자리 비움(offlineAt)" 표시만 남기고, 자리는 아래 기준으로 유지함.
-const OFFLINE_KEEP_MS = 15*60000;            // 대기 중 손님: 15분까지 자리 유지
-const OFFLINE_FIRST_KEEP_MS = 40000;         // 쇼핑하던 손님이 창을 닫았을 때: 40초 뒤 다음 손님에게
-const OFFLINE_FIRST_KEEP_ONCALL_MS = 180000; // 통화 중이던 손님이면 3분까지 기다려 줌
-const TURN_RETURN_GRACE_MS = 60000;          // 연결이 끊긴 채 차례가 된 손님: 알림을 받고 돌아올 시간 1분
-                                             // (더 길게 잡으면 뒤에 기다리는 손님이 오래 멈춰 있게 됨)
-// 내가 각 손님을 '1등'으로 처음 본 시각 (이 기기 안에서만 쓰는 기록, 서버에 쓰지 않음)
-const firstSeenAt = {};
-const alreadyWaitedFor = {};   // 이미 한 번 기다려 준 손님 (같은 사람을 반복해서 기다리지 않도록)
-function liveEntries(q, now){
-  const nowMs = now || Date.now();
-  const out = [], stale = [], requeue = [];
-  Object.keys(q||{}).forEach(function(id){
-    const e = q[id];
-    if(!e || typeof e.ts !== 'number'){ if(e && typeof e.offlineAt==='number' && nowMs - e.offlineAt > OFFLINE_KEEP_MS) stale.push(id); return; }
-    if(typeof e.leftAt === 'number'){ stale.push(id); return; }
-    if(typeof e.offlineAt === 'number' && nowMs - e.offlineAt > OFFLINE_KEEP_MS){ stale.push(id); return; }
-    out.push([id, e]);
-  });
-  out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
-  while(out.length > 1){
-    const fid = out[0][0], f = out[0][1];
-    if(!firstSeenAt[fid]) firstSeenAt[fid] = nowMs;   // 이 사람이 1등이 된 시각을 기억
-    const becameFirst = firstSeenAt[fid];
-    if(typeof f.offlineAt !== 'number') break;        // 지금 접속해 있으면 그대로 둠
-    // 쇼핑하던 중에 끊긴 경우(1등이 된 뒤에 끊김)는 40초, 통화 중이었으면 3분.
-    // 대기하다가 '끊긴 채로' 차례가 된 경우는 이제 막 알림을 받았으므로 돌아올 시간 3분을 줌.
-    const wentOfflineWhileFirst = f.offlineAt >= becameFirst;
-    const keep = (f.paused === true) ? OFFLINE_FIRST_KEEP_ONCALL_MS
-               : (wentOfflineWhileFirst ? OFFLINE_FIRST_KEEP_MS : TURN_RETURN_GRACE_MS);
-    const since = Math.max(f.offlineAt, becameFirst);
-    if(nowMs - since > keep){
-      // 통화하며 물건을 고르던 중에 끊긴 손님은 명단에서 지우지 않고 '줄 맨 뒤'로 보냄.
-      // (알림 주소도 그대로 남아서, 인터넷이 돌아오면 대기 순번을 그대로 이어 갈 수 있음)
-      // 이미 한 번 맨 뒤로 보낸 손님(requeuedAt)이나 통화 중이 아니던 손님은 예전처럼 정리함.
-      if(f.paused === true && typeof f.requeuedAt !== 'number') requeue.push(fid);
-      else stale.push(fid);
-      delete firstSeenAt[fid]; out.shift();
-    }
-    else break;
+// ── 점원이 남긴 안내문을 손님 화면에 띄움 (2026-09-27) ──────────────
+// 점원이 '넘기기'나 '이 손님에게'를 누를 때 그 손님 항목에 notice 를 적어 둔다.
+// 손님은 왜 순번이 뒤로 갔는지 알 수 있고, 한 번 본 안내문은 다시 뜨지 않는다.
+let lastNoticeAt = 0;
+try{ lastNoticeAt = parseInt(localStorage.getItem('dongneNoticeAt'),10) || 0; }catch(e){}
+myQueueRef.child('noticeAt').on('value', function(snap){
+  const at = snap.val();
+  if(typeof at !== 'number' || at <= lastNoticeAt) return;
+  lastNoticeAt = at;
+  try{ localStorage.setItem('dongneNoticeAt', String(at)); }catch(e){}
+  myQueueRef.child('notice').once('value').then(function(s2){
+    const msg = s2.val();
+    if(!msg) return;
+    dlog('점원 안내문: '+msg);
+    showClerkNotice(msg);
+  }).catch(function(){});
+});
+function showClerkNotice(msg){
+  let el = document.getElementById('clerkNotice');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'clerkNotice';
+    el.style.cssText = 'position:fixed;left:10px;right:10px;top:12px;z-index:9998;background:rgba(93,64,55,.96);color:#FFE8C8;'
+      + 'border-radius:12px;padding:12px 14px;font-size:.8rem;line-height:1.5;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+    document.body.appendChild(el);
   }
-  if(out.length){ const fid = out[0][0]; if(!firstSeenAt[fid]) firstSeenAt[fid] = nowMs;
-    Object.keys(firstSeenAt).forEach(function(k){ if(k !== fid) delete firstSeenAt[k]; }); }
-  out.stale = stale;
-  out.requeue = requeue;
-  return out;
+  el.innerHTML = '⏭ ' + msg
+    + '<br><button onclick="this.parentNode.remove()" style="margin-top:8px;padding:5px 14px;border:none;border-radius:10px;'
+    + 'background:rgba(255,255,255,.22);color:#fff;font-size:.72rem;font-weight:700;cursor:pointer;">확인</button>';
+  el.style.display = 'block';
+  try{ if(document.visibilityState==='visible' && 'speechSynthesis' in window){
+    const u = new SpeechSynthesisUtterance(msg); u.lang='ko-KR'; window.speechSynthesis.speak(u);
+  } }catch(e){}
+  setTimeout(function(){ const x=document.getElementById('clerkNotice'); if(x) x.remove(); }, 20000);
 }
-// q: 지금 명단, prevQ: 직전에 본 명단, hold: {ids, until} 또는 null, isActive: 지금 내가 활성인지
-function computeTurn(q, me, prevQ, hold, isActive, now){
-  const entries = liveEntries(q, now);
-  const stale = entries.stale || [];
-  const requeue = entries.requeue || [];
-  const idx = entries.findIndex(e=>e[0]===me);
-  if(idx < 0) return { idx: -1, nowActive: false, hold: null, entries: entries, stale: stale, requeue: requeue };
-  const iAmFirst = (idx === 0);
-  if(!iAmFirst || isActive === true) return { idx: idx, nowActive: iAmFirst, hold: null, entries: entries, stale: stale, requeue: requeue };
-  let h = hold;
-  if(!h && prevQ){
-    const prevLive = liveEntries(prevQ, now);
-    // 바로 앞(1등)이던 손님이 "쇼핑 종료" 표시 없이 사라진 경우에만 잠깐 확인함.
-    // (뒤쪽 대기자가 창을 닫는 것 같은 일로는 기다리지 않음 → 화면에 '확인 중'이 자주 뜨지 않게)
-    const prevFirst = prevLive.length ? prevLive[0][0] : null;
-    // 같은 사람을 두 번 기다리지는 않음. (창을 닫았다 열기를 반복하는 손님 때문에
-    //  내 차례가 계속 미뤄지는 일을 막기 위함)
-    if(prevFirst && prevFirst !== me && !(q && q[prevFirst]) && !alreadyWaitedFor[prevFirst]){
-      alreadyWaitedFor[prevFirst] = true;
-      h = { ids: [prevFirst], until: now + HOLD_MS };
-    }
-  }
-  if(h && now < h.until) return { idx: idx, nowActive: false, hold: h, entries: entries, holding: true, stale: stale, requeue: requeue };
-  return { idx: idx, nowActive: true, hold: null, entries: entries, stale: stale, requeue: requeue };
+
+// 내가 번호표를 받은 적이 있는지 / 점원이 나를 내보냈는지
+let hadTicket = false, wasKicked = false;
+function showKickedBlock(){
+  if(wasKicked) return;
+  wasKicked = true;
+  dlog('점원이 내보냄 → 대기 취소 화면');
+  try{ if(whepPc){ whepPc.close(); whepPc=null; } }catch(e){}   // 영상 연결도 끊음 (매장 PC 부담 줄임)
+  const el = document.getElementById('kickedBlock');
+  if(el) el.style.display = 'flex';
 }
-let prevQueueSnap = null, prevQueueSnapAt = 0, turnHold = null, lastHiddenAt = 0;
-// 내가 화면을 떠나 있었다면 직전 명단은 오래된 정보이므로 "갑자기 사라졌다" 판단에 쓰지 않음 (돌아온 손님이 괜히 기다리지 않게)
-document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') lastHiddenAt = Date.now(); });
 function recomputeNow(){
   if(!capacityChecked) return; // 인원초과로 막힌 손님은 계산 자체에 참여 안 함
-  const seq = ++recomputeSeq;
-  fetchQueueFresh().then(q=>{
-    if(seq !== recomputeSeq) return; // 더 새로운 계산이 이미 시작됐으면 이 결과는 버림 (순서 뒤바뀜 방지)
+  if(wasKicked) return;
+  db.ref('queue').once('value').then(snap=>{
+    const q = snap.val() || {};
     const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null){
-      // 아직 등록 전이거나, 쇼핑종료로 이미 나간 상태이면 그대로 둠. 그 외(연결이 끊겨 서버가 내 항목을 지운 경우)에는 바로 다시 적어 넣음
-      if(capacityChecked && !hasFinishedShopping){ dlog('내 항목 없음 → 재입장 시도'); rejoinViaRest(q).then(ok=>{ dlog('재입장 '+(ok?'성공':'실패')); if(ok){ rearmOnDisconnect(); scheduleRecompute(); } }); }
+      // 번호표를 받은 적이 있는데 지금 명단에 없다 = 점원이 내보냈다.
+      // (손님이 스스로 '쇼핑 종료'를 누른 경우는 hasFinishedShopping 이 true 이므로 제외)
+      if(hadTicket && !hasFinishedShopping) showKickedBlock();
       return;
     }
-    const hadHold = !!turnHold;
-    const fresh = freshQueues.has(q); // 앱 내부 옛 명단으로 계산한 결과는 "갑자기 사라짐" 판단에 쓰지 않음
-    const usePrev = (fresh && prevQueueSnap && !(lastHiddenAt >= prevQueueSnapAt)) ? prevQueueSnap : null;
-    const r = computeTurn(q, myClientId, usePrev, turnHold, amActive, Date.now());
-    if(fresh){ prevQueueSnap = q; prevQueueSnapAt = Date.now(); cleanupStale(r.stale); requeueToBack(r.requeue); }
-    turnHold = r.hold;
-    if(r.holding && !hadHold){ dlog('앞사람이 갑자기 사라짐 → '+Math.round(HOLD_MS/1000)+'초 동안 돌아오는지 기다림'); setTimeout(scheduleRecompute, HOLD_MS + 300); }
-    if(r.idx < 0) return;
-    const entries = r.entries;
-    const nowActive = r.nowActive;
-    dlog('계산: 1등='+(r.idx===0?'나':'남')+', 내 순번 '+r.idx+(r.holding?' (확인 대기 중)':''));
+    hadTicket = true;
+    const entries = Object.entries(q);
+    entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
+    const winnerId = entries[0][0];
+    const nowActive = (winnerId === myClientId);
     applyActiveState(nowActive);
     // 활성/대기 '상태' 자체는 안 바뀌어도, 대기 중이면 '몇 번째'는 매번 다시 계산해서 보여줌
     // (applyActiveState는 상태 전환이 없으면 조기 종료하므로, 순번 텍스트는 여기서 별도로 항상 갱신)
     if(!nowActive){
       const myIdx = entries.findIndex(e=>e[0]===myClientId);
       const badge=document.getElementById('waitBadge');
-      if(badge) badge.innerHTML = r.holding ? '⏳ 곧 차례예요 · 앞 손님 확인 중입니다' : waitBadgeHtml(myIdx);
+      if(badge) badge.textContent = `🙋 대기 순번 ${myIdx}번째 · 화면만 함께 보실 수 있어요`;
     }
   }).catch(e=>console.error('[큐 계산 실패]', e));
 }
 
 // ── 접속 인원 표시 + 동시 최대 인원 제한 ──
 // ── 큐(대기줄) 참가 신청 (최초 접속 + 재입장 둘 다 이 함수를 거쳐야 함) ──
-// ── 재접속 보강: 폰 화면을 껐다 켜서 연결이 끊겼다 돌아와도 번호표(순서)와 알림 토큰을 잃지 않게 함 ──
-// 마지막으로 확인된 번호표·토큰을 이 탭(sessionStorage)에 기억해 두었다가, 명단에서 지워진 채 돌아오면 다시 붙여줌
-myQueueRef.child('fcmToken').on('value', function(s){
-  const v = s.val();
-  if(v){ try{ sessionStorage.setItem('dongneFcmToken', v); }catch(e){} }
-});
-myQueueRef.child('ts').on('value', function(s){
-  const v = s.val();
-  if(typeof v === 'number'){ try{ sessionStorage.setItem('dongneTs', String(v)); }catch(e){} }
-});
-let serverTimeOffset = 0; // 내 기기 시계와 서버 시계의 차이 (시계가 틀린 기기에서도 오래된 번호표를 걸러내기 위함)
-db.ref('.info/serverTimeOffset').on('value', function(s){ serverTimeOffset = s.val() || 0; });
-const RESTORE_TS_MAX_AGE_MS = 60*60000; // 이보다 오래된 번호표는 되살리지 않음 (1시간)
-// 명단에 넣을 내 항목(번호표·토큰 등)을 만듦. 명단에 이미 내가 있으면 번호표를 건드리지 않음.
-// 반환값의 ts가 'SERVER'이면 "서버 시각으로 새 번호표"라는 뜻 (SDK/REST가 각자 방식으로 서버시각 표시로 바꿔 씀)
-function buildEntryData(q, exists){
-  const data = {
-    device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
-    joinedAt: new Date().toLocaleString('ko-KR')
-  };
-  if(exists){ data.leftAt = null; data.offlineAt = null; data.requeuedAt = null; return data; } // 명단에 이미 있는 경우에는 번호표(ts)를 건드리지 않음 (예전에는 여기서 매번 새 번호표를 뽑아 맨 뒤로 밀렸음)
-  // 명단에 내 이름이 없는 상태 = 처음 왔거나, 연결이 끊겼다 돌아온 경우
-  let othersFirstTs = null, othersFirstId = null; // 지금 이용 중인(가장 빠른) 다른 손님
-  Object.keys(q).forEach(function(id){
-    if(id===myClientId) return;
-    const t = q[id] && q[id].ts;
-    if(q[id] && typeof q[id].leftAt==='number') return;
-    if(q[id] && typeof q[id].offlineAt==='number' && (Date.now()+serverTimeOffset) - q[id].offlineAt > OFFLINE_FIRST_KEEP_MS) return;
-    if(typeof t==='number' && (othersFirstTs===null || t<othersFirstTs)){ othersFirstTs = t; othersFirstId = id; }
-  });
-  // 앞사람이 3분 무조작으로 스스로 차례를 넘긴 사람이면(ts===yieldedAt), 그 사람은 이미 뒤로 간 것이므로
-  // 되돌아온 내가 그 뒤로 밀려나면 안 됨 → 이 경우에는 원래 번호표를 그대로 씀
-  const firstYielded = othersFirstId && q[othersFirstId] && typeof q[othersFirstId].yieldedAt==='number' && q[othersFirstId].yieldedAt === q[othersFirstId].ts;
-  // 실제로 쇼핑 중인 사람 = 차례를 받은 지 10초가 지난 사람. 이미 "차례예요" 안내를 들은 사람의 차례는 빼앗지 않음
-  // (10초 안에는 아직 안내 직후라, 원래 앞이던 손님이 곧바로 돌아오면 그 손님에게 양보)
-  const firstShopping = othersFirstId && q[othersFirstId] && typeof q[othersFirstId].activeAt==='number' && ((Date.now() + serverTimeOffset) - q[othersFirstId].activeAt) > 10000;
-  let savedTs = NaN, savedToken = null;
-  try{ savedTs = parseInt(sessionStorage.getItem('dongneTs'), 10); savedToken = sessionStorage.getItem('dongneFcmToken'); }catch(e){}
-  const serverNow = Date.now() + serverTimeOffset;
-  const restorable = !hasFinishedShopping && savedTs && savedTs <= serverNow + 5000 && (serverNow - savedTs) < RESTORE_TS_MAX_AGE_MS;
-  if(restorable){
-    let ts = savedTs;
-    // 돌아온 손님이 지금 쇼핑 중인 손님을 밀어내면 안 되므로, 이용 중인 사람 바로 뒤까지만 앞당김
-    if(othersFirstTs!==null && ts <= othersFirstTs && firstShopping && !firstYielded) ts = othersFirstTs + 1;
-    dlog('재입장 자리: '+(ts===savedTs?'원래 번호표 그대로':'이용 중인 사람 바로 뒤')+(firstYielded?' (앞사람은 차례를 넘긴 사람)':''));
-    data.ts = ts;
-  } else {
-    data.ts = 'SERVER'; // 새로 온 손님: 서버시각으로 새 번호표
-  }
-  if(savedToken) data.fcmToken = savedToken; // 알림 받을 주소(토큰)도 다시 붙여줌
-  data.offlineAt = null; data.leftAt = null;
-  return data;
-}
 async function registerPresenceWithCapacityCheck(){
-  let exists = false, q = {};
   try{
-    q = await fetchQueueFresh(); // 앱 안의 옛 정보가 아니라 서버의 최신 명단으로 판단
-    exists = !!(q[myClientId] && typeof q[myClientId].ts === 'number');
-    if(!exists && liveEntries(q, Date.now()).length >= MAX_CONCURRENT_VIEWERS){
+    const snap = await db.ref('queue').once('value');
+    const q = snap.val() || {};
+    const alreadyIn = q[myClientId]!=null;
+    const count = Object.keys(q).length;
+    if(!alreadyIn && count >= MAX_CONCURRENT_VIEWERS){
       showCapacityBlock();
       return false;
     }
   }catch(e){ console.error('[인원확인 실패]', e); }
-  const data = buildEntryData(q, exists);
-  if(data.ts === 'SERVER') data.ts = firebase.database.ServerValue.TIMESTAMP;
-  await myQueueRef.update(data);
-  myQueueRef.onDisconnect().update({ offlineAt: firebase.database.ServerValue.TIMESTAMP });
+  await myQueueRef.update({
+    ts: firebase.database.ServerValue.TIMESTAMP, // 순서 계산용 (서버시각, 정렬 기준)
+    device: getDeviceLabel(), // Firebase 콘솔에서 "이게 뭔지" 한눈에 알아보기 위한 이름표
+    joinedAt: new Date().toLocaleString('ko-KR')
+  });
+  // 2026-09-27: 예전에는 여기서 onDisconnect().remove() 로, 연결이 끊기면 자리를 지웠다.
+  // 그래서 손님이 다른 앱으로 가거나 화면을 끄면 자리와 알림 주소가 함께 사라져
+  // "차례가 됐다"는 알림을 보낼 곳이 없어졌다. 이제 지우지 않는다.
+  // 명단에서 빠지는 것은 (1) 손님이 '쇼핑 종료'를 누를 때 (2) 점원이 '내보내기'를 누를 때, 이 두 가지뿐이다.
   return true;
-}
-// 폰이 오래 뒤에 있다 돌아왔을 때, 서버가 내 항목을 이미 지운 상태라면 앱 안의 연결이 복구되길 기다리지 않고
-// 인터넷(REST)으로 곧바로 내 항목을 다시 적어 넣음 (원래 번호표·토큰 그대로)
-let rejoining = false, lastRejoinAt = 0;
-async function rejoinViaRest(q){
-  if(rejoining || Date.now() - lastRejoinAt < 8000) return false; // 너무 자주 반복하지 않음
-  rejoining = true; lastRejoinAt = Date.now();
-  try{
-    const data = buildEntryData(q, false);
-    if(data.ts === 'SERVER') data.ts = {'.sv':'timestamp'};
-    const res = await fetch(firebaseConfig.databaseURL + '/queue/' + myClientId + '.json', { method:'PATCH', body: JSON.stringify(data) });
-    dlog('재입장 응답코드 '+res.status);
-    return res.ok;
-  }catch(e){ dlog('재입장 오류: '+(e && e.name ? e.name : e)); console.warn('[재입장 실패]', e); return false; }
-  finally{ rejoining = false; }
-}
-// (2026-09-22: 여기 있던 "연결을 강제로 끊었다 다시 붙이기"는 연결을 끊는 순간 그 연결에 걸려 있던
-//  onDisconnect(자동 삭제) 장치가 즉시 발동해 방금 되살린 명단 항목을 다시 지워버리는 심각한 부작용이 있어 제거함.
-//  대신 재입장 뒤에는 onDisconnect만 다시 걸어 두어, 이후 진짜로 연결이 끊길 때만 정상적으로 지워지게 함.)
-function rearmOnDisconnect(){
-  try{ myQueueRef.onDisconnect().update({ offlineAt: firebase.database.ServerValue.TIMESTAMP }); }catch(e){}
 }
 db.ref('.info/connected').on('value', async snap=>{
   if(!snap.val()) return;
-  if(hasFinishedShopping) return; // 쇼핑 종료한 손님은 연결이 잠깐 끊겼다 돌아와도 자동으로 다시 명단에 들어가지 않음 ([연결] 버튼을 눌러야 재입장)
+  // 점원이 내보냈거나 손님이 쇼핑을 끝냈으면, 인터넷이 다시 붙어도 명단에 몰래 끼어들지 않음
+  if(wasKicked || hasFinishedShopping) return;
   const ok = await registerPresenceWithCapacityCheck();
   if(!ok) return;
   if(!capacityChecked){ capacityChecked=true; connCam(); scheduleRecompute(); setupFcmToken(); } // 인원 확인을 통과한 손님만 카메라 연결 + 활성상태 계산 시작
@@ -1088,20 +885,11 @@ function showCapacityBlock(){
   db.ref('queue').on('value', capacityWatchCb);
 }
 function capacityWatchCb(snap){
-  // 나간 손님·연결 끊긴 옛 항목은 사람 수에서 빼고, 남아 있으면 정리까지 함
-  const q = snap.val() || {};
-  const live = liveEntries(q, Date.now());
-  cleanupStale(live.stale); requeueToBack(live.requeue);
-  if(live.length < MAX_CONCURRENT_VIEWERS){
+  if(snap.numChildren() < MAX_CONCURRENT_VIEWERS){
     db.ref('queue').off('value', capacityWatchCb);
     location.reload();
   }
 }
-setInterval(function(){ // 혼잡 화면에 막혀 있는 동안에도 옛 항목이 정리되도록 주기적으로 확인
-  const el=document.getElementById('capacityBlock');
-  if(!el || el.style.display!=='flex') return;
-  db.ref('queue').once('value').then(function(s){ capacityWatchCb(s); }).catch(function(){});
-}, 15000);
 
 // ── 대기 고객용: 활성 고객의 디지털 줌·화면이동을 그대로 반영 ──
 function applyIncomingZoom(z, px, py){
@@ -1117,12 +905,14 @@ db.ref('customerZoom').on('value', snap=>{
 
 function goTab(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');syncBottom(id);}
 function goBottom(id,btn){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');btn.classList.add('on');if(id==='cart'){ document.getElementById('cartTabBtn')?.classList.remove('ready-pulse'); document.getElementById('paymentBanner')?.classList.remove('show'); }}
-function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
-// 장바구니·안내 화면에서 실시간 영상 화면으로 돌아가기
+// 장바구니·안내·빵목록 화면에서 실시간 영상 화면으로 돌아가기 (2026-09-27)
 function backToCam(){
-  switchToCam();
-  try{ window.scrollTo(0,0); }catch(e){}
+  document.querySelectorAll('.sec').forEach(x=>x.classList.remove('on'));
+  document.getElementById('cam').classList.add('on');
+  syncBottom('cam');
+  window.scrollTo({top:0, behavior:'smooth'});
 }
+function syncBottom(id){const idx=['cam','menu','cart','guide'].indexOf(id);document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('on',i===idx));}
 function switchToCam(){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.btab,.tab').forEach(b=>b.classList.remove('on'));
@@ -1227,18 +1017,10 @@ function discCam(){
   connected=false;setStep(1);zoomReset();
   if(pc){ endCall(); } // 통화 중이었다면 같이 정리
   hasFinishedShopping = true; // 방을 안 나가도 더 이상 자동으로 순서를 다시 잡지 않음
-  try{ sessionStorage.removeItem('dongneTs'); }catch(e){} // 쇼핑을 끝낸 손님의 예전 번호표는 폐기 (다시 오면 맨 뒤에서 새로 시작)
   amActive=null; setControlsEnabled(false); stopIdleWatcher(); // null(미확정)로 두어야, 재입장 후 다음 계산에서 '상태 안 바뀜'으로 오인되어 배지 재생성이 생략되는 일이 없음
   const wb=document.getElementById('waitBadge'); if(wb) wb.remove(); // 큐를 완전히 나가는 것이므로 '대기 순번' 표시는 더 이상 의미없음 → 숨김
   console.log('[쇼핑종료-상단버튼] myClientId:', myClientId, '/ 큐 이탈 시도 중...');
-  // 나가는 손님은 '자리 비움'이 아니라 '삭제'가 되도록 바꿔 둠.
-  // (이 줄이 없으면, 1.5초 뒤 삭제가 실행되기 전에 창이 닫혔을 때 항목이 계속 남아 다음 손님의 차례를 막을 수 있음)
-  try{ myQueueRef.onDisconnect().cancel(); }catch(e){}
-  try{ myQueueRef.onDisconnect().remove(); }catch(e){}
-  myQueueRef.update({ leftAt: firebase.database.ServerValue.TIMESTAMP, activeAt: null })
-    .catch(function(){})
-    .then(function(){ return new Promise(function(res){ setTimeout(res, 1500); }); })
-    .then(function(){ if(hasFinishedShopping) return myQueueRef.remove(); })
+  myQueueRef.remove()
     .then(()=>console.log('[쇼핑종료-상단버튼] 큐 이탈 성공'))
     .catch(e=>console.error('[쇼핑종료-상단버튼] 큐 이탈 실패:', e));
 }
@@ -1738,144 +1520,13 @@ function speakTurn(){
     window.speechSynthesis.speak(u);
   }catch(e){ console.warn('[음성안내] 실패:', e); }
 }
-let turnFallbackDone = false; // 이번 차례에 대체 알림(시스템 알림 소리)을 이미 보냈는지
-// 음성이 막히거나 안 나올 때, 윈도우/폰의 시스템 알림(알림음 포함)으로 대신 알려줌 (한 차례에 한 번만)
-function turnAlertFallback(){
-  if(turnFallbackDone || amActive !== true) return;
-  turnFallbackDone = true;
-  if(!('Notification' in window) || Notification.permission !== 'granted'){ dlog('대체 알림 불가 (알림 권한 없음)'); return; }
-  const title = '✅ 지금 쇼핑하실 차례예요!';
-  const opts = { body: '행복한 빵집 — 지금부터 이용하실 수 있어요', tag: 'dongne-turn', renotify: true, vibrate: [300,150,300] };
-  const viaSW = (navigator.serviceWorker && navigator.serviceWorker.getRegistration) ? navigator.serviceWorker.getRegistration() : Promise.resolve(null);
-  viaSW.then(function(reg){
-    if(reg) return reg.showNotification(title, opts);
-    new Notification(title, opts);
-  }).then(function(){ dlog('대체 알림(알림음) 보냄'); })
-    .catch(function(){ try{ new Notification(title, opts); dlog('대체 알림(알림음) 보냄'); }catch(e){ dlog('대체 알림 실패'); } });
-}
-let pendingSpeak = false;  // 화면이 뒤에 있는 동안 차례가 돼서 아직 못 들려준 음성이 있는지
-let speakAttempts = 0;     // 같은 차례에 대해 음성을 시도한 횟수 (무한 반복 방지)
 const _origApplyActiveState = applyActiveState;
 applyActiveState = function(nowActive){
   const wasWaiting = (amActive === false);
-  if(nowActive !== amActive) dlog('상태 변경: '+amActive+' → '+nowActive);
-  const wasActive = (amActive === true);
   _origApplyActiveState(nowActive);
-  try{
-    if(nowActive === true && !wasActive) myQueueRef.update({ activeAt: firebase.database.ServerValue.TIMESTAMP, yieldedAt: null });
-    if(nowActive === false && wasActive) myQueueRef.update({ activeAt: null });
-  }catch(e){}
-  if(wasWaiting && nowActive === true){
-    speakAttempts = 0;
-    turnFallbackDone = false;
-    spokeThisTurn = false;
-    pendingSpeak = false;
-    // 이 화면을 한 번도 누르지 않은 경우(PC에서 비번만 치고 기다린 손님 등) 브라우저가 음성을 막으므로, 곧바로 시스템 알림 소리로 알림
-    if(document.visibilityState === 'visible' && navigator.userActivation && !navigator.userActivation.hasBeenActive){
-      dlog('화면을 누른 적 없음 → 시스템 알림 소리로 대신 알림');
-      turnAlertFallback();
-    }
-    // 폰 브라우저는 화면이 꺼져 있거나 뒤에 있으면 음성을 재생하지 못하고 그대로 잃어버림 → 화면이 앞으로 올 때까지 미뤄 둠
-    if(document.visibilityState === 'visible'){ speakAttempts++; speakTurn(); }
-    else { pendingSpeak = true; dlog('음성은 화면이 앞으로 올 때 재생 예정'); }
-  }
+  if(wasWaiting && nowActive === true) speakTurn();
 };
-  // ── 음성 안내 보강 (앞에 있는 같은 이름 함수를 덮어씀) ──
-function unlockSpeech(){
-  try{
-    if('speechSynthesis' in window){
-      const u = new SpeechSynthesisUtterance(' ');
-      u.volume = 0;
-      window.speechSynthesis.speak(u);
-    }
-  }catch(e){}
-}
-document.addEventListener('touchend', unlockSpeech, {once:true, passive:true});
-let voiceStarted = false, spokeThisTurn = false;
-function speakTurn(){
-  try{
-    if(!('speechSynthesis' in window)){ dlog('이 폰은 음성 안내 미지원'); return; }
-    const synth = window.speechSynthesis;
-    voiceStarted = false;
-    try{ synth.cancel(); }catch(e){}   // 뒤에 밀려 있던 옛 음성이 있으면 비워 줌
-    try{ synth.resume(); }catch(e){}
-    const u = new SpeechSynthesisUtterance('행복한 빵집입니다. 지금 쇼핑하실 차례예요. 화면을 확인해 주세요.');
-    u.lang = 'ko-KR';
-    u.volume = 1;
-    const ko = synth.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
-    if(ko) u.voice = ko;
-    u.onstart = function(){ voiceStarted = true; spokeThisTurn = true; pendingSpeak = false; dlog('음성 재생 시작'); };
-    u.onerror = function(e){ dlog('음성 오류: '+(e && e.error ? e.error : '알 수 없음')); if(e && e.error==='not-allowed'){ pendingSpeak = true; turnAlertFallback(); } };
-    setTimeout(function(){ try{ synth.speak(u); }catch(e){} }, 120);
-    // 2초 안에 시작하지 않으면 화면을 다음에 터치할 때 다시 시도
-    setTimeout(function(){ if(!voiceStarted){ pendingSpeak = true; dlog('음성이 시작되지 않음 → 알림음으로 대신 알리고, 터치할 때 다시 시도'); if(document.visibilityState==='visible') turnAlertFallback(); } }, 2000);
-  }catch(e){ dlog('음성 안내 실패'); }
-}
-// 미뤄 둔 음성이 있으면, 화면이 앞으로 오거나 손님이 화면을 만지는 순간에 재생 (한 차례당 최대 3번)
-function trySpeakPending(){
-  if(spokeThisTurn){ pendingSpeak = false; return; } // 이번 차례에는 이미 안내했음
-  try{ // 이미 말하는 중이거나 말하기 직전이면 다시 시키지 않음 (같은 안내가 두 번 나오는 것 방지)
-    const sy = window.speechSynthesis;
-    if(sy && (sy.speaking || sy.pending)) return;
-  }catch(e){}
-  if(!pendingSpeak || amActive !== true || document.visibilityState !== 'visible') return;
-  pendingSpeak = false;
-  if(speakAttempts >= 3) return;
-  speakAttempts++;
-  speakTurn();
-}
-document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') setTimeout(trySpeakPending, 400); });
-window.addEventListener('pageshow', function(){ setTimeout(trySpeakPending, 400); });
-window.addEventListener('focus', function(){ setTimeout(trySpeakPending, 400); });
-document.addEventListener('touchend', function(){ setTimeout(trySpeakPending, 50); }, {passive:true});
-document.addEventListener('click', function(){ setTimeout(trySpeakPending, 50); });
-
-// ── 대기 안내 배너 (알림 소리의 뜻을 미리 알려줌, 앞의 같은 이름 함수를 덮어씀) ──
-function showNotifyHintBanner(){
-  if(hasFinishedShopping){ notifyHintShown = false; return; } // 쇼핑 종료 화면에서는 대기 안내를 띄우지 않음
-  if(notifyHintShown) return;
-  notifyHintShown = true;
-  const el=document.getElementById('welcomeBanner');
-  if(!el) return;
-  const needAllow = ('Notification' in window) && Notification.permission!=='granted';
-  el.innerHTML = '<b>🔔 대기 중이에요</b><br>'
-    + (needAllow ? '① 방금 뜬 "허용"을 눌러주세요<br>' : '')
-    + '차례가 되면 <b>알림 소리와 진동</b>이 나요.<br>소리가 나면 화면 위쪽을 <b>아래로 쓸어내려</b><br>"행복한 빵집" 알림을 눌러 주세요.<br>'
-    + '<span style="font-size:.68rem;opacity:.8;">💡 이 화면을 켜 둔 채 기다리시면 음성으로도 알려드려요<br>자세한 설정은 하단 "안내"에서 확인하세요</span>';
-  el.classList.add('show');
-  setTimeout(()=>{ el.classList.remove('show'); }, 15000);
-}
-// 대기 순번 알약 문구 (2줄)
-function waitBadgeHtml(idx){
-  const needTap = navigator.userActivation && !navigator.userActivation.hasBeenActive;
-  const tapBtn = needTap ? '<br><button onclick="event.stopPropagation(); unlockSpeech(); this.remove();" style="margin-top:4px;padding:4px 12px;border:none;border-radius:12px;background:#D2691E;color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">🔊 차례 소리 켜기 (한 번 눌러주세요)</button>' : '';
-  return '🙋 대기 순번 '+idx+'번째 · 화면만 함께 보실 수 있어요' + tapBtn
-    + '<br><span style="font-size:.58rem;font-weight:500;opacity:.85;">🔔 차례가 되면 알림 소리·진동이 와요<br>이 화면을 켜 둔 채 기다리면 음성으로도 알려드려요</span>';
-}
-// ── 대기 중인 손님이 이 화면을 보고 있는 동안에는 폰 화면이 저절로 꺼지지 않게 함 (Wake Lock) ──
-// 손님이 화면을 켜 둔 채 기다리면 검은 화면에서 알림 소리에만 의존하지 않아도 되고, 차례가 되면 음성·화면 안내가 바로 나옴
-let wakeLockSentinel = null, wakeLockRetryAt = 0;
-async function updateWakeLock(){
-  try{
-    if(!('wakeLock' in navigator)) return;
-    const need = capacityChecked && !hasFinishedShopping && amActive === false && document.visibilityState === 'visible';
-    if(need && !wakeLockSentinel && Date.now() >= wakeLockRetryAt){
-      wakeLockSentinel = await navigator.wakeLock.request('screen');
-      wakeLockSentinel.addEventListener('release', function(){ wakeLockSentinel = null; });
-      dlog('화면 켜 두기 켬');
-    } else if(!need && wakeLockSentinel){
-      const s = wakeLockSentinel; wakeLockSentinel = null;
-      await s.release();
-      dlog('화면 켜 두기 끔');
-    }
-  }catch(e){ wakeLockRetryAt = Date.now() + 30000; dlog('화면 켜 두기 실패: '+(e && e.name ? e.name : e)); } // 폰이 허용하지 않으면 30초 뒤에 다시 시도
-}
-setInterval(updateWakeLock, 2000);
-document.addEventListener('visibilitychange', updateWakeLock);
-db.ref('.info/connected').on('value', function(s){ dlog('앱 내부 연결 '+(s.val()?'ON':'OFF')); });
-initDebugPanel();
-dlog('화면 열림 '+APP_VERSION+' ('+document.visibilityState+')');
-renderMenu();
+  renderMenu();
 renderCamMenuOverlay();
 </script>
 </body>

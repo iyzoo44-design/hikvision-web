@@ -387,10 +387,8 @@ html,body{
 
 <div id="sessionPanel" style="position:fixed;top:92px;left:10px;z-index:200;background:rgba(0,0,0,.6);color:#FFD9A0;padding:7px 10px;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;line-height:1.5;">
   <div id="sessionInfo">손님 없음</div>
+    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v1.2 (기본판 · 점원 조정)</div>
   <div style="display:flex;gap:4px;margin-top:5px;">
-    <button onclick="extendCustomer(3)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+3분</button>
-    <button onclick="extendCustomer(5)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+5분</button>
-    <button onclick="extendCustomer(10)" style="padding:4px 8px;border:none;border-radius:9px;background:rgba(184,134,11,.95);color:#fff;font-size:.66rem;font-weight:700;cursor:pointer;">+10분</button>
   </div>
   <div id="custList" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.18);padding-top:5px;font-size:.64rem;line-height:1.6;"></div>
   <div style="display:flex;gap:4px;margin-top:4px;">
@@ -593,46 +591,20 @@ function isEarlierClient(tsA, cidA, tsB, cidB){
 }
 let lastKnownCustomerId = undefined; // undefined = 아직 아무도 관찰 안 함(점원 첫 접속)
 let latestQueue = {};
-// ── 고객 화면과 같은 규칙으로 "지금 쇼핑 중인 손님"을 고름 (2026-09-23) ──
-// leftAt: 쇼핑 종료하고 나가는 손님 / offlineAt: 연결이 끊겨 자리를 비운 손님
-const OFFLINE_KEEP_MS = 15*60000;            // 대기 중 손님: 15분까지 자리 유지
-const OFFLINE_FIRST_KEEP_MS = 40000;         // 쇼핑하던 손님이 창을 닫았을 때: 40초 뒤 다음 손님에게
-const OFFLINE_FIRST_KEEP_ONCALL_MS = 180000; // 통화 중이던 손님이면 3분까지 기다려 줌
-const TURN_RETURN_GRACE_MS = 60000;          // 연결이 끊긴 채 차례가 된 손님: 알림을 받고 돌아올 시간 1분
-                                             // (더 길게 잡으면 뒤에 기다리는 손님이 오래 멈춰 있게 됨)
-const firstSeenAt = {};                      // 내가 각 손님을 '1등'으로 처음 본 시각 (이 화면 안에서만 쓰는 기록)
+// ── 손님 순서 고르기 (2026-09-27 · 기본판) ─────────────────────────
+// 규칙은 딱 하나: 번호표(ts)가 빠른 순서. 프로그램이 스스로 차례를 빼앗지 않는다.
+// leftAt = 쇼핑 종료하고 나간 손님(명단에서 뺌).
+// 창을 닫은 손님은 Firebase가 항목을 지우므로 자연히 명단에서 사라진다.
 function liveQueueEntries(q){
-  const now = Date.now();
-  const out = [], stale = [], requeue = [];
+  const out = [], stale = [];
   Object.keys(q||{}).forEach(function(id){
     const e = q[id];
-    if(!e || typeof e.ts !== 'number'){ if(e && typeof e.offlineAt==='number' && now - e.offlineAt > OFFLINE_KEEP_MS) stale.push(id); return; }
+    if(!e || typeof e.ts !== 'number'){ return; }
     if(typeof e.leftAt === 'number'){ stale.push(id); return; }
-    if(typeof e.offlineAt === 'number' && now - e.offlineAt > OFFLINE_KEEP_MS){ stale.push(id); return; }
     out.push([id, e]);
   });
-  out.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
-  while(out.length > 1){
-    const fid = out[0][0], f = out[0][1];
-    if(!firstSeenAt[fid]) firstSeenAt[fid] = now;
-    const becameFirst = firstSeenAt[fid];
-    if(typeof f.offlineAt !== 'number') break;
-    const wentOfflineWhileFirst = f.offlineAt >= becameFirst;
-    const keep = (f.paused === true) ? OFFLINE_FIRST_KEEP_ONCALL_MS
-               : (wentOfflineWhileFirst ? OFFLINE_FIRST_KEEP_MS : TURN_RETURN_GRACE_MS);
-    const since = Math.max(f.offlineAt, becameFirst);
-    if(now - since > keep){
-      // 통화하며 물건을 고르던 중 끊긴 손님은 지우지 않고 '줄 맨 뒤'로 (알림 주소 유지)
-      if(f.paused === true && typeof f.requeuedAt !== 'number') requeue.push(fid);
-      else stale.push(fid);
-      delete firstSeenAt[fid]; out.shift();
-    }
-    else break;
-  }
-  if(out.length){ const fid = out[0][0]; if(!firstSeenAt[fid]) firstSeenAt[fid] = now;
-    Object.keys(firstSeenAt).forEach(function(k){ if(k !== fid) delete firstSeenAt[k]; }); }
+  out.sort(function(a,b){ return isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1; });
   out.stale = stale;
-  out.requeue = requeue;
   return out;
 }
 // 손님이 아무도 접속해 있지 않을 때를 대비해, 점원 화면이 오래된 항목을 정리함
@@ -644,25 +616,11 @@ function cleanupStaleEntries(ids){
     db.ref('queue/'+id).remove().catch(function(){});
   });
 }
-// 통화 중 끊긴 손님은 지우지 않고 줄 맨 뒤로 보냄
-const lastRequeueAt = {};
-function requeueEntries(ids){
-  (ids||[]).forEach(function(id){
-    if(lastRequeueAt[id] && Date.now() - lastRequeueAt[id] < 60000) return;
-    lastRequeueAt[id] = Date.now();
-    db.ref('queue/'+id).update({
-      ts: firebase.database.ServerValue.TIMESTAMP,
-      yieldedAt: firebase.database.ServerValue.TIMESTAMP,
-      requeuedAt: firebase.database.ServerValue.TIMESTAMP,
-      activeAt: null, paused: null, endsAt: null, remainMs: null, extraMs: null, idleMs: null
-    }).catch(function(){});
-  });
-}
 db.ref('queue').on('value', snap=>{
   const q = snap.val() || {};
   latestQueue = q;
   const entries = liveQueueEntries(q);
-  cleanupStaleEntries(entries.stale); requeueEntries(entries.requeue);
+  cleanupStaleEntries(entries.stale);
   updateSessionPanel();
   if(entries.length===0) return; // 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
   const cid = entries[0][0];
@@ -931,26 +889,28 @@ function updateSessionPanel(){
   if(!entries.length){ el.innerHTML = '손님 없음'; return; }
   const [cid, e] = entries[0];
   const waiting = entries.length - 1;
-  const extraMin = e.extraMs ? Math.round(e.extraMs/60000) : 0;
   let line;
   if(e.paused === true){
-    line = '🟢 쇼핑 중 (통화 중 — 시간 멈춤)';
-  } else if(typeof e.endsAt === 'number'){
-    const left = Math.max(0, e.endsAt - Date.now());
-    const m = Math.floor(left/60000), s = Math.floor((left%60000)/1000);
-    line = '⏳ 남은 시간 ' + m + ':' + String(s).padStart(2,'0');
+    line = '🟢 쇼핑 중 (📞 통화 중)';
+  } else if(typeof e.startedAt === 'number'){
+    const used = Date.now() - e.startedAt;
+    const m = Math.floor(used/60000), sec = Math.floor((used%60000)/1000);
+    const over = (typeof e.endsAt === 'number') && Date.now() > e.endsAt;
+    line = (over ? '<span style="color:#e05a3a;font-weight:700;">⏰ ' : '⏱ ')
+         + '쇼핑 ' + m + ':' + String(sec).padStart(2,'0') + (over ? ' (15분 넘음)</span>' : '');
   } else {
     line = '🙂 손님 접속 중';
   }
-  if(typeof e.offlineAt === 'number') line += ' · 자리 비움';
-  // 손님이 화면을 안 만지고 있는 시간 (3분이 되면 자동으로 다음 손님에게 넘어감)
-  // → 점원이 "이 손님 통화하며 고르는 중이구나" 판단해서 +분 버튼으로 시간을 늘려 줄 수 있게 보여 줌
-  if(e.paused !== true && typeof e.idleMs === 'number' && e.idleMs > 45000){
-    const im = Math.floor(e.idleMs/60000), isec = Math.floor((e.idleMs%60000)/1000);
-    const near = e.idleMs > 135000;   // 2분 15초가 넘으면 빨갛게
-    line += ' <span style="color:'+(near?'#e05a3a':'#b8860b')+';font-weight:700;">· 무조작 '+im+':'+String(isec).padStart(2,'0')+(near?' ⚠':'')+'</span>';
+  // 손님이 화면을 안 만지고 있는 시간. idleSince = 마지막으로 만진 시각 → 여기서 1초마다 스스로 셈
+  if(e.paused !== true && typeof e.idleSince === 'number'){
+    const idleRaw = Date.now() - e.idleSince;
+    if(idleRaw > 45000 && idleRaw < 30*60000){
+      const im = Math.floor(idleRaw/60000), isec = Math.floor((idleRaw%60000)/1000);
+      const near = idleRaw > 180000;   // 3분이 넘으면 빨갛게
+      line += ' <span style="color:'+(near?'#e05a3a':'#b8860b')+';font-weight:700;">· 안 만짐 '+im+':'+String(isec).padStart(2,'0')+(near?' ⚠':'')+'</span>';
+    }
   }
-  el.innerHTML = line + (extraMin ? ' <span style="opacity:.8;">(+'+extraMin+'분)</span>' : '') + '<br><span style="font-size:.62rem;opacity:.75;">대기 '+waiting+'명</span>';
+  el.innerHTML = line + '<br><span style="font-size:.62rem;opacity:.75;">대기 '+waiting+'명</span>';
   renderCustomerList(entries);
 }
 // ── 지금 접속한 손님 목록 (보기 전용) ──
@@ -960,28 +920,71 @@ function renderCustomerList(entries){
   if(!entries || !entries.length){ box.innerHTML = '<span style="opacity:.6;">접속한 손님이 없어요</span>'; return; }
   const now = Date.now();
   box.innerHTML = entries.map(function(pair, i){
-    const e = pair[1];
-    const num = ['①','②','③','④','⑤','⑥'][i] || ('('+(i+1)+')');
-    const dev = e.device || '❓ 기타기기';
+    const cid = pair[0], e = pair[1];
+    const num = ['\u2460','\u2461','\u2462','\u2463','\u2464','\u2465'][i] || ('('+(i+1)+')');
+    const dev = e.device || '\u2753 기타기기';
     const role = (i === 0) ? '쇼핑 중' : ('대기 ' + i + '번');
     let state;
     if(i === 0 && e.paused === true) state = '📞 통화 중';
-    else if(typeof e.offlineAt === 'number'){
-      const m = Math.floor((now - e.offlineAt)/60000), s = Math.floor(((now - e.offlineAt)%60000)/1000);
-      state = '💤 화면 안 봄 (' + (m ? m+'분 ' : '') + s + '초)';
-    }
-    else if(i === 0 && typeof e.endsAt === 'number'){
-      const left = Math.max(0, e.endsAt - now);
-      state = '⏳ 남은 ' + Math.floor(left/60000) + ':' + String(Math.floor((left%60000)/1000)).padStart(2,'0');
+    else if(i === 0 && typeof e.startedAt === 'number'){
+      const used = now - e.startedAt;
+      const over = (typeof e.endsAt === 'number') && now > e.endsAt;
+      state = (over ? '<span style="color:#e05a3a;font-weight:700;">⏰ ' : '⏱ ')
+            + Math.floor(used/60000) + ':' + String(Math.floor((used%60000)/1000)).padStart(2,'0')
+            + (over ? ' 초과</span>' : '');
     }
     else state = '🙂 접속 중';
-    const bell = e.fcmToken ? '' : ' <span style="opacity:.6;">🔕</span>'; // 알림을 받을 수 없는 손님(시크릿창 등)
-    return '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + num + ' ' + dev + ' · ' + role + ' · ' + state + bell + '</div>';
+    const bell = e.fcmToken ? '' : ' <span style="opacity:.6;" title="알림을 받을 수 없는 손님">🔕</span>';
+    const bs = 'padding:3px 7px;border:none;border-radius:8px;font-size:.6rem;font-weight:700;cursor:pointer;margin-left:4px;flex:0 0 auto;';
+    const toBtn = (i === 0) ? ''
+      : '<button onclick="giveTurnTo(\''+cid+'\')" style="'+bs+'background:rgba(56,142,60,.95);color:#fff;">▶ 이 손님에게</button>';
+    const outBtn = '<button onclick="removeCustomer(\''+cid+'\')" style="'+bs+'background:rgba(120,120,120,.85);color:#fff;">✕ 내보내기</button>';
+    return '<div style="display:flex;align-items:center;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06);">'
+         + '<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+         + num + ' ' + dev + ' · ' + role + ' · ' + state + bell + '</span>'
+         + toBtn + outBtn + '</div>';
   }).join('');
+}
+// ── 점원이 특정 손님에게 차례를 넘김 (2026-09-27) ──────────────────
+// 그 손님보다 앞에 있는 사람들을 줄 맨 뒤로 보내면 그 손님이 1등이 된다.
+// update 를 쓰므로 알림 주소(fcmToken)는 지워지지 않는다 → 밀려난 손님도 나중에 알림을 받는다.
+function giveTurnTo(cid){
+  const entries = liveQueueEntries(latestQueue||{});
+  const idx = entries.findIndex(function(p){ return p[0]===cid; });
+  if(idx < 0){ showMsg('⚠️ 그 손님이 명단에 없어요'); return; }
+  if(idx === 0){ showMsg('이미 쇼핑 중인 손님이에요'); return; }
+  // 알림 주소(fcmToken)가 없는 손님은 불러도 알림이 가지 않는다 → 점원에게 먼저 알려 준다
+  if(!entries[idx][1].fcmToken){
+    const dev = entries[idx][1].device || '이 손님';
+    if(!confirm('🔕 ' + dev + ' 은(는) 알림을 받을 수 없어요.\n(알림을 허용하지 않았거나 시크릿창)\n\n넘겨도 그 손님은 모를 수 있습니다. 그래도 넘길까요?')) return;
+  }
+  endCallIfActive();
+  for(let i=0;i<idx;i++){
+    db.ref('queue/'+entries[i][0]).update({
+      ts: firebase.database.ServerValue.TIMESTAMP,
+      activeAt: null, startedAt: null, endsAt: null, paused: null, idleSince: null,
+      notice: '잠시 자리를 비우신 것 같아 다음 분께 먼저 안내했어요',
+      noticeAt: Date.now(),
+      joinedAt: new Date().toLocaleString('ko-KR')
+    }).catch(function(){});
+  }
+  showMsg('▶ 그 손님에게 넘겼어요 (앞 손님 ' + idx + '명은 뒤로)');
+}
+// ── 점원이 손님을 명단에서 내보냄 ──
+function removeCustomer(cid){
+  const e = (latestQueue||{})[cid] || {};
+  const dev = e.device || '이 손님';
+  if(!confirm(dev + ' 을(를) 명단에서 내보낼까요?\n(손님이 다시 들어오면 맨 뒤에서 새로 시작합니다)')) return;
+  // 지금 쇼핑 중인 손님을 내보내는 경우에만 통화를 끊는다 (대기 손님은 통화와 무관)
+  const ent = liveQueueEntries(latestQueue||{});
+  if(ent.length && ent[0][0] === cid) endCallIfActive();
+  db.ref('queue/'+cid).remove()
+    .then(function(){ showMsg('✕ 내보냈어요'); })
+    .catch(function(){ showMsg('⚠️ 실패했어요'); });
 }
 setInterval(updateSessionPanel, 1000);
 // 손님 기기가 모두 잠들어 있으면 아무도 명단을 정리하지 못하므로, 점원 화면이 대신 주기적으로 정리함
-setInterval(function(){ const e = liveQueueEntries(latestQueue||{}); cleanupStaleEntries(e.stale); requeueEntries(e.requeue); }, 10000);
+setInterval(function(){ const e = liveQueueEntries(latestQueue||{}); cleanupStaleEntries(e.stale); }, 10000);
 // 비상용: 손님이 아무도 없는데 명단만 남아 있을 때 점원이 직접 비움
 function clearQueueAll(){
   const n = Object.keys(latestQueue||{}).length;
@@ -991,25 +994,35 @@ function clearQueueAll(){
     .then(function(){ showMsg('🧹 대기명단을 비웠어요'); })
     .catch(function(){ showMsg('⚠️ 비우기에 실패했어요'); });
 }
-function extendCustomer(min){
-  const cid = currentCustomerId();
-  if(!cid){ showMsg('⚠️ 지금 쇼핑 중인 손님이 없어요'); return; }
-  const cur = (latestQueue[cid] && typeof latestQueue[cid].extraMs === 'number') ? latestQueue[cid].extraMs : 0;
-  db.ref('queue/'+cid).update({ extraMs: cur + min*60000 })
-    .then(function(){ showMsg('🕗 ' + min + '분 연장했어요'); })
-    .catch(function(){ showMsg('⚠️ 연장에 실패했어요'); });
-}
 
 // ── 점원이 직접 "다음 고객으로 넘기기" (현재 활성 고객을 대기줄 맨 뒤로 보냄) ──
+// 통화는 '지금 쇼핑 중인 손님'의 것이다. 손님이 바뀌면 통화도 끝난다.
+// endCall() 이 통화방(rtc/...)까지 비우므로, 다음 손님은 깨끗한 방에서 시작한다.
+function endCallIfActive(){
+  if(typeof callActive !== 'undefined' && callActive){
+    try{ endCall(); }catch(e){}
+    const btn = document.getElementById('callBtn');
+    if(btn){ btn.className=''; btn.textContent='📞 통화 대기 중'; }
+    const micSt = document.getElementById('micStatus'); if(micSt) micSt.textContent='마이크 꺼짐';
+    const vv = document.getElementById('vviz'); if(vv) vv.classList.remove('on');
+  }
+}
 function forceNextCustomer(){
   const entries = liveQueueEntries(latestQueue||{});
   if(entries.length===0){ showMsg('⚠️ 지금 활성화된 손님이 없어요'); return; }
+  endCallIfActive();
+  if(entries.length >= 2 && !entries[1][1].fcmToken){
+    const dev = entries[1][1].device || '다음 손님';
+    if(!confirm('🔕 다음 차례인 ' + dev + ' 은(는) 알림을 받을 수 없어요.\n넘겨도 그 손님은 모를 수 있습니다. 그래도 넘길까요?')) return;
+  }
   const cid = entries[0][0];
   // update(덮어쓰기 아님): 알림 토큰(fcmToken)을 지우지 않아야 그 손님이 다음 차례에 알림을 받을 수 있음
   db.ref('queue/'+cid).update({
     ts: firebase.database.ServerValue.TIMESTAMP,
     yieldedAt: firebase.database.ServerValue.TIMESTAMP,
-    activeAt: null, endsAt: null, paused: null, extraMs: null,
+    activeAt: null, endsAt: null, startedAt: null, paused: null, idleSince: null,
+    notice: '점원이 다음 분께 안내했어요',     // 손님 화면에 이 문구가 뜬다
+    noticeAt: Date.now(),
     joinedAt: new Date().toLocaleString('ko-KR')
   }); // 서버시각으로 다시 찍어서 대기줄 맨 뒤로 → 자동으로 다음 손님이 활성화됨
   showMsg('🙋 다음 고객에게 넘겼어요');
