@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.2 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.4 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -454,7 +454,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v1.2';
+const APP_VERSION = 'v1.4';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
@@ -469,6 +469,8 @@ const DEBUG_ON = (function(){
   }catch(e){ return false; }
 })();
 let dbgBox = null;
+// 페이지가 열리면 첫 줄을 남겨서, 기록창이 곧바로 보이게 함
+setTimeout(function(){ dlog('페이지 열림 · ' + APP_VERSION + ' · ' + navigator.userAgent.slice(0,40)); }, 300);
 function dlog(msg){
   if(!DEBUG_ON) return;
   const t = new Date().toLocaleTimeString('ko-KR');
@@ -493,15 +495,16 @@ function dlog(msg){
 }
   function setupFcmToken(){
   console.log('[FCM] setupFcmToken 시작');
+  dlog('알림 준비 시작');
   if(!('serviceWorker' in navigator) || !('Notification' in window)){
-    console.log('[FCM] 브라우저 미지원으로 중단');
+    dlog('이 브라우저는 알림을 지원하지 않음');
     return;
   }
   navigator.serviceWorker.register('./firebase-messaging-sw.js').then(function(registration){
     console.log('[FCM] 서비스워커 등록 성공', registration);
     Notification.requestPermission().then(function(permission){
-      console.log('[FCM] 알림 권한:', permission);
-      if(permission!=='granted') return;
+      dlog('알림 권한: ' + permission);
+      if(permission!=='granted'){ dlog('알림 거부 상태 → 차례 알림을 받을 수 없음'); return; }
       try{
         const messaging = firebase.messaging();
         console.log('[FCM] messaging 객체 생성 성공');
@@ -511,13 +514,14 @@ function dlog(msg){
         }).then(function(token){
           console.log('[FCM] 토큰 발급:', token);
           if(token){
+            dlog('알림 주소 발급됨 (…' + String(token).slice(-8) + ')');
             myQueueRef.child('fcmToken').set(token).then(function(){
-              console.log('[FCM] Firebase 저장 성공');
+              dlog('알림 주소 저장 완료');
             }).catch(function(e){
               console.error('[FCM] Firebase 저장 실패:', e);
             });
           }
-        }).catch(function(e){ console.error('[FCM] 토큰 발급 실패:', e); });
+        }).catch(function(e){ dlog('알림 주소 발급 실패: ' + e); });
       }catch(e){
         console.error('[FCM] messaging 객체 생성 중 예외:', e);
       }
@@ -574,8 +578,8 @@ function setControlsEnabled(enabled){
 function updateWaitRankDisplay(){
   const badge=document.getElementById('waitBadge');
   if(!badge) return;
-  db.ref('queue').once('value').then(snap=>{
-    const q = snap.val() || {};
+  fetchQueueFresh().then(qRaw=>{
+    const q = qRaw || {};
     const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null) return;
     const entries = Object.entries(q);
@@ -730,7 +734,7 @@ if('Notification' in window && Notification.permission==='default'){
   Notification.requestPermission();
 }
 function sendActiveNotification(){
-  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  if(!('Notification' in window) || Notification.permission!=='granted'){ dlog('시스템 알림 불가(권한 없음)'); return; }
   if(document.visibilityState==='visible') return; // 이미 이 화면을 보고 있으면 알림 불필요
   try{
     const n = new Notification('✅ 지금 쇼핑하실 차례예요!', {
@@ -753,8 +757,9 @@ document.addEventListener('visibilitychange', ()=>{
   } else if(document.visibilityState==='visible'){
     const awayMs = hiddenSinceIdx ? (Date.now()-hiddenSinceIdx) : 0;
     hiddenSinceIdx = null;
-    if(awayMs > 10000 && capacityChecked){
-      scheduleRecompute(); // 밀려있었을 수 있는 "차례됨" 소식을 즉시 다시 확인
+    if(capacityChecked){
+      dlog('화면 복귀 (뒤에 있던 시간 '+Math.round(awayMs/1000)+'초) → 명단 다시 확인');
+      scheduleRecompute(); // 알림을 눌러 바로 돌아온 경우에도 최신 명단으로 다시 계산
     }
   }
 });
@@ -811,11 +816,35 @@ function showKickedBlock(){
   const el = document.getElementById('kickedBlock');
   if(el) el.style.display = 'flex';
 }
+// ── 명단 읽기 (2026-09-27) ────────────────────────────────────────
+// 폰이 다른 앱에 있다 돌아오면 Firebase 앱의 연결이 아직 안 붙어 있을 수 있는데,
+// 그때 db.ref('queue').once() 는 '폰 안에 저장해 둔 옛 명단'을 돌려준다.
+// 그 옛 명단에는 내가 아직 대기 중이어서, 차례가 됐는데도 '대기 N번'으로 보였다.
+// 그래서 연결 상태와 무관하게 인터넷으로 서버에 직접 물어본다(REST). 실패하면 예전 방식으로 돌아간다.
+async function fetchQueueFresh(){
+  try{
+    const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 4000) : null;
+    const res = await fetch(firebaseConfig.databaseURL + '/queue.json', {
+      cache: 'no-store', signal: ctrl ? ctrl.signal : undefined
+    });
+    if(timer) clearTimeout(timer);
+    if(res.ok){
+      const q = await res.json();
+      dlog('명단 서버조회 OK (' + Object.keys(q||{}).length + '명)');
+      return q || {};
+    }
+    dlog('명단 서버조회 응답코드 ' + res.status);
+  }catch(e){ dlog('명단 서버조회 실패: ' + (e && e.name ? e.name : e)); }
+  const snap = await db.ref('queue').once('value');
+  dlog('앱 안의 옛 명단 사용');
+  return snap.val() || {};
+}
 function recomputeNow(){
   if(!capacityChecked) return; // 인원초과로 막힌 손님은 계산 자체에 참여 안 함
   if(wasKicked) return;
-  db.ref('queue').once('value').then(snap=>{
-    const q = snap.val() || {};
+  fetchQueueFresh().then(qRaw=>{
+    const q = qRaw || {};
     const myTs = q[myClientId] && q[myClientId].ts;
     if(myTs==null){
       // 번호표를 받은 적이 있는데 지금 명단에 없다 = 점원이 내보냈다.
@@ -827,7 +856,9 @@ function recomputeNow(){
     const entries = Object.entries(q);
     entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const winnerId = entries[0][0];
+    const myIdx0 = entries.findIndex(e=>e[0]===myClientId);
     const nowActive = (winnerId === myClientId);
+    dlog('계산: 총 ' + entries.length + '명, 내 순번 ' + myIdx0 + ' → ' + (nowActive ? '내 차례' : '대기'));
     applyActiveState(nowActive);
     // 활성/대기 '상태' 자체는 안 바뀌어도, 대기 중이면 '몇 번째'는 매번 다시 계산해서 보여줌
     // (applyActiveState는 상태 전환이 없으면 조기 종료하므로, 순번 텍스트는 여기서 별도로 항상 갱신)
@@ -843,14 +874,15 @@ function recomputeNow(){
 // ── 큐(대기줄) 참가 신청 (최초 접속 + 재입장 둘 다 이 함수를 거쳐야 함) ──
 async function registerPresenceWithCapacityCheck(){
   try{
-    const snap = await db.ref('queue').once('value');
-    const q = snap.val() || {};
+    const q = await fetchQueueFresh();
     const alreadyIn = q[myClientId]!=null;
     const count = Object.keys(q).length;
     if(!alreadyIn && count >= MAX_CONCURRENT_VIEWERS){
+      dlog('인원 초과(' + count + '명) → 혼잡 화면');
       showCapacityBlock();
       return false;
     }
+    dlog('명단 등록 (' + (alreadyIn ? '이미 있던 번호표 유지' : '새 번호표') + ', 지금 ' + count + '명)');
   }catch(e){ console.error('[인원확인 실패]', e); }
   await myQueueRef.update({
     ts: firebase.database.ServerValue.TIMESTAMP, // 순서 계산용 (서버시각, 정렬 기준)
@@ -864,6 +896,7 @@ async function registerPresenceWithCapacityCheck(){
   return true;
 }
 db.ref('.info/connected').on('value', async snap=>{
+  dlog(snap.val() ? '서버 연결됨' : '서버 연결 끊김');
   if(!snap.val()) return;
   // 점원이 내보냈거나 손님이 쇼핑을 끝냈으면, 인터넷이 다시 붙어도 명단에 몰래 끼어들지 않음
   if(wasKicked || hasFinishedShopping) return;
@@ -1512,13 +1545,14 @@ document.addEventListener('touchstart', unlockSpeech, {once:true, passive:true})
 document.addEventListener('click', unlockSpeech, {once:true});
 function speakTurn(){
   try{
-    if(!('speechSynthesis' in window)) return;
+    if(!('speechSynthesis' in window)){ dlog('이 기기는 음성 안내 미지원'); return; }
+    dlog('차례 음성 재생 시도 (화면 ' + document.visibilityState + ')');
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance('행복한 빵집입니다. 지금 쇼핑하실 차례예요. 화면을 확인해 주세요.');
     u.lang = 'ko-KR';
     u.volume = 1;
     window.speechSynthesis.speak(u);
-  }catch(e){ console.warn('[음성안내] 실패:', e); }
+  }catch(e){ dlog('음성 실패: ' + e); }
 }
 const _origApplyActiveState = applyActiveState;
 applyActiveState = function(nowActive){
