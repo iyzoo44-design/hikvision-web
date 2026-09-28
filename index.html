@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.7 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v2.0 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -456,7 +456,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v1.7';
+const APP_VERSION = 'v2.0';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
@@ -714,6 +714,7 @@ function applyActiveState(nowActive){
   amActive = nowActive;
   setControlsEnabled(amActive);
   if(amActive){
+    if(typeof hideSoundHint==='function') hideSoundHint();
     startIdleWatcher();
     zoomReset();
     gotoPreset(1);
@@ -727,6 +728,8 @@ function applyActiveState(nowActive){
   } else {
     stopIdleWatcher();
     updateWaitRankDisplay();
+    speakPending = false; if(typeof hideTapHint==='function') hideTapHint();
+    if(typeof showSoundHint==='function') setTimeout(showSoundHint, 1500); // 대기 중 미리 소리 켜기 안내
   }
   dlog('상태: ' + (amActive ? '쇼핑 중(활성)' : '대기'));
 }
@@ -1580,19 +1583,119 @@ function unlockSpeech(){
     }
   }catch(e){}
 }
-document.addEventListener('touchstart', unlockSpeech, {once:true, passive:true});
-document.addEventListener('click', unlockSpeech, {once:true});
+document.addEventListener('touchstart', function(){ unlockSpeech(); hideSoundHint(); }, {once:true, passive:true});
+document.addEventListener('click', function(){ unlockSpeech(); hideSoundHint(); }, {once:true});
+// ── 차례 음성 안내 (2026-09-28) ────────────────────────────────────
+// 안드로이드 크롬은 '그 페이지를 손가락으로 한 번이라도 만진 적'이 있어야 소리를 내준다.
+// 알림을 눌러 들어온 것은 페이지 밖의 동작이라 인정되지 않아, 음성이 조용히 막힌다.
+// → 막히면 버리지 않고 대기시켰다가, 손님이 화면을 한 번 만지는 순간 재생한다.
+const TURN_SPEECH = '행복한 빵집입니다. 지금 쇼핑하실 차례예요. 화면을 확인해 주세요.';
+const SPEAK_GIVEUP_MS = 30000; // 차례가 된 지 이만큼 지나면 음성은 포기 (이미 쇼핑 중이라 알릴 필요 없음)
+let speakPending = false;      // 아직 들려주지 못한 차례 안내가 있는지
+let turnStartedAt = 0;         // 차례가 된 시각
+let speakStarted = false;      // 방금 시도한 음성이 실제로 시작됐는지
 function speakTurn(){
   try{
     if(!('speechSynthesis' in window)){ dlog('이 기기는 음성 안내 미지원'); return; }
     dlog('차례 음성 재생 시도 (화면 ' + document.visibilityState + ')');
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance('행복한 빵집입니다. 지금 쇼핑하실 차례예요. 화면을 확인해 주세요.');
+    const u = new SpeechSynthesisUtterance(TURN_SPEECH);
     u.lang = 'ko-KR';
     u.volume = 1;
+    speakStarted = false;
+    speakPending = true;
+    turnStartedAt = Date.now();
+    u.onstart = function(){ speakStarted = true; speakPending = false; dlog('음성 재생 시작'); hideTapHint(); };
+    u.onend   = function(){ speakPending = false; };
+    u.onerror = function(e){ dlog('음성 오류: ' + (e && e.error ? e.error : '알 수 없음')); };
     window.speechSynthesis.speak(u);
-  }catch(e){ dlog('음성 실패: ' + e); }
+    // 1.2초 안에 시작되지 않으면 브라우저가 막은 것 → 안내를 띄우고 손가락 터치를 기다림
+    setTimeout(function(){
+      if(!speakStarted && speakPending){
+        dlog('브라우저가 음성을 막음 → 화면을 한 번 누르면 재생');
+        showTapHint();
+      }
+    }, 1200);
+    // 30초가 지나도 안 눌렀으면, 띠를 조용히 치우고 음성은 접는다
+    setTimeout(function(){
+      if(speakPending){ speakPending = false; dlog('차례 안내 음성 포기 (30초 경과)'); hideTapHint(); }
+    }, SPEAK_GIVEUP_MS);
+  }catch(e){ dlog('음성 실패: ' + e); speakPending = true; showTapHint(); }
 }
+// 화면을 한 번 누르면 음성이 나온다는 안내
+function showTapHint(){
+  let el = document.getElementById('tapHint');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'tapHint';
+    el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:78px;z-index:9997;background:rgba(210,105,30,.96);'
+      + 'color:#fff;border-radius:12px;padding:12px 14px;font-size:.8rem;font-weight:700;text-align:center;'
+      + 'box-shadow:0 4px 16px rgba(0,0,0,.3);';
+    el.innerHTML = '🔊 지금 쇼핑하실 차례예요!<br><span style="font-size:.7rem;font-weight:500;opacity:.9;">화면을 한 번 눌러주시면 음성으로 안내해 드려요</span>';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'block';
+}
+function hideTapHint(){
+  const el = document.getElementById('tapHint');
+  if(el) el.remove();
+}
+// ── 대기 중에 미리 소리 잠금을 풀어 두기 (2026-09-28) ─────────────
+// 안드로이드 크롬은 페이지를 한 번 만져야 소리를 내준다.
+// 대기 중에 미리 눌러 두면, 나중에 알림을 눌러 들어올 때 음성이 곧바로 나온다.
+function showSoundHint(){
+  if(speechUnlocked) return;
+  if(!('speechSynthesis' in window)) return;
+  let el = document.getElementById('soundHint');
+  if(el){ el.style.display='block'; return; }
+  el = document.createElement('div');
+  el.id = 'soundHint';
+  el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:78px;z-index:9996;background:rgba(93,64,55,.96);'
+    + 'color:#FFE8C8;border-radius:12px;padding:12px 14px;font-size:.78rem;line-height:1.5;text-align:center;'
+    + 'box-shadow:0 4px 16px rgba(0,0,0,.3);';
+  el.innerHTML = '👆 <b>화면을 한 번 눌러주세요</b><br>'
+    + '<span style="font-size:.7rem;opacity:.85;">차례가 되면 음성으로 알려드릴 수 있어요</span><br>'
+    + '<button id="soundHintBtn" style="margin-top:9px;padding:8px 20px;border:none;border-radius:11px;'
+    + 'background:#D2691E;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;">🔊 소리 켜기</button>';
+  document.body.appendChild(el);
+  el.querySelector('#soundHintBtn').onclick = function(ev){
+    ev.stopPropagation();
+    speechUnlocked = true;
+    try{
+      const u = new SpeechSynthesisUtterance('소리 안내가 켜졌습니다. 차례가 되면 알려드릴게요.');
+      u.lang = 'ko-KR'; u.volume = 1;
+      u.onstart = function(){ dlog('소리 잠금 풀림 (손님이 직접 눌름)'); };
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+    hideSoundHint();
+    toast('🔊 소리 안내가 켜졌어요');
+  };
+}
+function hideSoundHint(){
+  const el = document.getElementById('soundHint');
+  if(el) el.remove();
+}
+// 손님이 화면을 만지면, 못 들려준 음성을 그때 재생한다
+function retrySpeakOnTouch(){
+  if(!speakPending) return;
+  // 차례가 된 지 30초가 넘었으면, 손님은 이미 화면을 보고 쇼핑을 시작한 것이다.
+  // 뒤늦게 "지금 쇼핑하실 차례예요"를 말하면 어색하므로 조용히 접는다.
+  if(Date.now() - turnStartedAt > SPEAK_GIVEUP_MS){
+    speakPending = false;
+    dlog('차례 안내 음성 포기 (이미 쇼핑 중)');
+    hideTapHint();
+    return;
+  }
+  try{
+    const u = new SpeechSynthesisUtterance(TURN_SPEECH);
+    u.lang = 'ko-KR'; u.volume = 1;
+    u.onstart = function(){ speakPending = false; dlog('음성 재생 시작 (화면 터치 후)'); hideTapHint(); };
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+  hideTapHint();
+}
+document.addEventListener('touchend', retrySpeakOnTouch, {passive:true});
+document.addEventListener('click', retrySpeakOnTouch);
 const _origApplyActiveState = applyActiveState;
 applyActiveState = function(nowActive){
   const wasWaiting = (amActive === false);
