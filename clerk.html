@@ -387,7 +387,7 @@ html,body{
 
 <div id="sessionPanel" style="position:fixed;top:92px;left:10px;z-index:200;background:rgba(0,0,0,.6);color:#FFD9A0;padding:7px 10px;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;line-height:1.5;">
   <div id="sessionInfo">손님 없음</div>
-    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v2.1 (기본판 · 점원 조정)</div>
+    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v2.2 (기본판 · 점원 조정)</div>
   <div style="display:flex;gap:4px;margin-top:5px;">
   </div>
   <div id="custList" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.18);padding-top:5px;font-size:.64rem;line-height:1.6;"></div>
@@ -632,12 +632,11 @@ function cleanupStaleEntries(ids){
     db.ref('queue/'+id).remove().catch(function(){});
   });
 }
-db.ref('queue').on('value', snap=>{
-  const q = snap.val() || {};
-  latestQueue = q;
-  const entries = liveQueueEntries(q);
+function applyQueueSnapshot(q){
+  latestQueue = q || {};
+  const entries = liveQueueEntries(latestQueue);
   cleanupStaleEntries(entries.stale);
-  cleanGhosts(q);
+  cleanGhosts(latestQueue);
   updateSessionPanel();
   if(entries.length===0) return; // 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
   const cid = entries[0][0];
@@ -646,6 +645,33 @@ db.ref('queue').on('value', snap=>{
     if(typeof clearOrder==='function') clearOrder(); // 이전 손님이 담았던 상품은 자동으로 비움
   }
   lastKnownCustomerId = cid;
+}
+db.ref('queue').on('value', snap=>{ applyQueueSnapshot(snap.val() || {}); });
+
+// ── 15초마다 명단 다시 읽기 (2026-09-28) ──────────────────────────
+// Firebase 연결이 끊기면 "명단이 바뀌었다"는 알림이 오지 않아, 점원 화면이 옛 명단에 멈춰 있었다.
+// (내보낸 손님이 계속 남아 있는 것처럼 보이던 문제)
+// 그래서 인터넷으로 직접(REST) 다시 읽는다. 연결 상태와 무관하게 작동한다.
+// 이 코드는 아무 판단도 하지 않는다. 화면을 최신으로 다시 그리기만 한다.
+let lastQueueFetchAt = 0;
+async function refreshQueueFromServer(){
+  if(document.visibilityState !== 'visible') return;
+  if(Date.now() - lastQueueFetchAt < 5000) return;
+  lastQueueFetchAt = Date.now();
+  try{
+    const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 5000) : null;
+    const res = await fetch(firebaseConfig.databaseURL + '/queue.json', {
+      cache:'no-store', signal: ctrl ? ctrl.signal : undefined });
+    if(timer) clearTimeout(timer);
+    if(!res.ok) return;
+    const q = await res.json();
+    applyQueueSnapshot(q || {});
+  }catch(e){}
+}
+setInterval(refreshQueueFromServer, 15000);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible') refreshQueueFromServer();
 });
 
 db.ref('pointer').on('value', snap=>{
