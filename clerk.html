@@ -387,7 +387,7 @@ html,body{
 
 <div id="sessionPanel" style="position:fixed;top:92px;left:10px;z-index:200;background:rgba(0,0,0,.6);color:#FFD9A0;padding:7px 10px;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;line-height:1.5;">
   <div id="sessionInfo">손님 없음</div>
-    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v1.5 (기본판 · 점원 조정)</div>
+    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v1.7 (기본판 · 점원 조정)</div>
   <div style="display:flex;gap:4px;margin-top:5px;">
   </div>
   <div id="custList" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.18);padding-top:5px;font-size:.64rem;line-height:1.6;"></div>
@@ -607,6 +607,22 @@ function liveQueueEntries(q){
   out.stale = stale;
   return out;
 }
+// ── 고스트 청소 (2026-09-28) ─ 손님 화면과 같은 규칙 ─────────────────
+// 창을 닫고 떠난 항목이 밤새 남아 1등 자리를 차지하는 일을 막는다.
+// '누가 차례인가'는 판단하지 않는다. 오래된 쓰레기만 치운다.
+const GHOST_KEEP_MS = 30*60000;   // 연결이 끊긴 지 30분이 넘으면 정리
+const lastGhostClean = {};
+function cleanGhosts(q){
+  const now = Date.now();
+  Object.keys(q||{}).forEach(function(id){
+    const e = q[id];
+    if(!e || typeof e.offlineAt !== 'number') return;
+    if(now - e.offlineAt <= GHOST_KEEP_MS) return;
+    if(lastGhostClean[id] && now - lastGhostClean[id] < 60000) return;
+    lastGhostClean[id] = now;
+    db.ref('queue/'+id).remove().catch(function(){});
+  });
+}
 // 손님이 아무도 접속해 있지 않을 때를 대비해, 점원 화면이 오래된 항목을 정리함
 const lastCleanAt = {};
 function cleanupStaleEntries(ids){
@@ -621,6 +637,7 @@ db.ref('queue').on('value', snap=>{
   latestQueue = q;
   const entries = liveQueueEntries(q);
   cleanupStaleEntries(entries.stale);
+  cleanGhosts(q);
   updateSessionPanel();
   if(entries.length===0) return; // 아무도 없는 상태는 무시(초기화 트리거로 안 씀)
   const cid = entries[0][0];
@@ -925,7 +942,13 @@ function renderCustomerList(entries){
     const dev = e.device || '\u2753 기타기기';
     const role = (i === 0) ? '쇼핑 중' : ('대기 ' + i + '번');
     let state;
-    if(i === 0 && e.paused === true) state = '📞 통화 중';
+    if(typeof e.offlineAt === 'number'){
+      const m = Math.floor((now - e.offlineAt)/60000), sec = Math.floor(((now - e.offlineAt)%60000)/1000);
+      const long = (now - e.offlineAt) > 5*60000;
+      state = '<span style="color:' + (long ? '#e05a3a' : '#b8860b') + ';font-weight:700;">💤 연결 끊김 '
+            + (m ? m + '분 ' : '') + sec + '초' + (long ? ' ⚠' : '') + '</span>';
+    }
+    else if(i === 0 && e.paused === true) state = '📞 통화 중';
     else if(i === 0 && typeof e.startedAt === 'number'){
       const used = now - e.startedAt;
       const over = (typeof e.endsAt === 'number') && now > e.endsAt;
@@ -984,7 +1007,7 @@ function removeCustomer(cid){
 }
 setInterval(updateSessionPanel, 1000);
 // 손님 기기가 모두 잠들어 있으면 아무도 명단을 정리하지 못하므로, 점원 화면이 대신 주기적으로 정리함
-setInterval(function(){ const e = liveQueueEntries(latestQueue||{}); cleanupStaleEntries(e.stale); }, 10000);
+setInterval(function(){ const e = liveQueueEntries(latestQueue||{}); cleanupStaleEntries(e.stale); cleanGhosts(latestQueue||{}); }, 10000);
 // 비상용: 손님이 아무도 없는데 명단만 남아 있을 때 점원이 직접 비움
 function clearQueueAll(){
   const n = Object.keys(latestQueue||{}).length;

@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.5 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v1.7 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -429,6 +429,8 @@ function genClientId(){ return 'c-'+Math.random().toString(36).slice(2,10)+Date.
 // 2026-09-27: sessionStorage → localStorage.
 // sessionStorage 는 창을 닫으면 지워져서, 알림을 눌러 다시 들어온 손님이 '다른 사람'으로 잡혔다.
 // localStorage 는 창을 닫아도 남으므로, 같은 손님으로 알아보고 받아둔 번호표를 그대로 쓴다.
+// 내가 번호표를 받은 적이 있는지 / 점원이 나를 내보냈는지 (아래 여러 곳에서 쓰므로 미리 선언)
+let hadTicket = false, wasKicked = false;
 let myClientId = null;
 try{ myClientId = localStorage.getItem('dongneClientId') || sessionStorage.getItem('dongneClientId'); }catch(e){}
 if(!myClientId) myClientId = genClientId();
@@ -454,7 +456,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v1.5';
+const APP_VERSION = 'v1.7';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
@@ -806,12 +808,15 @@ function showClerkNotice(msg){
   setTimeout(function(){ const x=document.getElementById('clerkNotice'); if(x) x.remove(); }, 20000);
 }
 
-// 내가 번호표를 받은 적이 있는지 / 점원이 나를 내보냈는지
-let hadTicket = false, wasKicked = false;
+// (hadTicket, wasKicked 는 파일 위쪽에서 미리 선언해 둠)
 function showKickedBlock(){
   if(wasKicked) return;
   wasKicked = true;
   dlog('점원이 내보냄 → 대기 취소 화면');
+  // 쇼핑 중이던 손님이 내보내진 경우, '활성' 상태를 확실히 끈다
+  // (안 그러면 취소 화면 뒤에서 카메라 버튼이 살아 있게 된다)
+  try{ applyActiveState(false); }catch(e){}
+  try{ setControlsEnabled(false); }catch(e){}
   try{ if(whepPc){ whepPc.close(); whepPc=null; } }catch(e){}   // 영상 연결도 끊음 (매장 PC 부담 줄임)
   const el = document.getElementById('kickedBlock');
   if(el) el.style.display = 'flex';
@@ -840,6 +845,25 @@ async function fetchQueueFresh(){
   dlog('앱 안의 옛 명단 사용');
   return snap.val() || {};
 }
+// ── 고스트 청소 (2026-09-28) ──────────────────────────────────────
+// 창을 닫고 떠난 손님의 항목이 밤새 남아 1등 자리를 차지하는 일을 막는다.
+// 이 규칙은 '누가 차례인가'를 판단하지 않는다. 오래된 쓰레기만 치운다.
+const GHOST_KEEP_MS = 30*60000;   // 연결이 끊긴 지 30분이 넘으면 정리
+const lastGhostClean = {};
+function cleanGhosts(q){
+  const now = Date.now();
+  Object.keys(q||{}).forEach(function(id){
+    if(id === myClientId) return;
+    const e = q[id];
+    if(!e || typeof e.offlineAt !== 'number') return;      // 연결돼 있으면 건드리지 않음
+    if(now - e.offlineAt <= GHOST_KEEP_MS) return;          // 30분이 안 지났으면 그대로 둠
+    if(lastGhostClean[id] && now - lastGhostClean[id] < 60000) return;
+    lastGhostClean[id] = now;
+    dlog('오래된 항목 정리: ' + (e.device || id) + ' (끊긴 지 ' + Math.round((now-e.offlineAt)/60000) + '분)');
+    fetch(firebaseConfig.databaseURL + '/queue/' + id + '.json', { method:'DELETE' })
+      .then(function(){ scheduleRecompute(); }).catch(function(){});
+  });
+}
 function recomputeNow(){
   if(!capacityChecked) return; // 인원초과로 막힌 손님은 계산 자체에 참여 안 함
   if(wasKicked) return;
@@ -853,6 +877,7 @@ function recomputeNow(){
       return;
     }
     hadTicket = true;
+    cleanGhosts(q);   // 오래된 쓰레기 치우기 (차례 판단과는 무관)
     const entries = Object.entries(q);
     entries.sort((a,b)=> isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1);
     const winnerId = entries[0][0];
@@ -898,10 +923,15 @@ async function registerPresenceWithCapacityCheck(){
   };
   if(!alreadyIn) data.ts = firebase.database.ServerValue.TIMESTAMP; // 처음 왔을 때만 번호표를 받음
   await myQueueRef.update(data);
-  // 2026-09-27: 예전에는 여기서 onDisconnect().remove() 로, 연결이 끊기면 자리를 지웠다.
-  // 그래서 손님이 다른 앱으로 가거나 화면을 끄면 자리와 알림 주소가 함께 사라져
-  // "차례가 됐다"는 알림을 보낼 곳이 없어졌다. 이제 지우지 않는다.
-  // 명단에서 빠지는 것은 (1) 손님이 '쇼핑 종료'를 누를 때 (2) 점원이 '내보내기'를 누를 때, 이 두 가지뿐이다.
+  // ── 연결이 끊겼을 때 (2026-09-28) ──────────────────────────────────
+  // 예전에는 onDisconnect().remove() 로 자리를 아예 지웠다. 그러면 다른 앱에 간 손님에게
+  // 알림을 보낼 곳이 없어졌다. 그래서 지우지 않기로 했는데, 이번엔 창을 닫은 항목이
+  // 영원히 남아(고스트) 1등 자리를 차지하는 문제가 생겼다.
+  // → 지우지 않고 '연결 끊긴 시각(offlineAt)'만 남긴다. 자리와 알림 주소는 그대로 유지된다.
+  //   이 값으로 차례를 판단하지 않는다. 점원 화면에 보여주고, 아주 오래된 것만 치우는 데만 쓴다.
+  myQueueRef.onDisconnect().update({ offlineAt: firebase.database.ServerValue.TIMESTAMP });
+  // 다시 붙었으면 '끊김' 표시를 지운다
+  if(alreadyIn) myQueueRef.child('offlineAt').remove().catch(function(){});
   return true;
 }
 db.ref('.info/connected').on('value', async snap=>{
