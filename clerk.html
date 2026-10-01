@@ -387,7 +387,7 @@ html,body{
 
 <div id="sessionPanel" style="position:fixed;top:92px;left:10px;z-index:200;background:rgba(0,0,0,.6);color:#FFD9A0;padding:7px 10px;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;line-height:1.5;">
   <div id="sessionInfo">손님 없음</div>
-    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v2.4 (기본판 · 점원 조정)</div>
+    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v2.6 (기본판 · 점원 조정)</div>
   <div style="display:flex;gap:4px;margin-top:5px;">
   </div>
   <div id="custList" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.18);padding-top:5px;font-size:.64rem;line-height:1.6;"></div>
@@ -1266,9 +1266,12 @@ db.ref('liveOrder').on('value', snap=>{
     box.innerHTML =
       `✅ <b>결제 완료</b> · 주문번호 ${d.orderNumber}<br>`+
       `결제수단: ${d.payMethod}<br>`+
-      `상품 ₩${(d.itemTotal||0).toLocaleString()} + 배달비 ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'} = <b>₩${(d.grandTotal||0).toLocaleString()}</b><br>`+
-      `👤 받는 분: ${d.recvName||''} (${d.recvPhone||''})<br>`+
-      `📍 배송지: ${d.address||''}${d.distanceKm?(' (약 '+d.distanceKm+'km)'):''}<br>`+
+      ((d.orderType==='픽업')
+        ? `<span style="color:#FFD54F;font-weight:700;">🏪 매장 픽업</span> · 상품 <b>₩${(d.grandTotal||0).toLocaleString()}</b><br>`+
+          `👤 받는 분: ${d.recvName||''} (${d.recvPhone||''})<br>`
+        : `<span style="color:#80CBC4;font-weight:700;">🚚 배달</span> · 상품 ₩${(d.itemTotal||0).toLocaleString()} + 배달비 ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'} = <b>₩${(d.grandTotal||0).toLocaleString()}</b><br>`+
+          `👤 받는 분: ${d.recvName||''} (${d.recvPhone||''})<br>`+
+          `📍 배송지: ${d.address||''}${d.distanceKm?(' (약 '+d.distanceKm+'km)'):''}<br>`)+
       `<div style="margin-top:8px;display:flex;gap:6px;">`+
       `<button onclick="printReceipt()" style="flex:1;padding:8px;border:none;border-radius:8px;background:#4CAF50;color:#fff;font-weight:700;cursor:pointer;">🖨️ 영수증 인쇄</button>`+
       `<button onclick="copyReceiptText()" style="flex:1;padding:8px;border:none;border-radius:8px;background:#FEE500;color:#3A1D1D;font-weight:700;cursor:pointer;">💬 문자용 복사</button>`+
@@ -1287,11 +1290,12 @@ function buildReceiptText(){
   return `🥐 행복한 빵집 — 주문서\n`+
     `주문번호: ${d.orderNumber}\n일시: ${now}\n\n`+
     `[주문 내역]\n${itemsStr}\n\n`+
+    `받는 방법: ${d.orderType==='픽업' ? '🏪 매장 픽업' : '🚚 배달'}\n`+
     `상품 합계: ₩${(d.itemTotal||0).toLocaleString()}\n`+
-    `배달비: ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'}\n`+
+    (d.orderType==='픽업' ? '' : `배달비: ${d.deliveryFee?('₩'+d.deliveryFee.toLocaleString()):'무료'}\n`)+
     `최종 결제금액: ₩${(d.grandTotal||0).toLocaleString()} (${d.payMethod})\n\n`+
     `받는 분: ${d.recvName} (${d.recvPhone})\n`+
-    `배송지: ${d.address}\n\n`+
+    (d.orderType==='픽업' ? '매장에서 직접 받아 가십니다\n\n' : `배송지: ${d.address}\n\n`)+
     `이용해 주셔서 감사합니다 😊`;
 }
 function printReceipt(){

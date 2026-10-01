@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v2.4 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v2.6 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -386,11 +386,15 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <button class="btab" onclick="goBottom('guide',this)"><span class="ico">📋</span>안내</button>
 </div>
 <div class="modal-bg" id="doneModal">
-  <div class="modal"><div style="font-size:3rem;margin-bottom:8px;">🎉</div><h3>주문 완료!</h3><p>주문번호: <strong id="onum"></strong><br>약 30~50분 후 배달됩니다 🚚</p><button class="modal-btn" onclick="finishAndExit()">🚪 쇼핑 종료</button><button class="modal-btn-secondary" onclick="closeDone()">🛍️ 더 구경할게요</button></div>
+  <div class="modal"><div style="font-size:3rem;margin-bottom:8px;">🎉</div><h3>주문 완료!</h3><p>주문번호: <strong id="onum"></strong><br><span id="doneMsg">약 30~50분 후 배달됩니다 🚚</span></p><button class="modal-btn" onclick="finishAndExit()">🚪 쇼핑 종료</button><button class="modal-btn-secondary" onclick="closeDone()">🛍️ 더 구경할게요</button></div>
 </div>
 <div class="modal-bg" id="payModal">
   <div class="pay-modal">
     <h3>💳 결제하기</h3>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="otDeliv" onclick="setOrderType('배달')" style="flex:1;padding:11px 6px;border:2px solid var(--gold);border-radius:11px;background:var(--gold);color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;">🚚 배달</button>
+      <button id="otPick" onclick="setOrderType('픽업')" style="flex:1;padding:11px 6px;border:2px solid var(--warm);border-radius:11px;background:#fff;color:var(--brown);font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;">🏪 직접 픽업</button>
+    </div>
     <div class="pay-method">
       <div class="pm" onclick="selPay(this,'카카오페이')"><span class="pi">💛</span>카카오페이</div>
       <div class="pm" onclick="selPay(this,'토스페이')"><span class="pi">🔵</span>토스페이</div>
@@ -400,12 +404,18 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
     <div class="inp-row"><input class="addr-inp" id="nameInp" placeholder="받는 분 성함" onblur="lookupCustomer()"/><button class="mic-btn" onclick="startVoiceInput('nameInp')" title="음성으로 입력">🎤</button></div>
     <div id="lookupResult" class="dz-result" style="display:none;"></div>
     <div class="inp-row"><input class="addr-inp" id="phoneInp" type="tel" placeholder="연락처 (예: 010-1234-5678)"/><button class="mic-btn" onclick="startVoiceInput('phoneInp')" title="음성으로 입력">🎤</button></div>
-    <div class="inp-row"><input class="addr-inp" id="addrInp" placeholder="배달 주소 (도로명 주소 권장)"/><button class="mic-btn" onclick="startVoiceInput('addrInp')" title="음성으로 입력">🎤</button></div>
-    <button class="dz-check-btn" onclick="checkDeliveryDistance()">📍 주소 확인하고 배달비 계산하기</button>
-    <div id="dzResult" class="dz-result">주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요</div>
+    <div id="deliveryBox">
+      <div class="inp-row"><input class="addr-inp" id="addrInp" placeholder="배달 주소 (도로명 주소 권장)"/><button class="mic-btn" onclick="startVoiceInput('addrInp')" title="음성으로 입력">🎤</button></div>
+      <button class="dz-check-btn" onclick="checkDeliveryDistance()">📍 주소 확인하고 배달비 계산하기</button>
+      <div id="dzResult" class="dz-result">주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요</div>
+    </div>
+    <div id="pickupBox" style="display:none;background:var(--cream);border:1px solid var(--warm);border-radius:10px;padding:11px 13px;font-size:.74rem;line-height:1.55;color:var(--brown);margin-bottom:4px;">
+      🏪 <b>매장에서 직접 받아 가시는 주문입니다</b><br>
+      <span style="opacity:.8;">배달비가 없습니다. 준비되면 연락드릴게요.</span>
+    </div>
     <div class="pay-breakdown">
       <div class="pb-row"><span>상품 합계</span><span id="payItemTotal">₩0</span></div>
-      <div class="pb-row"><span>배달비</span><span id="payDeliveryFee">주소를 먼저 확인해 주세요</span></div>
+      <div class="pb-row" id="feeRow"><span>배달비</span><span id="payDeliveryFee">주소를 먼저 확인해 주세요</span></div>
     </div>
     <div class="pay-total"><span style="font-size:.8rem;color:var(--soft);">최종 결제 금액</span><span id="payTotalVal">₩0</span></div>
     <button class="confirm-btn" onclick="confirmPay()">결제 완료</button>
@@ -456,7 +466,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v2.4';
+const APP_VERSION = 'v2.6';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
@@ -718,7 +728,22 @@ function applyActiveState(nowActive){
     startIdleWatcher();
     zoomReset();
     gotoPreset(1);
-    db.ref('liveOrder').once('value', snap=>updateLiveOrder(snap.val()||{}));
+    // ── 내 차례가 되었을 때, 앞 손님의 장바구니가 남아 있으면 내가 직접 비운다 (2026-10-01) ──
+    // 원래는 점원 화면이 차례가 바뀔 때 비워 준다. 그런데 점원 화면이 닫혀 있으면 그 일을 아무도 안 해서,
+    // 다음 손님에게 앞 손님의 빵 목록과 합계가 그대로 보이는 문제가 있었다.
+    // → 손님 화면이 스스로 확인하고 비운다. 시간을 재지 않고, '남아 있으면 비운다'만 한다.
+    db.ref('liveOrder').once('value', function(snap){
+      const d = snap.val() || {};
+      const hasOld = (d.count > 0) || (d.items && d.items.length) || d.paid === true || d.confirmed === true;
+      if(hasOld){
+        dlog('앞 손님의 장바구니가 남아 있어 비움');
+        db.ref('liveOrder').set({ items: [], total: 0, count: 0, t: Date.now() })
+          .catch(function(){});
+        updateLiveOrder({});
+      } else {
+        updateLiveOrder(d);
+      }
+    });
     showWelcomeBanner();
     sendActiveNotification(); // 다른 탭에 가있어도 "차례가 됐다"는 걸 시스템 알림으로 알려줌
     const menuBtn = document.querySelector('.btab[onclick*="toggleMenuOverlay"]');
@@ -1424,6 +1449,25 @@ function setStep(n){/* 진행바를 고정 안내문으로 교체하면서 더 �
 const STORE_ADDRESS = '경기도 포천시 소흘읍 태봉로138';
 let storeCoords = null;
 let selDeliveryFee = null; // null=미확인, -1=배달불가, 0=무료, 3000=유료
+// ── 배달 / 직접 픽업 (2026-10-01) ────────────────────────────────
+// 픽업 손님은 주소도 배달비도 필요 없다. 기본값은 배달.
+let orderType = '배달';
+function setOrderType(t){
+  orderType = t;
+  const dv = document.getElementById('otDeliv'), pk = document.getElementById('otPick');
+  const on = 'background:var(--gold);color:#fff;border-color:var(--gold);';
+  const off = 'background:#fff;color:var(--brown);border-color:var(--warm);';
+  const base = 'flex:1;padding:11px 6px;border:2px solid;border-radius:11px;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;';
+  if(dv) dv.style.cssText = base + (t==='배달' ? on : off);
+  if(pk) pk.style.cssText = base + (t==='픽업' ? on : off);
+  const dbx = document.getElementById('deliveryBox'), pbx = document.getElementById('pickupBox'), fr = document.getElementById('feeRow');
+  if(dbx) dbx.style.display = (t==='배달') ? 'block' : 'none';
+  if(pbx) pbx.style.display = (t==='픽업') ? 'block' : 'none';
+  if(fr)  fr.style.display  = (t==='배달') ? 'flex' : 'none';
+  if(t==='픽업'){ selDeliveryFee = 0; calculatedDistanceKm = null; }
+  else { selDeliveryFee = null; }
+  updatePayTotal();
+}
 let calculatedDistanceKm = null;
 
 async function geocodeOnce(addr){
@@ -1531,7 +1575,7 @@ function startVoiceInput(targetId){
   rec.onend = function(){ if(btn) btn.classList.remove('listening'); };
   rec.start();
 }
-function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}selDeliveryFee=null;calculatedDistanceKm=null;document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';updatePayTotal();document.getElementById('payModal').classList.add('open');}
+function openPayModal(){if(!Object.keys(cart).length){toast('장바구니에 빵을 담아주세요 🛒');return;}if(!orderConfirmedFlag){toast('⏳ 점원이 확정하면 결제하실 수 있어요');return;}setOrderType('배달');calculatedDistanceKm=null;document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';updatePayTotal();document.getElementById('payModal').classList.add('open');}
 function closePayModal(){document.getElementById('payModal').classList.remove('open');}
 function selPay(el,name){document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');selPayMethod=name;}
 async function confirmPay(){
@@ -1541,23 +1585,35 @@ async function confirmPay(){
   if(!selPayMethod){toast('결제 수단을 선택해 주세요');return;}
   if(!name){toast('받는 분 성함을 입력해 주세요');return;}
   if(!phone){toast('연락처를 입력해 주세요');return;}
-  if(!addr){toast('배달 주소를 입력해 주세요');return;}
-  if(selDeliveryFee===null){
-    toast('📍 거리를 확인하는 중이에요, 잠시만요...');
-    await checkDeliveryDistance();
+  if(orderType === '배달'){
+    if(!addr){toast('배달 주소를 입력해 주세요');return;}
+    if(selDeliveryFee===null){
+      toast('📍 거리를 확인하는 중이에요, 잠시만요...');
+      await checkDeliveryDistance();
+    }
+    if(selDeliveryFee===null){toast('⚠️ 주소 확인에 실패했어요, 다시 입력해 주세요');return;}
+    if(selDeliveryFee<0){toast('⚠️ 죄송해요, 3km 초과 지역은 배달이 어려워요');return;}
+  } else {
+    selDeliveryFee = 0;   // 픽업은 배달비 없음
   }
-  if(selDeliveryFee===null){toast('⚠️ 주소 확인에 실패했어요, 다시 입력해 주세요');return;}
-  if(selDeliveryFee<0){toast('⚠️ 죄송해요, 3km 초과 지역은 배달이 어려워요');return;}
   const itemTotal = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);
   const fee = selDeliveryFee>0 ? selDeliveryFee : 0;
   const orderNo = 'BCM-'+Math.floor(Math.random()*90000+10000);
-  closePayModal();document.getElementById('onum').textContent=orderNo;document.getElementById('doneModal').classList.add('open');setStep(4);
+  closePayModal();document.getElementById('onum').textContent=orderNo;
+  const dm=document.getElementById('doneMsg');
+  if(dm) dm.innerHTML = (orderType==='픽업')
+    ? '준비되면 연락드릴게요<br>매장에서 받아 가세요 🏪'
+    : '약 30~50분 후 배달됩니다 🚚';
+  document.getElementById('doneModal').classList.add('open');setStep(4);
   const itemList = Object.values(cart).map(i=>({name:i.name, e:i.e, qty:i.qty, price:i.price}));
   db.ref('liveOrder').update({
     paid:true, orderNumber:orderNo, payMethod:selPayMethod,
     itemTotal:itemTotal, deliveryFee:fee, grandTotal:itemTotal+fee,
     distanceKm: calculatedDistanceKm ? Math.round(calculatedDistanceKm*10)/10 : null,
-    recvName:name, recvPhone:phone, address:addr, paidAt:Date.now()
+    recvName:name, recvPhone:phone,
+    address: (orderType==='픽업' ? '🏪 매장 픽업' : addr),
+    orderType: orderType,
+    paidAt:Date.now()
   });
   // 같은 이름으로 다음에 다시 오면 자동으로 불러올 수 있도록 저장
   const custKey = sanitizeKey(name);
