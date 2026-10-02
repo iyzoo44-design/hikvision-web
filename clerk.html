@@ -387,7 +387,7 @@ html,body{
 
 <div id="sessionPanel" style="position:fixed;top:92px;left:10px;z-index:200;background:rgba(0,0,0,.6);color:#FFD9A0;padding:7px 10px;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;line-height:1.5;">
   <div id="sessionInfo">손님 없음</div>
-    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v2.6 (기본판 · 점원 조정)</div>
+    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v2.8 (기본판 · 점원 조정)</div>
   <div style="display:flex;gap:4px;margin-top:5px;">
   </div>
   <div id="custList" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.18);padding-top:5px;font-size:.64rem;line-height:1.6;"></div>
@@ -643,6 +643,10 @@ function applyQueueSnapshot(q){
   if(lastKnownCustomerId !== undefined && cid !== lastKnownCustomerId){
     applyClerkZoom(1,0,0); // 새 손님이 자기 값을 보내오기 전까지는 기본값으로 초기화
     if(typeof clearOrder==='function') clearOrder(); // 이전 손님이 담았던 상품은 자동으로 비움
+    // 2026-10-02: 손님이 바뀌면 영수증 상자도 함께 치운다.
+    // 점원이 한 명이므로 계산·인쇄를 끝낸 뒤에 넘기기를 누른다. 넘기기 = "이 손님 끝났다"는 뜻이니
+    // 화면이 깨끗해져야 다음 손님 것과 헷갈리지 않는다. (인쇄·복사는 넘기기 전에)
+    if(typeof closeReceiptBox==='function') closeReceiptBox();
   }
   lastKnownCustomerId = cid;
 }

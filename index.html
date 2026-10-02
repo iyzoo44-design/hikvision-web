@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v2.6 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v2.8 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -386,7 +386,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <button class="btab" onclick="goBottom('guide',this)"><span class="ico">📋</span>안내</button>
 </div>
 <div class="modal-bg" id="doneModal">
-  <div class="modal"><div style="font-size:3rem;margin-bottom:8px;">🎉</div><h3>주문 완료!</h3><p>주문번호: <strong id="onum"></strong><br><span id="doneMsg">약 30~50분 후 배달됩니다 🚚</span></p><button class="modal-btn" onclick="finishAndExit()">🚪 쇼핑 종료</button><button class="modal-btn-secondary" onclick="closeDone()">🛍️ 더 구경할게요</button></div>
+  <div class="modal"><div style="font-size:3rem;margin-bottom:8px;">🎉</div><h3>주문 완료!</h3><p>주문번호: <strong id="onum"></strong><br><span id="doneMsg">약 30~50분 후 배달됩니다 🚚</span></p><p style="font-size:.72rem;color:#8a7a68;line-height:1.5;margin:-4px 0 10px;">더 필요하신 게 있으면 <strong>🛍️ 더 구경할게요</strong> 를 누르고<br>점원에게 말씀해 주세요</p><button class="modal-btn" onclick="finishAndExit()">🚪 쇼핑 종료</button><button class="modal-btn-secondary" onclick="closeDone()">🛍️ 더 구경할게요</button></div>
 </div>
 <div class="modal-bg" id="payModal">
   <div class="pay-modal">
@@ -466,7 +466,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v2.6';
+const APP_VERSION = 'v2.8';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
@@ -752,6 +752,15 @@ function applyActiveState(nowActive){
     if(camShortcut){ camShortcut.classList.add('show'); setTimeout(()=>camShortcut.classList.remove('show'), 12000); }
   } else {
     stopIdleWatcher();
+    // ── 차례를 잃는 순간 '주문 완료' 창을 저절로 닫아 준다 (2026-10-02) ──
+    // 결제를 끝낸 손님이 창을 열어 둔 채 있으면, 점원이 다음 손님에게 넘겨도
+    // 자기가 아직 쇼핑 중인 줄 알게 된다. → 창을 닫고 대기 화면을 바로 보여 준다.
+    const dmz = document.getElementById('doneModal');
+    if(dmz && dmz.classList.contains('open')){
+      dmz.classList.remove('open');
+      dlog('차례가 넘어가 주문 완료 창을 닫음');
+      if(typeof toast==='function') toast('주문이 접수되었어요 · 지금은 다른 분 차례예요');
+    }
     updateWaitRankDisplay();
     speakPending = false; if(typeof hideTapHint==='function') hideTapHint();
     if(typeof showSoundHint==='function') setTimeout(showSoundHint, 1500); // 대기 중 미리 소리 켜기 안내
@@ -1624,7 +1633,21 @@ async function confirmPay(){
     orderNumber:orderNo, items:itemList, itemTotal, deliveryFee:fee, grandTotal:itemTotal+fee, payMethod:selPayMethod, address:addr, t:Date.now()
   }).catch(e=>console.error('[구매내역] 저장 실패:', e));
 }
-function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';document.getElementById('lookupResult').style.display='none';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';db.ref('liveOrder/requestClear').set(Date.now());}
+function closeDone(){document.getElementById('doneModal').classList.remove('open');cart={};updateCart();setStep(1);selPayMethod='';selDeliveryFee=null;calculatedDistanceKm=null;document.querySelectorAll('.pm').forEach(p=>p.classList.remove('sel'));document.getElementById('dzResult').textContent='주소 입력 후 위 버튼을 눌러 배달비를 확인해 주세요';document.getElementById('dzResult').className='dz-result';document.getElementById('lookupResult').style.display='none';document.getElementById('addrInp').value='';document.getElementById('nameInp').value='';document.getElementById('phoneInp').value='';db.ref('liveOrder/requestClear').set(Date.now());
+// ── '더 구경할게요' 를 눌렀는데 이미 내 차례가 아니면 그 사실을 알려 준다 (2026-10-02) ──
+if(!amActive){
+  switchToCam();
+  if(typeof toast==='function') toast('지금은 다른 분 차례예요 · 순번을 확인하는 중...');
+  fetchQueueFresh().then(function(qRaw){
+    const q = qRaw || {};
+    if(q[myClientId] && q[myClientId].ts==null) return;
+    const entries = Object.entries(q);
+    entries.sort(function(a,b){ return isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1; });
+    const idx = entries.findIndex(function(e){ return e[0]===myClientId; });
+    if(idx>0 && typeof toast==='function') toast('지금은 다른 분 차례예요 · 대기 순번 '+idx+'번째입니다');
+    updateWaitRankDisplay();
+  }).catch(function(){});
+}}
 function finishAndExit(){
   closeDone();
   discCam(); // 인원수 반납은 discCam 안에서 이제 항상 처리됨
