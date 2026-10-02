@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v2.8 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v3.1 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -466,7 +466,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v2.8';
+const APP_VERSION = 'v3.1';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────
@@ -758,7 +758,10 @@ function applyActiveState(nowActive){
     const dmz = document.getElementById('doneModal');
     if(dmz && dmz.classList.contains('open')){
       dmz.classList.remove('open');
-      dlog('차례가 넘어가 주문 완료 창을 닫음');
+      // 창만 닫으면 손님이 장바구니 탭에 남아 '왜 멈췄지?' 하게 된다.
+      // 대기 순번 표시(waitBadge)는 카메라 화면 안에만 붙으므로, 화면도 카메라로 돌려준다. (2026-10-02)
+      if(typeof switchToCam==='function') switchToCam();
+      dlog('차례가 넘어가 주문 완료 창을 닫고 카메라 화면으로 돌림');
       if(typeof toast==='function') toast('주문이 접수되었어요 · 지금은 다른 분 차례예요');
     }
     updateWaitRankDisplay();
@@ -831,14 +834,27 @@ function showClerkNotice(msg){
   if(!el){
     el = document.createElement('div');
     el.id = 'clerkNotice';
-    el.style.cssText = 'position:fixed;left:10px;right:10px;top:12px;z-index:9998;background:rgba(93,64,55,.96);color:#FFE8C8;'
+    // top:12px 이면 '🙋 대기 순번' 배지(카메라 화면 맨 위)를 덮어 가린다 → 아래로 내린다 (2026-10-02)
+    el.style.cssText = 'position:fixed;left:10px;right:10px;top:96px;z-index:9998;background:rgba(93,64,55,.96);color:#FFE8C8;'
       + 'border-radius:12px;padding:12px 14px;font-size:.8rem;line-height:1.5;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.3);';
     document.body.appendChild(el);
   }
   el.innerHTML = '⏭ ' + msg
+    + '<br><span id="clerkNoticeRank" style="font-size:.78rem;font-weight:700;color:#FFD9A0;"></span>'
     + '<br><button onclick="this.parentNode.remove()" style="margin-top:8px;padding:5px 14px;border:none;border-radius:10px;'
     + 'background:rgba(255,255,255,.22);color:#fff;font-size:.72rem;font-weight:700;cursor:pointer;">확인</button>';
   el.style.display = 'block';
+  // 안내문 안에도 지금 대기 순번을 같이 적어 준다 (배지를 못 보는 경우가 있어서) — 2026-10-02
+  fetchQueueFresh().then(function(qRaw){
+    const q = qRaw || {};
+    const entries = Object.entries(q);
+    entries.sort(function(a,b){ return isEarlierClient(a[1].ts,a[0],b[1].ts,b[0]) ? -1 : 1; });
+    const idx = entries.findIndex(function(e){ return e[0]===myClientId; });
+    const sp = document.getElementById('clerkNoticeRank');
+    if(!sp) return;
+    sp.textContent = (idx === 0) ? '🛍 지금 쇼핑하실 차례예요'
+                   : (idx > 0)   ? '🙋 지금 대기 순번 ' + idx + '번째입니다' : '';
+  }).catch(function(){});
   try{ if(document.visibilityState==='visible' && 'speechSynthesis' in window){
     const u = new SpeechSynthesisUtterance(msg); u.lang='ko-KR'; window.speechSynthesis.speak(u);
   } }catch(e){}
