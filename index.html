@@ -225,13 +225,13 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:flex-end;justify-content:center;}
 .modal-bg.open{display:flex;}
-.modal{background:var(--white);border-radius:20px 20px 0 0;padding:26px 22px 34px;width:100%;max-width:480px;text-align:center;animation:slideUp .3s ease;}
+.modal{background:var(--white);border-radius:20px 20px 0 0;padding:26px 22px 34px;width:100%;max-width:480px;text-align:center;animation:slideUp .3s ease;max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 @keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
 .modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.3rem;color:var(--brown);margin-bottom:8px;}
 .modal p{font-size:.8rem;color:var(--soft);margin-bottom:18px;line-height:1.6;}
 .modal-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
 .modal-btn-secondary{width:100%;padding:11px;background:var(--cream);color:var(--soft);border:1px solid var(--warm);border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;}
-.pay-modal{background:var(--white);border-radius:20px 20px 0 0;padding:22px 18px 34px;width:100%;max-width:480px;animation:slideUp .3s ease;}
+.pay-modal{background:var(--white);border-radius:20px 20px 0 0;padding:30px 18px 34px;width:100%;max-width:480px;animation:slideUp .3s ease;max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .pay-modal h3{font-family:'Nanum Myeongjo',serif;font-size:1.1rem;color:var(--brown);margin-bottom:14px;text-align:center;}
 .pay-method{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
 .pm{padding:12px 8px;border:2px solid var(--warm);border-radius:10px;text-align:center;cursor:pointer;font-size:.78rem;font-weight:500;color:var(--brown);}
@@ -376,7 +376,7 @@ header{background:var(--dbrown);padding:14px 18px 10px;position:sticky;top:0;z-i
   <div class="guide-card" style="border-left-color:#1B5E20;"><h3>🔔 알림 놓치지 않는 법</h3><ul><li>① 알림 허용 팝업이 뜨면 꼭 "허용"을 눌러주세요</li><li>② 대기 중에는 브라우저를 닫지 말고 홈 버튼으로 나가 주세요 (닫으면 대기가 취소돼요)</li><li>③ 휴대폰 알림 볼륨을 크게 해두시면 더 잘 들려요</li><li>④ 알림이 오면 길게 눌러 "설정"을 누르고, 아래쪽에서 이 사이트를 눌러 "팝업으로 표시"를 켜면 화면 위로 바로 뜹니다</li></ul></div>
   <div class="guide-card"><h3>💳 결제 수단</h3><p>카카오페이 · 토스페이 · 신용카드 · 계좌이체</p></div>
   <div class="guide-card" style="border-left-color:var(--green);"><h3>🚚 배달 안내</h3><ul><li>배달 가능 지역: 매장 반경 3km 이내</li><li>소요 시간: 약 30~50분</li><li>최소 주문: 15,000원</li><li>배달비: 2km 이내 무료 · 2~3km 3,000원 · 3km 초과 배달 불가</li></ul></div>
-  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v3.1 (기본판 · 점원 조정)</div>
+  <div style="text-align:center;font-size:.58rem;color:#b9a28a;padding:8px 0 2px;">v3.3 (기본판 · 점원 조정)</div>
 </div>
 </div>
 <div class="bottom-bar">
@@ -466,7 +466,7 @@ function getDeviceLabel(){
 }
 const camScr=document.getElementById('camScr');
 const MAX_CONCURRENT_VIEWERS = 3; // 여기 숫자만 바꾸면 최대 동시 접속 인원 조정됨
-const APP_VERSION = 'v3.1';
+const APP_VERSION = 'v3.3';
 const myQueueRef=db.ref('queue/'+myClientId);
 
 // ── 진단 기록 (2026-09-27) ──────────────────────────────────────────

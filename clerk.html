@@ -387,7 +387,7 @@ html,body{
 
 <div id="sessionPanel" style="position:fixed;top:92px;left:10px;z-index:200;background:rgba(0,0,0,.6);color:#FFD9A0;padding:7px 10px;border-radius:12px;font-family:'Noto Sans KR',sans-serif;font-size:.7rem;line-height:1.5;">
   <div id="sessionInfo">손님 없음</div>
-    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v3.1 (기본판 · 점원 조정)</div>
+    <div style="font-size:.55rem;color:#b9a28a;margin-top:2px;">v3.3 (기본판 · 점원 조정)</div>
   <div style="display:flex;gap:4px;margin-top:5px;">
   </div>
   <div id="custList" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.18);padding-top:5px;font-size:.64rem;line-height:1.6;"></div>
@@ -1027,6 +1027,7 @@ function giveTurnTo(cid){
       joinedAt: new Date().toLocaleString('ko-KR')
     }).catch(function(){});
   }
+  clearClerkBoardNow();
   showMsg('▶ 그 손님에게 넘겼어요 (앞 손님 ' + idx + '명은 뒤로)');
 }
 // ── 점원이 손님을 명단에서 내보냄 ──
@@ -1066,6 +1067,14 @@ function endCallIfActive(){
     const vv = document.getElementById('vviz'); if(vv) vv.classList.remove('on');
   }
 }
+
+// ── 손님을 바꾸는 버튼을 누르면 '즉시' 점원 화면을 비운다 (2026-10-02) ──
+// 예전에는 Firebase 스냅샷이 돌아온 뒤에야 비웠는데, 그 사이에 화면이 남아 보였다.
+function clearClerkBoardNow(){
+  try{ if(typeof clearOrder==='function') clearOrder(); }catch(e){}
+  try{ if(typeof closeReceiptBox==='function') closeReceiptBox(); }catch(e){}
+  try{ if(typeof toggleOrderPanel==='function') toggleOrderPanel(false); }catch(e){}
+}
 function forceNextCustomer(){
   const entries = liveQueueEntries(latestQueue||{});
   if(entries.length===0){ showMsg('⚠️ 지금 활성화된 손님이 없어요'); return; }
@@ -1084,6 +1093,7 @@ function forceNextCustomer(){
     noticeAt: Date.now(),
     joinedAt: new Date().toLocaleString('ko-KR')
   }); // 서버시각으로 다시 찍어서 대기줄 맨 뒤로 → 자동으로 다음 손님이 활성화됨
+  clearClerkBoardNow();
   showMsg('🙋 다음 고객에게 넘겼어요');
 }
 
